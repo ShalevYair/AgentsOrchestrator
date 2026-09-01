@@ -1,0 +1,66 @@
+{
+  "app": {
+    "title": "AgentsOrchestrator"
+  },
+  "header": {
+    "tokensUsed": "{{count}} tokens",
+    "tokensUsed_zero": "0 tokens",
+    "settingsButton": "Settings",
+    "themeToggle": "Toggle theme",
+    "themeLight": "Light mode",
+    "themeDark": "Dark mode"
+  },
+  "threads": {
+    "heading": "Chats",
+    "newChat": "+ New chat",
+    "untitled": "New chat",
+    "loading": "Loading chats..."
+  },
+  "chat": {
+    "placeholder": "Type a message... (Enter to send, Shift+Enter for a new line)",
+    "send": "Send",
+    "sending": "Sending...",
+    "emptyTitle": "How can I help today?",
+    "emptyBody": "Write a message to start a conversation with the model.",
+    "you": "You",
+    "assistant": "Assistant",
+    "thinking": "Writing a reply...",
+    "connectionLost": "Connection to the server was lost. Reconnecting...",
+    "connectionRestored": "Connection restored.",
+    "turnFailed": "The reply failed: {{message}}",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "copyCode": "Copy code"
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage your API key, interface language, and theme.",
+    "close": "Close",
+    "language": {
+      "label": "Interface language",
+      "he": "עברית",
+      "en": "English"
+    },
+    "apiKey": {
+      "label": "Gemini API key",
+      "placeholder": "Paste your API key here (starts with AIza)",
+      "save": "Save & validate",
+      "saving": "Validating with the server...",
+      "delete": "Delete key",
+      "deleting": "Deleting...",
+      "noKey": "No API key configured. Chat will use mock replies only.",
+      "currentKey": "Current key",
+      "storedInOsKeyring": "Stored in your OS's secure keychain",
+      "storedInEncryptedFile": "Stored in an encrypted file on this machine (OS keychain unavailable)",
+      "invalid": "The key you entered is invalid or unauthorized. Check it and try again.",
+      "valid": "Key validated successfully against Gemini.",
+      "getKeyLink": "Get a free API key from Google AI Studio"
+    }
+  },
+  "onboarding": {
+    "title": "Welcome to AgentsOrchestrator",
+    "body": "To start chatting with Gemini, add an API key in Settings. You can also continue without a key and get mock replies.",
+    "openSettings": "Open Settings",
+    "continueWithMock": "Continue without a key (demo mode)"
+  }
+}

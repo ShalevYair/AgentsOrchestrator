@@ -1,0 +1,66 @@
+{
+  "app": {
+    "title": "AgentsOrchestrator"
+  },
+  "header": {
+    "tokensUsed": "{{count}} טוקנים",
+    "tokensUsed_zero": "0 טוקנים",
+    "settingsButton": "הגדרות",
+    "themeToggle": "החלף ערכת נושא",
+    "themeLight": "מצב בהיר",
+    "themeDark": "מצב כהה"
+  },
+  "threads": {
+    "heading": "שיחות",
+    "newChat": "+ שיחה חדשה",
+    "untitled": "שיחה חדשה",
+    "loading": "טוען שיחות..."
+  },
+  "chat": {
+    "placeholder": "כתוב הודעה... (Enter לשליחה, Shift+Enter לשורה חדשה)",
+    "send": "שלח",
+    "sending": "שולח...",
+    "emptyTitle": "איך אפשר לעזור היום?",
+    "emptyBody": "כתבו הודעה כדי להתחיל שיחה עם המודל.",
+    "you": "אתה",
+    "assistant": "עוזר",
+    "thinking": "כותב תשובה...",
+    "connectionLost": "החיבור לשרת נותק. מתחבר מחדש...",
+    "connectionRestored": "החיבור התחדש.",
+    "turnFailed": "התשובה נכשלה: {{message}}",
+    "copy": "העתק",
+    "copied": "הועתק!",
+    "copyCode": "העתק קוד"
+  },
+  "settings": {
+    "title": "הגדרות",
+    "description": "ניהול מפתח ה-API, שפת הממשק וערכת הנושא.",
+    "close": "סגור",
+    "language": {
+      "label": "שפת ממשק",
+      "he": "עברית",
+      "en": "English"
+    },
+    "apiKey": {
+      "label": "מפתח API של Gemini",
+      "placeholder": "הדביקו כאן את מפתח ה-API (מתחיל ב-AIza)",
+      "save": "שמור ואמת",
+      "saving": "מאמת מול השרת...",
+      "delete": "מחק מפתח",
+      "deleting": "מוחק...",
+      "noKey": "לא הוגדר מפתח API. שיחת הצ'אט תשתמש בתשובות דמה בלבד.",
+      "currentKey": "מפתח נוכחי",
+      "storedInOsKeyring": "נשמר ב-Keychain המאובטח של מערכת ההפעלה",
+      "storedInEncryptedFile": "נשמר בקובץ מוצפן במחשב (ה-Keychain של המערכת אינו זמין)",
+      "invalid": "המפתח שהוזן אינו תקין או שאין לו הרשאה. בדקו אותו ונסו שוב.",
+      "valid": "המפתח אומת בהצלחה מול Gemini.",
+      "getKeyLink": "השיגו מפתח API בחינם מ-Google AI Studio"
+    }
+  },
+  "onboarding": {
+    "title": "ברוכים הבאים ל-AgentsOrchestrator",
+    "body": "כדי להתחיל לשוחח עם Gemini, הכניסו מפתח API בהגדרות. אפשר גם להמשיך בלי מפתח ולקבל תשובות דמה.",
+    "openSettings": "פתח הגדרות",
+    "continueWithMock": "המשך בלי מפתח (מצב הדגמה)"
+  }
+}

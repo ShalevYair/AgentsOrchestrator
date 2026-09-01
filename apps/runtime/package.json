@@ -1,0 +1,28 @@
+{
+  "name": "@ao/runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "clean": "tsc -b --clean",
+    "start": "node dist/index.js",
+    "dev": "concurrently -k -n tsc,node \"tsc -b --watch --preserveWatchOutput\" \"node --watch dist/index.js\""
+  },
+  "dependencies": {
+    "@ao/platform": "workspace:*",
+    "@ao/providers": "workspace:*",
+    "@ao/shared": "workspace:*",
+    "@fastify/websocket": "^11.2.0",
+    "fastify": "^5.6.1",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1"
+  }
+}
