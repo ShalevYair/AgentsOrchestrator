@@ -13,9 +13,19 @@ import { z } from "zod";
  * This produces standard JSON Schema (draft 2020-12) — e.g. optional
  * fields as a `["T", "null"]` type union. Narrowing that further into
  * Gemini's specific responseSchema dialect (no $schema, its own
- * nullable/type conventions) is P1-T2's job, once the provider call is
- * actually being wired up against verified, current API documentation.
+ * nullable/type conventions) is done in
+ * `packages/providers/src/gemini/schema-dialect.ts` (P1-T2), verified
+ * against the actual `Schema` type shipped in `@google/genai`.
+ *
+ * `params` passes straight through to `z.toJSONSchema` — P1-T2 uses
+ * `{ reused: "inline" }` so a schema reused across multiple places (e.g.
+ * `ReadRungSchema`, referenced from both `Stage` and `TaskUnderstanding`)
+ * is inlined rather than emitted as a `$ref`/`$defs` pair, since Gemini's
+ * responseSchema dialect has no `$ref` support to narrow that into.
  */
-export function toJsonSchema(schema: z.ZodType): Record<string, unknown> {
-  return z.toJSONSchema(schema);
+export function toJsonSchema(
+  schema: z.ZodType,
+  params?: Parameters<typeof z.toJSONSchema>[1],
+): Record<string, unknown> {
+  return z.toJSONSchema(schema, params);
 }

@@ -28,7 +28,7 @@
 | שלב | נושא | גודל | תלוי ב- | מצב |
 |---|---|---|---|---|
 | [P0](#p0) | יסודות ותשתית 🪟 | M | — | ✅ |
-| [P1](#p1) | ספק Gemini + ניהול מפתח 🪟 | M | P0 | ⬜ |
+| [P1](#p1) | ספק Gemini + ניהול מפתח 🪟 | M | P0 | ✅ |
 | [P2](#p2) | 🏁 שלד הליכה — צ'אט E2E 🪟 | M | P1 | ⬜ |
 | [P3](#p3) | קליטה ו-ArtifactStore | L | P0 | ⬜ |
 | [P4](#p4) | Ledger ומנוע התקציב | M | P1 | ⬜ |
@@ -103,30 +103,70 @@
 
 **מטרה:** לדבר עם Gemini באמינות, ולדעת בדיוק כמה זה עולה.
 
-- [ ] **P1-T1 · ממשק `LLMProvider`** — לפי [`ARCHITECTURE.md` §7](ARCHITECTURE.md#7-שכבת-הספק-gemini).
+- [x] **P1-T1 · ממשק `LLMProvider`** — לפי [`ARCHITECTURE.md` §7](ARCHITECTURE.md#7-שכבת-הספק-gemini).
       *גמור:* `packages/core` לא מייבא כלום מ-`providers` · מימוש מוק מלא לבדיקות.
-- [ ] **P1-T2 · מימוש Gemini** — `generate` בסטרימינג, `countTokens`, `models`.
+      *כפי שמומש:* הממשק והטיפוסים הנלווים (`GenerateRequest`, `Delta`, `CacheableContent`, `CacheRef`,
+      `CountRequest`) יושבים ב-`packages/shared/src/provider/llm-provider.ts` ולא ב-`packages/providers` —
+      זו הפרשנות שנבחרה ל"`core` תלוי רק בחוזה המופשט, לעולם לא בספק הקונקרטי": `shared` הוא כבר הבסיס
+      שכל חבילה תלויה בו, כך של-`core` (P4/P5) יש גישה ל-`LLMProvider` בלי תלות ב-`@ao/providers` בכלל.
+      `MockLLMProvider` (`packages/providers/src/mock/mock-provider.ts`) הוא מימוש מלא ומוגדר-תרחישים
+      (תגובות קבועות/פונקציה, streaming מפוצל, ספירת קריאות) לשימוש בבדיקות של שלבים עתידיים.
+- [x] **P1-T2 · מימוש Gemini** — `generate` בסטרימינג, `countTokens`, `models`.
       *גמור:* קריאה אמיתית מחזירה טקסט · הסטרימינג מניב deltas · `usageMetadata` נקלט מלא.
-- [ ] **P1-T3 · אחסון מפתח** 🪟 — **`@napi-rs/keyring`** (לא `keytar`): מגיע עם binaries מוכנים
+      *כפי שמומש:* `GeminiProvider` (`packages/providers/src/gemini/`) עוטף `@google/genai@2.20.0`.
+      ⚠️ **אין `GEMINI_API_KEY` בסביבה הזו** — לא בוצעה קריאה אמיתית לרשת; כל הבדיקות רצות מול SDK מוקי
+      (`GeminiSdkClient` — ממשק מבני צר, לא טיפוסי ה-SDK עצמם). מתאם ה-`responseSchema` לדיאלקט של Gemini
+      (`schema-dialect.ts`) אומת מול טיפוס ה-`Schema` האמיתי שב-`node_modules/@google/genai` וגם הורץ בפועל
+      נגד `PlanSchema`/`TaskUnderstandingSchema`/`CheckpointDecisionSchema` — ראה הערות מפורטות בראש הקובץ.
+- [x] **P1-T3 · אחסון מפתח** 🪟 — **`@napi-rs/keyring`** (לא `keytar`): מגיע עם binaries מוכנים
       ל-`win32-x64` / `ia32` / `arm64-msvc`, ולכן **אין קומפילציה ואין צורך ב-Build Tools**.
       ב-Windows הוא נשען על Credential Manager, ב-macOS על Keychain, בלינוקס על Secret Service.
       בנפילה: קובץ AES-GCM עם מפתח נגזר-מכונה. הנימוק: [ADR-012](DECISIONS.md#adr-012).
       *גמור:* עובד בשלוש הפלטפורמות ב-CI · המפתח לא ב-`localStorage`, לא בלוגים, לא בייצוא ·
       החלפה ומחיקה עובדות · בדיקה למסלול הנפילה (לינוקס ללא Secret Service).
-- [ ] **P1-T4 · אימות מפתח** — בדיקה חיה מול `models.list` בהכנסה ובעלייה.
+      *כפי שמומש:* `createKeyStore` (`packages/providers/src/keyring/`) עם נפילה עצמית (self-healing) —
+      כל קריאה מנסה קודם את ה-keyring, ועל כשל עוברת לקובץ המוצפן. **מסלול הנפילה נבדק באמת, לא רק
+      במוק**: בסביבת הריצה הזו (לינוקס ללא Secret Service) קריאה אמיתית ל-`@napi-rs/keyring` זורקת
+      `AccessDenied` בפועל — אומת ישירות — ובדיקת האינטגרציה `key-store.test.ts` רצה נגד המימוש האמיתי
+      ומוכיחה שהנפילה לקובץ ה-AES-GCM עובדת מקצה לקצה.
+- [x] **P1-T4 · אימות מפתח** — בדיקה חיה מול `models.list` בהכנסה ובעלייה.
       *גמור:* מפתח שגוי מקבל הודעה ברורה, לא stack trace.
-- [ ] **P1-T5 · חוסן** — ניסיון חוזר עם exponential backoff + jitter על 429/5xx, כיבוד `Retry-After`,
+      *כפי שמומש:* `validateApiKey` (`packages/providers/src/validation/validate-key.ts`) — כל כשל
+      (רשת, 401/403, קטלוג ריק) עוטף ל-`ProviderKeyError` הקיים; ה-`userMessage` תמיד הטקסט הקבוע
+      מ-`ERROR_MESSAGES`, לעולם לא ה-stack trace הגולמי.
+- [x] **P1-T5 · חוסן** — ניסיון חוזר עם exponential backoff + jitter על 429/5xx, כיבוד `Retry-After`,
       מגבל קצב, ומושכות מקביליות גלובליות.
       *גמור:* בדיקה מדמה 429 ומאמתת עיתוי · חריגת מקביליות בלתי אפשרית.
-- [ ] **P1-T6 · מטמון תגובות** — לפי hash של `(model, params, prompt)`, TTL, ניתן לכיבוי.
+      *כפי שמומש:* `withRetry` (backoff מעריכי + jitter מלא, `retry.ts`), `RateLimiter` (token bucket,
+      `rate-limiter.ts`), `ConcurrencyLimiter` (סמפור, `concurrency-limiter.ts`) — כולם כלליים ולא תלויי-Gemini,
+      ו-`GeminiProvider` מרכיב אותם. `Retry-After`/`RetryInfo.retryDelay` מחולץ מגוף הודעת השגיאה (ה-SDK לא
+      חושף כותרות HTTP ב-`ApiError` הציבורי שלו — אומת מול הטיפוסים המותקנים).
+- [x] **P1-T6 · מטמון תגובות** — לפי hash של `(model, params, prompt)`, TTL, ניתן לכיבוי.
       *גמור:* קריאה זהה שנייה לא יוצאת לרשת · פגיעות מטמון נספרות ומדווחות.
-- [ ] **P1-T7 · רישום מודלים** ⚠️ — **טבלה אחת** (`packages/providers/models.ts`): מזהה, תקרות, מחירים,
+      *כפי שמומש:* `ResponseCache` (`packages/providers/src/cache/response-cache.ts`) — `GeminiProvider`
+      שומר את כל רצף ה-deltas של קריאת `generate` ומשחזר אותו במלואו בפגיעה, כולל בסטרימינג.
+- [x] **P1-T7 · רישום מודלים** ⚠️ — **טבלה אחת** (`packages/providers/models.ts`): מזהה, תקרות, מחירים,
       יכולות, שכבה. אימות מול `models.list` בעלייה. בחירת `tier.cheap` **דינמית** ([Q5](DECISIONS.md#q5--שכבת-ה-cheap--איזה-מודל)).
       *גמור:* אין מזהה מודל קשיח מחוץ לטבלה · מודל שנעלם מייצר אזהרה + נפילה לחלופה · המחירים מאומתים מול התיעוד ומתוארכים.
-- [ ] **P1-T8 · Context caching** — יצירה, שימוש חוזר, ופקיעה של `Contract Block`.
+      *כפי שמומש:* הטבלה יושבת ב-`packages/providers/src/models.ts` (לא ישירות תחת `packages/providers/`) —
+      כדי לשמור על המוסכמה הקיימת מ-P0 (`rootDir: src`, סריקת ESLint/Vitest מוגבלת ל-`src/**`); זו החלטת
+      עקביות, לא סטייה מהכוונה. `gemini-3.7-flash` מאומת (מופיע ב-union הטיפוסים של ה-SDK המותקן ובחיפוש
+      רשת חי) ב-$0.75/$3.75 למיליון (מבצע עד 2026-12-31). `tier.cheap` נבחר **דינמית** ב-`selectCheapModel`
+      מתוך קטלוג חי, ונופל בחן ל-alias המתגלגל `gemini-flash-lite-latest` כשאין קטלוג חי — כפי שקורה
+      בפועל בסביבה הזו (אין `GEMINI_API_KEY`). ⚠️ `ai.google.dev` ו-`googleapis.github.io` חסומים ע"י
+      ה-proxy של הסביבה — האימות בפועל נעשה מול הטיפוסים המותקנים בפועל של `@google/genai` וחיפושי רשת,
+      לא מול התיעוד הרשמי ישירות. פירוט מלא בהערת התיעוד בראש `models.ts`.
+- [x] **P1-T8 · Context caching** — יצירה, שימוש חוזר, ופקיעה של `Contract Block`.
       *גמור:* N קריאות עם אותו prefix מייצרות מטמון אחד · החיסכון מדיד ומדווח.
-- [ ] **P1-T9 · רדקציית סודות** — סריקה (תבניות + אנטרופיה) על כל מטען יוצא.
+      *כפי שמומש:* `ContractCache` (`packages/providers/src/context-cache/contract-cache.ts`) — מדדד גם
+      יצירות בו-זמניות (in-flight dedup), לא רק רצף סדרתי, כי fan-out אמיתי קורא ל-`getOrCreate` במקביל.
+- [x] **P1-T9 · רדקציית סודות** — סריקה (תבניות + אנטרופיה) על כל מטען יוצא.
       *גמור:* מפתחות AWS/GCP/OpenAI/פרטיים ותוכן `.env` נתפסים · אפס false-negative בקורפוס הבדיקה · כל החלפה נרשמת.
+      *כפי שמומש:* `redactPayload` (`packages/providers/src/egress/redact-payload.ts`) מרכיב מעל
+      `createSecretRegistry`/`REDACTED_FIELD_PATHS` הקיימים ב-`packages/platform` (לא ממציא אותם מחדש) —
+      שכבת תבניות לפי צורה (AWS/GCP-PEM/OpenAI/Slack/GitHub/JWT/`.env`), שכבת שם-שדה, ושכבת אנטרופיה.
+      `GeminiProvider` מפעיל זאת בפועל על כל payload יוצא **לפני** הקריאה ל-SDK (לא רק ללוגים) ורושם כל
+      רדקציה שקרתה.
 
 > **הגדרת גמור לשלב:** סקריפט הדגמה שולח פרומפט, מקבל סטרימינג, ומדפיס `usage` מדויק. מפתח מאוחסן בבטחה. 429 מדומה מתאושש.
 
