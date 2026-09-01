@@ -170,6 +170,19 @@ importers:
         specifier: ^6.3.5
         version: 6.4.3(@types/node@26.4.0)(jiti@1.21.7)(lightningcss@1.33.0)(yaml@2.9.0)
 
+  packages/core:
+    dependencies:
+      '@ao/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: ^26.4.0
+        version: 26.4.0
+
   packages/ingest:
     dependencies:
       '@ao/platform':

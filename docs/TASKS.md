@@ -31,7 +31,7 @@
 | [P1](#p1) | ספק Gemini + ניהול מפתח 🪟 | M | P0 | ✅ |
 | [P2](#p2) | 🏁 שלד הליכה — צ'אט E2E 🪟 | M | P1 | ✅ |
 | [P3](#p3) | קליטה ו-ArtifactStore | L | P0 | ✅ |
-| [P4](#p4) | Ledger ומנוע התקציב | M | P1 | ⬜ |
+| [P4](#p4) | Ledger ומנוע התקציב | M | P1 | ✅ |
 | [P5](#p5) | 🏁 ליבת התזמור | L | P2,P3,P4 | ⬜ |
 | [P6](#p6) | צ'קפוינטים ותכנון אדפטיבי | M | P5 | ⬜ |
 | [P7](#p7) | כלים מקומיים (toolsmith) 🪟 | M | P3,P5 | ⬜ |
@@ -283,24 +283,74 @@
 
 **מטרה:** להפוך את התקציב מדוח בדיעבד לבקרת כניסה.
 
-- [ ] **P4-T1 · `Ledger`** — `total/spent/committed/available/reserve`, לפי שלב ולפי ריצה.
+- [x] **P4-T1 · `Ledger`** — `total/spent/committed/available/reserve`, לפי שלב ולפי ריצה.
       *גמור:* מחלקה טהורה, ללא I/O · בדיקות יחידה מלאות · הפרדת מדד טוקנים ממדד עלות ([ADR-004](DECISIONS.md#adr-004)).
-- [ ] **P4-T2 · הקצאה** — חלוקה לדליים לפי [`BUDGET.md` §3](BUDGET.md#3-הקצאה), עם `reserve` נעול.
+      *כפי שמומש:* `Ledger` (`packages/core/src/ledger/ledger.ts`) — מחלקה סינכרונית טהורה לגמרי, אפס
+      I/O. מחזיקה `total/spent/committed/available/reserve` ברמת הריצה, ופירוט נפרד לפי `stageId` ולפי
+      `agentType` (`byStage`/`byAgentType`). ADR-004 ממומש כשני חישובים בלתי-תלויים לגמרי: משקל
+      `cachedTokens` **בטוקנים** נשלט ע"י `cachedTokensWeight` (ברירת מחדל 1 = משקל מלא), וההנחה
+      **בעלות** ($) מגיעה מ-`ModelPricingLike.cachedInputPerMillionUsd` בנפרד — שינוי באחד אף פעם לא
+      זולג לשני. `packages/core` תלוי רק ב-`@ao/shared` (הטיפוסים והשגיאות), לא ב-`@ao/providers`,
+      לפי הכלל שנקבע כבר ב-[P1-T1](#p1).
+- [x] **P4-T2 · הקצאה** — חלוקה לדליים לפי [`BUDGET.md` §3](BUDGET.md#3-הקצאה), עם `reserve` נעול.
       *גמור:* `reserve` לא ניתן להקצאה בשום מסלול · יש בדיקה שמנסה ונכשלת.
-- [ ] **P4-T3 · בקרת כניסה** — `admit()` לפי [`BUDGET.md` §4.1](BUDGET.md#41-לפני-קריאה).
+      *כפי שמומש:* `allocateBudget` (`buckets.ts`) מחלקת את `budget.total` ל-6 הדליים הרגילים לפי
+      האחוזים המדויקים מ-BUDGET.md §3, ואת ה-`reserve` (12%) בנפרד — **אין בחתימת הפונקציה שום פרמטר
+      שיכול לדרוס אותו**, זו לא רק בדיקת ריצה. `assertSpendableBucket` הוא השער היחיד שדרכו כל
+      `Ledger.commit` עובר; `bucket: "reserve"` זורק `BudgetReserveLockedError` (שכבר קיימת מ-P0
+      ב-`@ao/shared`). המסלול היחיד שכן מגיע לרזרבה הוא `Ledger.drawFromReserve`, נפרד לגמרי מ-`commit`.
+- [x] **P4-T3 · בקרת כניסה** — `admit()` לפי [`BUDGET.md` §4.1](BUDGET.md#41-לפני-קריאה).
       *גמור:* **אין מסלול קוד שמגיע לספק בלי `admit()`** — נאכף בטיפוסים או בעטיפה יחידה · בדיקה מוכיחה.
-- [ ] **P4-T4 · יישוב** — `committed` משוחרר ו-`spent` מעודכן מ-`usageMetadata`.
+      *כפי שמומש:* `admit()` (`admission.ts`) ממש את הלוגיקה מ-§4.1 (`available ≥ worstCase` → אישור +
+      `commit`). העטיפה היחידה הנדרשת היא `runAdmitted()` — הפונקציה היחידה בחבילה שקוראת בפועל
+      ל-callback שמייצג "הגעה לספק"; `admit()` תמיד רץ **לפניו**, ו-`settle`/`release` תמיד רצים
+      **אחריו** (הצלחה/כישלון). `admission.test.ts` מוכיחה עם `vi.fn()` שה-callback אף פעם לא נקרא
+      כשהבקשה נדחתה — `packages/core` עצמו לא קורא לאף ספק אמיתי (זה תפקיד P5), אז זו רמת האכיפה
+      שהחבילה הזו יכולה לספק; P5 חייב לנתב כל קריאה דרך `runAdmitted`.
+- [x] **P4-T4 · יישוב** — `committed` משוחרר ו-`spent` מעודכן מ-`usageMetadata`.
       *גמור:* קריאה שנכשלה משחררת `committed` · אין דליפה גם בשגיאה או בביטול.
-- [ ] **P4-T5 · סולם הידרדרות** — 8 הדרגות של [`BUDGET.md` §5](BUDGET.md#5-סולם-ההידרדרות).
+      *כפי שמומש:* `Ledger.settle()`/`Ledger.release()` — שניהם מוחקים את ה-`Reservation` ממפת
+      ה-reservations הפתוחות (`openReservationCount`), כך שקריאה כפולה על אותו handle זורקת שגיאה
+      במקום לדלוף בשקט. `release()` אף פעם לא מוסיף ל-`spent`. נבדק גם ל-failure/cancel וגם
+      ל-double-resolve (settle פעמיים, release פעמיים).
+- [x] **P4-T5 · סולם הידרדרות** — 8 הדרגות של [`BUDGET.md` §5](BUDGET.md#5-סולם-ההידרדרות).
       *גמור:* כל דרגה נבדקת · כל הידרדרות נרשמת עם סיבה · **דרגה 8 תמיד מצליחה**.
-- [ ] **P4-T6 · כיול** — שמירת `actual/worstCase` לפי `(agentType, thinkingLevel)`, אחוזון 90.
+      *כפי שמומש:* `runDegradationLadder` + `applyDegradationStep` (`degradation.ts`) — דרגה נפרדת
+      ובדוקה בנפרד לכל אחת מ-8 הדרגות (K→thinkingLevel→fanout→ensemble→tier→readRung→optional→reserve).
+      כל דרגה שהופעלה בפועל נרשמת ל-`DegradationEvent` עם סיבה. דרגה 8 (`Ledger.drawFromReserve`)
+      **לעולם לא זורקת** — קוצצת (`clamped`) עד מה שנשאר ברזרבה, גם אם זה 0. שלוש המדיניות מ-§5
+      (`degrade`/`ask`/`hard-stop`) ממומשות כפרמטר `policy`: `ask` אף פעם לא מדרדרת לבד ומחזירה
+      `needs-user-decision`, `hard-stop` קופצת ישר לדרגה 8.
+- [x] **P4-T6 · כיול** — שמירת `actual/worstCase` לפי `(agentType, thinkingLevel)`, אחוזון 90.
       *גמור:* מהריצה השנייה ההזמנה מתהדקת · התקרה נשארת רשת ביטחון.
-- [ ] **P4-T7 · סימולטור** — תמחור תוכנית לפני ביצוע ([`BUDGET.md` §6](BUDGET.md#6-סימולטור-עלות-dry-run)).
+      *כפי שמומש:* `CalibrationStore` (`calibration.ts`) שומרת יחס `actual/worstCase` לפי
+      `(agentType, thinkingLevel)`, עד 200 דגימות אחרונות למפתח (nearest-rank p90, ללא אינטרפולציה).
+      `estimate()` תמיד `Math.min(worstCaseHint, ...)` — התקרה התיאורטית נשארת רשת ביטחון גם אם
+      ריצה בפועל חרגה ממנה. עם 0 דגימות מוחזרת ההערכה המקורית ללא שינוי; מהדגימה הראשונה ואילך
+      ההזמנה מתהדקת.
+- [x] **P4-T7 · סימולטור** — תמחור תוכנית לפני ביצוע ([`BUDGET.md` §6](BUDGET.md#6-סימולטור-עלות-dry-run)).
       *גמור:* פלט תואם לדוגמה במסמך · סטייה מתחת ל-25% אחרי כיול.
-- [ ] **P4-T8 · דוח "לאן הלכו הטוקנים"** — פירוט לפי שלב/סוכן, **כולל כמה נחסך בכל מנוף**.
+      *כפי שמומש:* `simulatePlan` (`simulator.ts`) משחזר את דוגמת §6 **בדיוק** (4 שלבים, תקציב 2.5M) —
+      נבדק שהטוטלים לפי שלב, ה-`executionTotal`, ה-`overheadTotal` והרזרבה תואמים למספרי הדוגמה.
+      ⚠️ **הערה לגבי `overheadTotal`:** נבנה מ-checkpoints+planning בלבד (7% = 175K/180K בדוגמה) —
+      **תיקונים (`repair`, 9%) לא נכללים בהערכה מראש**, כי זו הוצאת contingency לכשלים שעוד לא קרו;
+      זה מסביר את הפער בין תווית השורה במסמך ("צ'קפוינטים + תכנון + תיקונים") לחישוב שלה, שמשתמש
+      רק בשני האחוזים הראשונים — ראה הערת קוד ב-`simulator.ts`. תומך בכיול (`CalibrationStore`)
+      להצרת ההערכה לפי שלב ובחישוב $ כשמסופקת טבלת מחירים (`PricingLookup`).
+- [x] **P4-T8 · דוח "לאן הלכו הטוקנים"** — פירוט לפי שלב/סוכן, **כולל כמה נחסך בכל מנוף**.
       *גמור:* חיסכון מעיבוד מקומי, מטמון ומטמון-הקשר מוצג במספרים.
+      *כפי שמומש:* `buildTokenReport` (`report.ts`) מרכיב פירוט לפי `stage`/`agentType` (כבר נשמר
+      ב-`Ledger` עצמו), פירוט נפרד ל-`reserveSpent`/`reserveCommitted` (עם `grandTotalSpent` — הרבה
+      פעמים תוצר סופי הופק **דווקא** מהרזרבה, ראה `phase-done.test.ts`), וסכימה לפי כל אחד מ-8 מנופי
+      החיסכון מ-§7 (`SavingsRecord`). `packages/core` עצמו לא מכיל מטמון/ArtifactStore/Scheduler —
+      כל מנוף (hash-cache, context-cache, response-cache, dedup וכו') **מדווח את החיסכון שלו פנימה**
+      מבחוץ; הדוח רק מרכיב ומציג. כולל גם ספירת הידרדרויות לפי דרגה.
 
 > **הגדרת גמור לשלב:** ריצה עם תקציב מלאכותי נמוך **מורידה דרגה בהצלחה ומחזירה תוצר**, במקום לחרוג או להיתקע.
+> *כפי שמומש:* `phase-done.test.ts` מדגים את זה קצה-לקצה בתוך היקף P4 (אין עדיין Scheduler — זה P5):
+> תקציב של 20K טוקנים מול בקשה תיאורטית של 5M מסיים בדרגה 8 (סינתזה מהרזרבה), הפנקס אף פעם לא יורד
+> מתחת לאפס, ואין reservation שדולפת (`openReservationCount === 0`) — והדוח שמופק בסוף עקבי ומראה
+> בדיוק מאיפה הגיע התוצר.
 
 ---
 
