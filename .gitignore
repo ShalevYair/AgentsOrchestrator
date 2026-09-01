@@ -28,6 +28,9 @@ __pycache__/
 .venv/
 venv/
 
+# agent worktrees (harness-managed, not user content)
+.claude/worktrees/
+
 # os / editor
 .DS_Store
 Thumbs.db
