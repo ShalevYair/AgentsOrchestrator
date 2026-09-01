@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
+    font-family: "Assistant", "Heebo", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /*
+   * UX.md §9: code, paths, identifiers and numbers must always render LTR
+   * even inside RTL flow. Every inline <code> and every fenced code block
+   * gets an explicit dir="ltr" in Markdown.tsx / CodeBlock.tsx (that's the
+   * behavioral fix) — this just makes sure such an island always looks and
+   * reads as code regardless of surrounding paragraph direction.
+   */
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  /* Minimal hand-rolled prose styling for Markdown.tsx's `.md` wrapper — no @tailwindcss/typography dependency for a handful of rules. */
+  .md :is(h1, h2, h3, h4) {
+    @apply mb-2 mt-4 font-semibold first:mt-0;
+  }
+  .md h1 {
+    @apply text-xl;
+  }
+  .md h2 {
+    @apply text-lg;
+  }
+  .md h3 {
+    @apply text-base;
+  }
+  .md p {
+    @apply my-2 leading-relaxed;
+  }
+  .md ul {
+    @apply my-2 list-disc ps-6;
+  }
+  .md ol {
+    @apply my-2 list-decimal ps-6;
+  }
+  .md li {
+    @apply my-1;
+  }
+  .md blockquote {
+    @apply my-2 border-s-4 border-neutral-300 ps-3 text-neutral-600 dark:border-neutral-700 dark:text-neutral-400;
+  }
+  .md hr {
+    @apply my-4 border-neutral-200 dark:border-neutral-800;
+  }
+  .md table {
+    @apply my-2 w-full border-collapse text-start text-sm;
+  }
+  .md :is(th, td) {
+    @apply border border-neutral-200 px-2 py-1 text-start dark:border-neutral-800;
+  }
+  .md th {
+    @apply bg-neutral-100 font-semibold dark:bg-neutral-800;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

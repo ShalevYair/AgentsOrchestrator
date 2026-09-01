@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./.tsc-out",
+    "rootDir": ".",
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "node"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.json",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "tailwind.config.ts",
+    "postcss.config.js"
+  ],
+  "references": [{ "path": "../../packages/shared" }]
+}

@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "pnpm -r --if-present run build",
+    "dev": "concurrently -k -n runtime,web \"pnpm --filter @ao/runtime dev\" \"pnpm --filter @ao/web dev\"",
     "typecheck": "pnpm -r --if-present run typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.11",
+    "concurrently": "^9.2.1",
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",

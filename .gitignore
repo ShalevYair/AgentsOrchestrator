@@ -5,6 +5,7 @@ node_modules/
 # build
 dist/
 build/
+.tsc-out/
 .vite/
 *.tsbuildinfo
 coverage/
