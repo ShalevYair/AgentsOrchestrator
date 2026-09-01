@@ -1,0 +1,42 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+build/
+.vite/
+*.tsbuildinfo
+coverage/
+
+# runtime data (runs, ledger, caches, staged artifacts)
+.data/
+.cache/
+runs/
+staging/
+
+# secrets — never commit
+.env
+.env.*
+!.env.example
+*.key
+secrets.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.sample.json
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
