@@ -92,7 +92,7 @@ flowchart TB
     LED -.-> FIN
 ```
 
-**כפתור "מטרה"** יושב ליד כפתור השליחה וקובע את כללי המשחק לתור הנוכחי:
+**כפתור "מטרה"** יושב ליד כפתור השליחה וקובע את כללי המשחק **לכל שליחת פקודה** (תור אחד):
 
 | רמה | תקציב | למה זה מתאים |
 |---|---|---|
@@ -162,9 +162,13 @@ docs/                   ← המסמכים למעלה
 
 - **שפה:** TypeScript (strict), pnpm workspaces
 - **UI:** React + Vite + Tailwind + shadcn/ui · Markdown דרך `react-markdown` + `remark-gfm` + Shiki · תמיכת RTL מלאה
-- **Runtime:** Node 22 + Fastify + WebSocket · SQLite (`better-sqlite3`) · לוג ריצה event-sourced
-- **מפתח API:** OS keychain (`keytar`), ובנפילה — קובץ מוצפן AES-GCM. אף פעם לא ב-`localStorage` ולא בלוגים.
+- **Runtime:** Node 22 + Fastify + WebSocket · **`node:sqlite` המובנה** · לוג ריצה event-sourced
+- **מפתח API:** keychain של מערכת ההפעלה דרך **`@napi-rs/keyring`** (Credential Manager ב-Windows),
+  ובנפילה — קובץ מוצפן AES-GCM. אף פעם לא ב-`localStorage` ולא בלוגים.
 - **בדיקות:** Vitest (יחידה/אינטגרציה) + Playwright (E2E)
+- **🪟 פלטפורמות:** Windows · macOS · Linux — **שלושתן נבדקות ב-CI בכל PR, מהקומיט הראשון**.
+  **אפס תלויות נייטיב שדורשות קומפילציה**, כדי שהתקנה ב-Windows לא תדרוש Visual Studio Build Tools
+  ([ADR-011](docs/DECISIONS.md#adr-011), [ADR-012](docs/DECISIONS.md#adr-012)).
 
 ## המודל והתמחור
 
