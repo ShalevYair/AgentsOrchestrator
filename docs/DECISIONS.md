@@ -141,6 +141,19 @@ Linux/macOS · Windows מקורי · Docker. ב-Windows ללא Docker ה-UI מצ
 על linting מודע-טיפוסים. **לבדוק שוב מתי `typescript-eslint` מוסיף תמיכה רשמית ב-TS7** — זו הזדמנות
 לשדרג בחזרה, לא מצב קבוע.
 
+### ADR-015
+**השתקת `ExperimentalWarning` של `node:sqlite` דורשת `removeAllListeners`, לא רק `process.on`** · ✅ התקבל · 2026-09-01
+
+TASKS.md ([P2-T2](TASKS.md#p2)) קבע כ"גמור" ש"האזהרה מושתקת בעלייה". ההנחה הראשונית הייתה ש-
+`process.on("warning", handler)` עם סינון ה-`ExperimentalWarning` של SQLite מספיק — **זה נבדק ונכשל
+באמפירי**: השורה עדיין נדפסה ל-stderr. הסיבה: ההתנהגות המובנית של Node (הדפסת כל warning) היא עצמה
+listener רגיל שנרשם מראש על `process`, ורישום listener נוסף **לא** מחליף אותו — שניהם רצים.
+
+**ההחלטה:** ב-`apps/runtime/src/db/driver.ts`, `installExperimentalWarningFilter()` קורא
+`process.removeAllListeners("warning")` **לפני** רישום ה-listener שלנו, שממשיך להדפיס כל warning
+אחר (כולל `ExperimentalWarning` שאינו SQLite) דרך `console.warn` — כך שהתנהגות ברירת המחדל של Node
+נשמרת עבור כל דבר חוץ מהאזהרה הספציפית הזו. מאומת ב-`driver.test.ts`.
+
 ---
 
 ## חלק ב' — הנחות עבודה
