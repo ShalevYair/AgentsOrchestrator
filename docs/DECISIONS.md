@@ -154,6 +154,25 @@ listener רגיל שנרשם מראש על `process`, ורישום listener נו
 אחר (כולל `ExperimentalWarning` שאינו SQLite) דרך `console.warn` — כך שהתנהגות ברירת המחדל של Node
 נשמרת עבור כל דבר חוץ מהאזהרה הספציפית הזו. מאומת ב-`driver.test.ts`.
 
+### ADR-016
+**`web-tree-sitter` מוצמד ל-`0.20.8`, לא לגרסה העדכנית** · ✅ התקבל · 2026-09-01
+
+ל-[P3-T5](TASKS.md#p3) (RepoMap) הבחירה הברורה הייתה `web-tree-sitter` (WASM, אפס קומפילציה — הנימוק
+כמו `node:sqlite` ו-`@napi-rs/keyring` ב-[ADR-012](#adr-012)), עם `tree-sitter-wasms` כמקור לקבצי
+ה-grammar המוכנים (TypeScript/TSX/JavaScript/Python) — כדי לא להריץ `tree-sitter-cli build --wasm`
+(תלוי Emscripten/Docker) ב-CI.
+
+**זה נבדק ונכשל באמפירי:** `web-tree-sitter@0.27.0` (העדכנית) נכשלת בטעינת קבצי ה-`.wasm` המוכנים
+של `tree-sitter-wasms@0.1.13` עם `getDylinkMetadata` error — פורמט ה-ABI של הקבצים המוכנים (שנבנו
+מול `tree-sitter-cli` ישן יותר) לא תואם למה ש-`web-tree-sitter` העדכנית מצפה לו. **הוחלף**: הצמדה ל-
+`web-tree-sitter@0.20.8` (ה-API הישן, `Parser.Language.load` וגישת `new Parser()` יחיד, לא ה-API
+המפוצל של `0.27`) — אומת ישירות: פרסור TS אמיתי, שאילתת סמלים, וחילוץ תקין. `tree-sitter-wasms` עצמה
+לא עודכנה מזמן (ה-`devDependencies` שלה מצביעות על `tree-sitter-cli@^0.20.8`), ולכן הצימוד ל-`0.20.8`
+הוא לא "גרסה ישנה שרירותית" אלא **הגרסה שבאמת תואמת** את קבצי ה-grammar שנבחרו.
+
+**הסתייגות:** אם/כשתעודכן `tree-sitter-wasms` לבנייה מול ABI חדש יותר, יש לבדוק שוב אם `web-tree-sitter`
+עדכנית יותר נטענת נכון — זו לא נעילה קבועה, אלא תואמות שנבדקה ברגע נתון.
+
 ---
 
 ## חלק ב' — הנחות עבודה

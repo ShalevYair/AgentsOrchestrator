@@ -23,3 +23,7 @@ export type {
   IngestFilesResult,
   IngestGap,
 } from "./connect/ingest-files.js";
+export { buildRepoMap } from "./repomap/repo-map.js";
+export type { FileMap, RepoMap, RepoMapInput, RepoSymbol, SymbolKind } from "./repomap/repo-map.js";
+export { serializeRepoMap } from "./repomap/serialize.js";
+export type { SerializedRepoMap } from "./repomap/serialize.js";
