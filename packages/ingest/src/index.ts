@@ -27,3 +27,5 @@ export { buildRepoMap } from "./repomap/repo-map.js";
 export type { FileMap, RepoMap, RepoMapInput, RepoSymbol, SymbolKind } from "./repomap/repo-map.js";
 export { serializeRepoMap } from "./repomap/serialize.js";
 export type { SerializedRepoMap } from "./repomap/serialize.js";
+export { Bm25Index } from "./index/bm25.js";
+export type { Bm25Doc, Bm25IndexOptions, Bm25SearchResult } from "./index/bm25.js";
