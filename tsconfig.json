@@ -4,6 +4,7 @@
     { "path": "packages/shared" },
     { "path": "packages/platform" },
     { "path": "packages/providers" },
+    { "path": "packages/core" },
     { "path": "apps/runtime" },
     { "path": "apps/web" }
   ]
