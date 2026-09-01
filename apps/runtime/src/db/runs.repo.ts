@@ -27,8 +27,8 @@ function fromRow(row: RunRow): Run {
   return run;
 }
 
-export function createRun(driver: SqlDriver, threadId: string): Run {
-  const run: Run = { id: genRunId(), threadId, status: "running", createdAt: new Date().toISOString() };
+export function createRun(driver: SqlDriver, threadId: string, id: string = genRunId()): Run {
+  const run: Run = { id, threadId, status: "running", createdAt: new Date().toISOString() };
   driver.run("INSERT INTO runs (id, thread_id, status, created_at, finished_at) VALUES (?, ?, ?, ?, NULL)", [
     run.id,
     run.threadId,
