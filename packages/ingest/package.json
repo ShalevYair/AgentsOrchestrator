@@ -1,0 +1,36 @@
+{
+  "name": "@ao/ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "clean": "tsc -b --clean"
+  },
+  "dependencies": {
+    "@ao/platform": "workspace:*",
+    "@ao/shared": "workspace:*",
+    "fast-xml-parser": "^5.11.1",
+    "fflate": "^0.8.3",
+    "image-size": "^2.0.2",
+    "mammoth": "^1.12.2",
+    "pdfjs-dist": "^4.10.38",
+    "tree-sitter-wasms": "^0.1.13",
+    "web-tree-sitter": "0.20.8",
+    "xlsx": "^0.18.5",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@google/genai": "^2.20.0",
+    "@types/node": "^26.4.0"
+  }
+}
