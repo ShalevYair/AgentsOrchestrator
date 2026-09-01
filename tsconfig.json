@@ -5,6 +5,7 @@
     { "path": "packages/platform" },
     { "path": "packages/providers" },
     { "path": "packages/core" },
+    { "path": "packages/ingest" },
     { "path": "apps/runtime" },
     { "path": "apps/web" }
   ]
