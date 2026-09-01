@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as NodeOs from "node:os";
-import { candidatesForPlatform, discoverPython, meetsMinimumPythonVersion } from "./python.js";
+import { discoverPython, meetsMinimumPythonVersion } from "./python.js";
 
 vi.mock("node:child_process", () => ({
   spawnSync: vi.fn(),
@@ -32,11 +32,25 @@ describe("candidatesForPlatform", () => {
     }
   });
 
-  it("uses python3/python (no py launcher) on non-Windows platforms", () => {
-    expect(candidatesForPlatform()).toEqual([
-      { command: "python3", args: [] },
-      { command: "python", args: [] },
-    ]);
+  it("uses python3/python (no py launcher) on non-Windows platforms", async () => {
+    // Mock explicitly rather than relying on the host OS: this suite runs
+    // on all three CI platforms, including windows-latest, where the
+    // *actual* platform() is "win32" and this expectation would be wrong.
+    vi.doMock("node:os", async () => {
+      const actual = await vi.importActual<typeof NodeOs>("node:os");
+      return { ...actual, platform: () => "linux" as const };
+    });
+    vi.resetModules();
+    try {
+      const reloaded = await import("./python.js");
+      expect(reloaded.candidatesForPlatform()).toEqual([
+        { command: "python3", args: [] },
+        { command: "python", args: [] },
+      ]);
+    } finally {
+      vi.doUnmock("node:os");
+      vi.resetModules();
+    }
   });
 });
 

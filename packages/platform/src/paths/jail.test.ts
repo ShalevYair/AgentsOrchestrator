@@ -1,8 +1,14 @@
-import { sep } from "node:path";
+import { resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkPathLength, resolveWithinRoot } from "./jail.js";
 
-const ROOT = `${sep}base${sep}staging`;
+// resolve() here, not a hand-built string: on Windows a leading-separator
+// path like "\base\staging" is only drive-relative, and Node's own
+// path.resolve() (which resolveWithinRoot calls internally) anchors it to
+// the current drive (e.g. "D:\base\staging"). Building expectations from
+// the same resolve() call keeps them correct on every platform instead of
+// assuming POSIX-style absolute paths.
+const ROOT = resolve(`${sep}base${sep}staging`);
 
 describe("resolveWithinRoot", () => {
   it("accepts a simple nested path", () => {
@@ -35,7 +41,7 @@ describe("resolveWithinRoot", () => {
     // "/base/stagingX" is NOT inside "/base/staging" even though the raw
     // string "/base/staging" is a prefix of "/base/stagingX" — the
     // trailing-separator comparison in resolveWithinRoot must catch this.
-    const siblingRoot = `${sep}base${sep}stagingX`;
+    const siblingRoot = resolve(`${sep}base${sep}stagingX`);
     const result = resolveWithinRoot(ROOT, `..${sep}stagingX${sep}evil.txt`);
     expect(result.resolvedPath.startsWith(siblingRoot)).toBe(true);
     expect(result.ok).toBe(false);
