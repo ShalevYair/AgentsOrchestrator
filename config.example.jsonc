@@ -1,0 +1,18 @@
+// Copy this file to the location AO_CONFIG_FILE points at, or to
+// <dataDir>/config.json (default: ~/.agents-orchestrator/config.json).
+// Every field is optional — anything you omit falls back to the built-in
+// default, then to the AO_* environment variable of the same name, then
+// to whatever the app's own Settings screen sets at runtime.
+//
+// Schema source of truth: packages/platform/src/config/schema.ts
+{
+  // "fatal" | "error" | "warn" | "info" | "debug" | "trace"
+  "logLevel": "info",
+
+  // "he" | "en" — UI language and RTL/LTR layout direction.
+  "locale": "he",
+
+  // Where runs, the SQLite index, staged artifacts and caches live.
+  // Defaults to ~/.agents-orchestrator on every platform.
+  "dataDir": "~/.agents-orchestrator",
+}

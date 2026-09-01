@@ -5,9 +5,11 @@
 
 המסמך הזה מגדיר את **החוזים בין הרכיבים**. הם מה שמאפשר לבנות שלבים שונים במקביל ובלי תיאום מתמיד.
 
-**כלל ברזל:** כל סכמה כאן מוגדרת ב-[Zod](https://zod.dev) תחת `packages/shared/schemas/`, ומשמשת גם
+**כלל ברזל:** כל סכמה כאן מוגדרת ב-[Zod](https://zod.dev) תחת `packages/shared/src/schemas/`, ומשמשת גם
 לוולידציה בזמן ריצה וגם כמקור לטיפוסי TypeScript (`z.infer`). אין הגדרה כפולה של טיפוס.
-סכמות שנשלחות ל-Gemini כ-`responseSchema` נגזרות מאותה הגדרה דרך `zod-to-json-schema`.
+סכמות שנשלחות ל-Gemini כ-`responseSchema` נגזרות מאותה הגדרה דרך `z.toJSONSchema()` הילידי של Zod v4
+(`packages/shared/src/schemas/json-schema.ts`) — **לא** דרך חבילת `zod-to-json-schema` הנפרדת, שמייצרת
+סכמה ריקה מול Zod v4 ואינה בשימוש בקוד. ראה [ADR-014](DECISIONS.md#adr-014).
 
 ---
 

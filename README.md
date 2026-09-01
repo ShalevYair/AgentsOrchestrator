@@ -148,7 +148,8 @@ packages/
   providers/            LLMProvider — מימוש Gemini (+ הפשטה לספקים אחרים)
   ingest/               חילוץ, chunking, RepoMap, אינדקס, ContextBroker
   tools/                הרצה מקומית מבודדת של Python/Node
-  shared/               טיפוסים וסכמות משותפים ל־web ול־runtime
+  shared/               טיפוסים וסכמות (Zod) + היררכיית שגיאות — משותפים ל־web ול־runtime
+  platform/             תשתית Node בלבד: קונפיג, לוגים ורדקציה, שכבת paths חוצת-פלטפורמות
 agents/                 הגדרות סוכנים — agent.md + agent.json (ללא קוד)
 recipes/                תבניות תזמור שמורות
 evals/                  משימות זהב + מדידת איכות/עלות

@@ -7,6 +7,7 @@ dist/
 build/
 .vite/
 *.tsbuildinfo
+coverage/
 
 # runtime data (runs, ledger, caches, staged artifacts)
 .data/

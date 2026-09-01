@@ -27,7 +27,7 @@
 
 | שלב | נושא | גודל | תלוי ב- | מצב |
 |---|---|---|---|---|
-| [P0](#p0) | יסודות ותשתית 🪟 | M | — | ⬜ |
+| [P0](#p0) | יסודות ותשתית 🪟 | M | — | ✅ |
 | [P1](#p1) | ספק Gemini + ניהול מפתח 🪟 | M | P0 | ⬜ |
 | [P2](#p2) | 🏁 שלד הליכה — צ'אט E2E 🪟 | M | P1 | ⬜ |
 | [P3](#p3) | קליטה ו-ArtifactStore | L | P0 | ⬜ |
@@ -60,30 +60,33 @@
 
 **מטרה:** שלד שאפשר לבנות עליו 12 שלבים בלי לחזור אחורה.
 
-- [ ] **P0-T1 · מונורפו** — pnpm workspaces לפי המבנה ב-[README](../README.md#מבנה-הקוד-המתוכנן).
+- [x] **P0-T1 · מונורפו** — pnpm workspaces לפי המבנה ב-[README](../README.md#מבנה-הקוד-המתוכנן).
       **אילוץ: אפס תלויות נייטיב שדורשות קומפילציה** ([ADR-012](DECISIONS.md#adr-012)).
       *גמור:* `pnpm install` עובד מנקי **על Windows בלי Visual Studio Build Tools** · `pnpm -r build` עובר ·
       חבילה מייבאת חבילה אחרת · בדיקת CI שנכשלת אם נכנסה תלות עם `install`/`node-gyp` בסקריפטים.
-- [ ] **P0-T2 · TypeScript** — `strict: true`, `noUncheckedIndexedAccess`, project references, ESM.
+- [x] **P0-T2 · TypeScript** — `strict: true`, `noUncheckedIndexedAccess`, project references, ESM.
       *גמור:* `pnpm typecheck` נקי · `any` מרומז נכשל בבנייה.
-- [ ] **P0-T3 · איכות קוד** — ESLint + Prettier + husky + lint-staged.
+- [x] **P0-T3 · איכות קוד** — ESLint + Prettier + husky + lint-staged.
       *גמור:* commit עם הפרה נחסם · `pnpm lint` נקי.
-- [ ] **P0-T4 · בדיקות** — Vitest, coverage, `pnpm test` בשורש.
+- [x] **P0-T4 · בדיקות** — Vitest, coverage, `pnpm test` בשורש.
       *גמור:* בדיקה לדוגמה בכל חבילה · coverage מדווח.
-- [ ] **P0-T5 · CI במטריצת פלטפורמות** 🪟 — GitHub Actions: typecheck + lint + test + build,
+- [x] **P0-T5 · CI במטריצת פלטפורמות** 🪟 — GitHub Actions: typecheck + lint + test + build,
       במטריצה **`windows-latest` + `macos-latest` + `ubuntu-latest`**, על כל PR. **מ-P0, לא מ-P12.**
       *גמור:* שלוש הפלטפורמות ירוקות · באג מוזרק מפיל את כולן · **כשל ב-Windows חוסם מיזוג בדיוק כמו בלינוקס**.
       *הערה:* במאגר פרטי דקות Windows נצרכות בתעריף כפול. אם המכסה נהיית בעיה — Windows על PR בלבד
       (לא על כל push), אך **לעולם לא מבוטל**.
-- [ ] **P0-T6 · קונפיג** — סכמת Zod אחת לכל ההגדרות. סדר: ברירות מחדל → קובץ → env → UI.
+- [x] **P0-T6 · קונפיג** — סכמת Zod אחת לכל ההגדרות. סדר: ברירות מחדל → קובץ → env → UI.
       *גמור:* קונפיג לא תקין נכשל בעלייה עם הודעה מדויקת · `config.example.jsonc` מתועד.
-- [ ] **P0-T7 · לוגים** — `pino` מובנה, רמות, מזהה ריצה, **רדקציה כברירת מחדל**.
+- [x] **P0-T7 · לוגים** — `pino` מובנה, רמות, מזהה ריצה, **רדקציה כברירת מחדל**.
       *גמור:* מפתח API לא מופיע בלוגים בשום רמה · יש בדיקה שמוכיחה את זה.
-- [ ] **P0-T8 · שגיאות** — היררכיית שגיאות עם קודים, `recoverable`, וסריאליזציה ל-UI.
+- [x] **P0-T8 · שגיאות** — היררכיית שגיאות עם קודים, `recoverable`, וסריאליזציה ל-UI.
       *גמור:* כל שגיאה נושאת קוד יציב · מיפוי קוד→הודעת משתמש קיים.
-- [ ] **P0-T9 · סכמות משותפות** — `packages/shared` עם כל הסכמות מ-[`PROTOCOLS.md`](PROTOCOLS.md) ב-Zod.
-      *גמור:* הטיפוסים נגזרים ב-`z.infer` · `zod-to-json-schema` מייצר סכמת Gemini תקינה · בדיקות round-trip.
-- [ ] **P0-T10 · משמעת חוצת-פלטפורמות** 🪟 — שכבת `paths` יחידה שכל הקוד עובר דרכה:
+- [x] **P0-T9 · סכמות משותפות** — `packages/shared` עם כל הסכמות מ-[`PROTOCOLS.md`](PROTOCOLS.md) ב-Zod.
+      *גמור:* הטיפוסים נגזרים ב-`z.infer` · JSON Schema תקין נוצר מאותה הגדרה · בדיקות round-trip.
+      ⚠️ **בפועל:** `zod-to-json-schema` (חבילת צד ג') מייצר סכמה **ריקה** מול Zod v4 — לא מתוחזק לגרסה
+      הזאת. הוחלף ב-`z.toJSONSchema()` הילידי של Zod v4 (`packages/shared/src/schemas/json-schema.ts`).
+      התאמה לדיאלקט הספציפי של Gemini (`$schema`, `nullable`) נשארת ל-[P1-T2](#p1).
+- [x] **P0-T10 · משמעת חוצת-פלטפורמות** 🪟 — שכבת `paths` יחידה שכל הקוד עובר דרכה:
       `node:path` בלבד (אפס שרשור מחרוזות) · השוואת נתיבים **מנורמלת-רישיות** (Windows ו-macOS לא
       רגישים לרישיות — כלא נתיבים תמים ניתן לעקיפה) · `.gitattributes` שמקבע LF במאגר ·
       אזהרה על נתיב מעל 240 תווים · גילוי פייתון (`py -3` / `python3` / `python`) · אין הנחת shell.
