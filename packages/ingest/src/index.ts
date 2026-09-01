@@ -31,3 +31,5 @@ export { Bm25Index } from "./index/bm25.js";
 export type { Bm25Doc, Bm25IndexOptions, Bm25SearchResult } from "./index/bm25.js";
 export { selectContext } from "./broker/context-broker.js";
 export type { ContextItem, ContextPriority, ContextSelection, CutItem } from "./broker/context-broker.js";
+export { EgressLedger } from "./egress/egress-ledger.js";
+export type { EgressRecord, EgressRecordInput, EgressSummary } from "./egress/egress-ledger.js";
