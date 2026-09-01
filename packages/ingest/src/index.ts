@@ -14,3 +14,12 @@ export type {
   ConnectFolderResult,
   FolderTreeNode,
 } from "./connect/connect-folder.js";
+export { ingestFiles } from "./connect/ingest-files.js";
+export type {
+  IngestedArtifact,
+  IngestFileInput,
+  IngestFilesOptions,
+  IngestFilesProgress,
+  IngestFilesResult,
+  IngestGap,
+} from "./connect/ingest-files.js";
