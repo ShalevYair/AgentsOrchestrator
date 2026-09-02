@@ -401,8 +401,21 @@
       19 בדיקות: כלל-אחר-כלל, ושני fuzz — (א) כל prefix אפשרי (offset-by-offset) של stream ריאליסטי
       מרובה-מעטפות, (ב) 300 מחרוזות בייטים אקראיות עם PRNG זרוע קבוע (ללא תלות חדשה — אותה מוסכמה
       "לולאה ידנית" שכבר קיימת ב-`packages/ingest`'s ContextBroker property test).
-- [ ] **P5-T8 · המשכיות** — פרוטוקול [`PROTOCOLS.md` §5](PROTOCOLS.md#5-פרוטוקול-המשכיות).
+- [x] **P5-T8 · המשכיות** — פרוטוקול [`PROTOCOLS.md` §5](PROTOCOLS.md#5-פרוטוקול-המשכיות).
       *גמור:* פלט שנקטע מושלם ושורשר נכון · עד 3 המשכות · חוסר התקדמות = כישלון · הכל נספר ב-`Ledger`.
+      *כפי שמומש:* `packages/core/src/continuation/continuation.ts` — `runWithContinuation` נותב **כל** קריאת
+      המשך דרך `runAdmitted` (P4-T3) על דלי `repair` (BUDGET.md §3 קורא לזה בשם: "ניסיונות חוזרים, המשכות,
+      תיקוני כשל"), כך שכשל בקריאה משחרר `committed` בלי דליפה (נבדק ישירות). "אין התקדמות" ממומש כהשוואת
+      `lastCompleteEnvelope` (מ-P5-T7's parser) בין שני parses עוקבים — זהה → כישלון (`outcome:"no-progress"`),
+      בדיוק ה"lastComplete" ש-PROTOCOLS.md §5 מתאר. המשכיות מופעלת **רק** כש-`finishReason==="max_tokens"`
+      וגם `!done` — כל סיבת אי-סיום אחרת (`safety`/`other`) מסומנת `"not-truncated"` ומוחזרת לשכבת מדיניות
+      הכשל (P5-T11), לא מטופלת כאן. `MAX_CONTINUATIONS=3` נאכף בלולאה; מיצוי 3 ניסיונות בלי `done` מחזיר
+      `"max-continuations-exceeded"`. `collectGenerate` (עוזר משותף לשימוש חוזר ב-P5-T6) מרוקן stream
+      `AsyncIterable<Delta>` לטקסט+usage+finishReason יחיד, ומתעלם מ-`isThought` deltas (לא חלק מה-NDJSON).
+      12 בדיקות מול `MockLLMProvider` (מ-`@ao/providers`, נוסף כ-devDependency בלבד — ללא תלות של קוד
+      הייצור ב-`@ao/providers`, לפי אותו כלל שכבות מ-[P1-T1](#p1)) ו-`Ledger` אמיתי: כבר-הושלם/השלמה אחרי
+      המשך יחיד/חוסר-התקדמות/3 המשכות ממצות עם התקדמות אמיתית בכל אחת/כשל ספק משחרר reservation/
+      finishReason שאינו max_tokens לא מפעיל המשכיות כלל.
 - [ ] **P5-T9 · `Blackboard`** — מצב משותף + דדופליקציית ממצאים.
       *גמור:* ממצאים כפולים ממוזגים · **סוכן לעולם לא מקבל את כולו** — רק דרך ה-Broker.
 - [ ] **P5-T10 · Reducers** — כל ה-`local:*` מ-[`PROTOCOLS.md` §8](PROTOCOLS.md#8-reducers).
