@@ -416,8 +416,20 @@
       הייצור ב-`@ao/providers`, לפי אותו כלל שכבות מ-[P1-T1](#p1)) ו-`Ledger` אמיתי: כבר-הושלם/השלמה אחרי
       המשך יחיד/חוסר-התקדמות/3 המשכות ממצות עם התקדמות אמיתית בכל אחת/כשל ספק משחרר reservation/
       finishReason שאינו max_tokens לא מפעיל המשכיות כלל.
-- [ ] **P5-T9 · `Blackboard`** — מצב משותף + דדופליקציית ממצאים.
+- [x] **P5-T9 · `Blackboard`** — מצב משותף + דדופליקציית ממצאים.
       *גמור:* ממצאים כפולים ממוזגים · **סוכן לעולם לא מקבל את כולו** — רק דרך ה-Broker.
+      *כפי שמומש:* `packages/core/src/blackboard/` — `dedupe.ts` מממש את שלושת השלבים מ-[`PROTOCOLS.md` §7](PROTOCOLS.md#7-blackboard)
+      (נורמליזציה → דמיון לקסיקלי → מיזוג ראיות עם ה-confidence הגבוה): המסמך לא קובע סף דמיון קונקרטי,
+      אז נבחר סף Jaccard שמרני (`FINDING_SIMILARITY_THRESHOLD=0.8`) על סטים של טוקנים מנורמלים — תואם את
+      אותה מוסכמה "לקסיקלי" שכבר קיימת ב-BM25 של `packages/ingest`. `Blackboard` (`blackboard.ts`) היא
+      מחלקת מצב טהורה עם `addFinding` שממזג במקום לשכפל. אכיפת "סוכן לעולם לא מקבל את כולו" **לא** יכולה
+      להיות מכנית לגמרי כאן: `packages/core` לא יכול לתלות ב-`@ao/ingest` (חבילת ה-`ContextBroker`) בלי
+      להפוך את שכבות התלות שנקבעו כבר ב-[P1-T1](#p1)/[P4-T1](#p4) ("`core` תלוי רק ב-`@ao/shared`") — לכן
+      האכיפה מבנית-בתיעוד: `snapshot()` מתועד במפורש כמיועד ל-event sourcing (P5-T12) בלבד, ו-
+      `findingsAsContextCandidates()` הוא נתיב הקריאה **היחיד** האחר, ומחזיר פריטים בצורה תואמת-מבנית
+      (duck-typed) ל-`ContextItem` של `selectContext` — בלי לייבא את הטיפוס בפועל. חיווט אמיתי מול
+      `selectContext` האמיתי הוא עבודת ה-composition root (`apps/runtime`, טרם קיים). נוסף גם
+      `Blackboard.fromSnapshot`/`snapshot` round-trip לתמיכה ב-P5-T12. 23 בדיקות.
 - [ ] **P5-T10 · Reducers** — כל ה-`local:*` מ-[`PROTOCOLS.md` §8](PROTOCOLS.md#8-reducers).
       *גמור:* **טהורים ודטרמיניסטיים** · אותו קלט → אותו פלט bit-for-bit · אפס רשת.
 - [ ] **P5-T11 · מדיניות כשל** — כל רמות מדיניות הכשל מ-[`ARCHITECTURE.md` §10](ARCHITECTURE.md#10-מדיניות-כשל).
