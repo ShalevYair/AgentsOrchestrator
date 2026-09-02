@@ -182,6 +182,9 @@ importers:
       '@ao/providers':
         specifier: workspace:*
         version: link:../providers
+      '@ao/tools':
+        specifier: workspace:*
+        version: link:../tools
       '@types/node':
         specifier: ^26.4.0
         version: 26.4.0

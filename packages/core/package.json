@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@ao/providers": "workspace:*",
+    "@ao/tools": "workspace:*",
     "@types/node": "^26.4.0"
   }
 }
