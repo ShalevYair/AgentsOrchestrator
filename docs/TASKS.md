@@ -403,8 +403,28 @@
       הנחה שגויה על ניתוב-דלי). 5 בדיקות: הצלחה בניסיון ראשון · חריגת תקציב → תיקון → הצלחה (כולל בדיקה
       שהפרומפט השני אכן מזכיר את קוד V2) · מיצוי כל הניסיונות → `PlanInvalidError` · JSON פגום מתאושש
       בניסיון הבא · חריגה מקיבולת דלי ה-planning נדחית לפני קריאה לספק.
-- [ ] **P5-T4 · Scheduler** — ביצוע DAG, מקביליות חסומה, ריצה טופולוגית, ביטול.
+- [x] **P5-T4 · Scheduler** — ביצוע DAG, מקביליות חסומה, ריצה טופולוגית, ביטול.
       *גמור:* **בדיקת property: אף פעם לא מעבר ל-`maxParallel`** · ביטול עוצר נקי בלי לדלוף `committed`.
+      *כפי שמומש:* `packages/core/src/scheduler/` — `pool.ts`'s `runPool` הוא worker-pool מקומי (לא
+      `ConcurrencyLimiter` של `@ao/providers` — `core` לא יכול לתלות בו בקוד ייצור, רק כ-devDependency
+      לבדיקות כפי שנקבע ב-P5-T8); התקרה נכונה כי `nextIndex += 1` תמיד קורה סינכרונית לפני ה-`await` הבא,
+      אין תזמון מקדים ב-JS. `topo.ts`'s `topologicalStageOrder` (Kahn's algorithm) מניח DAG א-מעגלי —
+      P5-T1's V1 כבר הוכיח את זה לפני שהתוכנית מגיעה ל-Scheduler בכלל — עם שבירת תיקו דטרמיניסטית
+      לפי מזהה שלב. `scheduler.ts`'s `runScheduler` מריץ שלבים אחד־אחרי-השני בסדר טופולוגי (לא מקביליות
+      חוצת-שלבים — הפרשנות הפשוטה והמוצדקת יותר, תואמת את דיאגרמת מחזור החיים ב-ARCHITECTURE.md §3 שמתארת
+      כל שלב כרצף a-f); בתוך שלב, Tasks (מ-`planFanout`, P5-T5) רצים עם `runPool` בתקרת
+      `min(stage.fanout.maxParallel, globalMaxParallel)` — **חוץ** ממצב `pipeline`, שנאכף לרוץ בתקרה 1
+      תמיד (שרשרת תלות אמיתית לא יכולה לרוץ במקביל, לא משנה מה `maxParallel` מצהיר). כניסה לכל Task
+      משתמשת ב-`admit()` (לא `runAdmitted`) בכוונה: דחיית תקציב ברמת Task היא מדיניות כשל של
+      [`ARCHITECTURE.md` §10](ARCHITECTURE.md#10-מדיניות-כשל) ("דילוג עם רישום פער"), לא חריגה שמפילה את
+      כל הריצה — עדיין אותם primitives בדיוק (`admit`/`settle`/`release` מ-P4-T3/T4), רק דיווח כתוצאה רכה
+      במקום זריקה. ביטול (`AbortSignal`) נבדק לפני כל שלב חדש ולפני כל Task חדש בתוך pool; Task שכבר
+      בטיסה כשה-signal יורה מטופל ע"י `runTask` שלו (מיושם ע"י הקורא) שדוחה, ואז `ledger.release()` רץ
+      באותו נתיב catch בדיוק כמו כשל רגיל — "לא דולף" הוא לא מנגנון מיוחד, הוא תוצאה ישירה משימוש עקבי
+      ב-admit/settle/release. 17 בדיקות: סדר טופולוגי (שרשרת + יהלום + שבירת-תיקו) · property test של
+      25 טריאלים אקראיים על maxParallel/count · pipeline נאכף לתקרה 1 · ביטול תוך-כדי-טיסה בלי דליפת
+      reservation · ביטול-לפני-התחלה · דחיית תקציב בלי קריאה ל-runTask · כשל Task לא עוצר את הריצה ·
+      חיווט sharding נכון.
 - [x] **P5-T5 · פילוח (sharding)** — כל 5 המצבים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#מצבי-fan-out).
       *גמור:* `shard` מייצר פלחים **זרים ומכסים** · אין שני Tasks עם אותו קובץ באותו שלב.
       *כפי שמומש:* `packages/core/src/sharding/` — `shard.ts`'s `buildShards` היא bin-packing חמדני
