@@ -430,8 +430,24 @@
       (duck-typed) ל-`ContextItem` של `selectContext` — בלי לייבא את הטיפוס בפועל. חיווט אמיתי מול
       `selectContext` האמיתי הוא עבודת ה-composition root (`apps/runtime`, טרם קיים). נוסף גם
       `Blackboard.fromSnapshot`/`snapshot` round-trip לתמיכה ב-P5-T12. 23 בדיקות.
-- [ ] **P5-T10 · Reducers** — כל ה-`local:*` מ-[`PROTOCOLS.md` §8](PROTOCOLS.md#8-reducers).
+- [x] **P5-T10 · Reducers** — כל ה-`local:*` מ-[`PROTOCOLS.md` §8](PROTOCOLS.md#8-reducers).
       *גמור:* **טהורים ודטרמיניסטיים** · אותו קלט → אותו פלט bit-for-bit · אפס רשת.
+      *כפי שמומש:* `packages/core/src/reducers/` — `local-reducers.ts` מממש `concat-ordered`/`dedupe-findings`/
+      `vote`/`assemble-files` כפונקציות סינכרוניות טהורות; `dedupe-findings` ו-`vote` משתמשים **ישירות**
+      ב-`findDuplicate`/`mergeFindings`/`isDuplicateClaim` מ-P5-T9 (לא מימוש כפול) כך שדדופליקציה בשלב
+      ה-reduce ובזמן כתיבה ל-Blackboard לעולם לא יכולות לסטות זו מזו. `vote` ממומש כרוב-מוחלט על קבוצות
+      טענות דומות-לקסיקלית (לא זיהוי סתירה סמנטית — מעבר ליכולת של reducer מקומי ללא רשת); טענה שלא
+      עברה רוב הופכת ל-`Gap` ולא נעלמת. `assemble-files` מבצע **רק את החלק הטהור בזיכרון** — איחוד קבצים
+      + דיווח על התנגשות path בין שתי Tasks (הגנה כפולה; האכיפה העיקרית היא בזמן פילוח, P5-T5) — **בלי
+      לגעת בדיסק**: כתיבה בפועל ל-staging + הרצת הטולצ'יין של הפרויקט כאורקל אימות הם I/O ולכן שייכים
+      ל-P8-T3/T4/T6, לא ל-`packages/core` שנשאר "בלי I/O" (README). `reduce-tree.ts` הוא `reduceTree`
+      גנרי (מיזוג בינארי-מאוזן, לא לולאה שטוחה) — פרמטרי; נבדק שהוא שומר על סדר שמאל-לימין לצירוף
+      לא-קומוטטיבי (concat) ותואם fold רציף לצירוף קומוטטיבי (sum). `llm-synthesize.ts` מממש את
+      `llm:synthesize` **כפי שהמסמך עצמו קובע שהוא היוצא-מן-הכלל**: לא טהור/דטרמיניסטי מבחינת המסמך,
+      ולעולם לא קורא בעצמו לספק (זה עדיין תפקיד `runWithContinuation`/`collectGenerate` מ-P5-T8, שנשארים
+      האחראים היחידים על קריאת LLM אמיתית בתוך `packages/core`) — מחזיר תמיד `needsLlmStitch:true` +
+      `stitchScope` מלא + ערך fallback שסופק מבחוץ. 17 בדיקות, כולל קביעה מפורשת שאותו קלט מוחזר bit-for-bit
+      זהה (`toEqual` על שתי הרצות עוקבות).
 - [ ] **P5-T11 · מדיניות כשל** — כל רמות מדיניות הכשל מ-[`ARCHITECTURE.md` §10](ARCHITECTURE.md#10-מדיניות-כשל).
       *גמור:* כל מדיניות נבדקת עם כשל מדומה · **ריצה כושלת עדיין מחזירה תוצר חלקי**.
 - [ ] **P5-T12 · Event sourcing** — `events.jsonl` + חידוש ([ADR-008](DECISIONS.md#adr-008)).
