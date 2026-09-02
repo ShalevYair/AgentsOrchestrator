@@ -382,8 +382,19 @@
       *גמור:* 10 משימות לדוגמה מייצרות תוכניות תקפות · חריגת תקציב נדחית ונשלחת לתיקון.
 - [ ] **P5-T4 · Scheduler** — ביצוע DAG, מקביליות חסומה, ריצה טופולוגית, ביטול.
       *גמור:* **בדיקת property: אף פעם לא מעבר ל-`maxParallel`** · ביטול עוצר נקי בלי לדלוף `committed`.
-- [ ] **P5-T5 · פילוח (sharding)** — כל 5 המצבים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#מצבי-fan-out).
+- [x] **P5-T5 · פילוח (sharding)** — כל 5 המצבים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#מצבי-fan-out).
       *גמור:* `shard` מייצר פלחים **זרים ומכסים** · אין שני Tasks עם אותו קובץ באותו שלב.
+      *כפי שמומש:* `packages/core/src/sharding/` — `shard.ts`'s `buildShards` היא bin-packing חמדני
+      (longest-processing-time-first: קבוצות ממוינות לפי משקל יורד, כל קבוצה הולכת ל-shard הכי קל כרגע),
+      תוך שמירת לכידות `groupKey` — כל הפריטים עם אותו `groupKey` (למשל קבצי אותו מודול) נשארים תמיד באותו
+      shard, וזה בדיוק מה שמבטיח מבנית ש"אין שני Tasks עם אותו קובץ": כל עוד `shardKey` נפתר ל-`groupKey`ים
+      שלא חופפים בקבצים (אחריות הקורא — המתכנן/agent runner, ש-`shard.ts` לא יודע איך "module" מתפרש
+      בפועל). `verifyShards` הוא בודק-הגנה-כפולה עצמאי (לא רק "אמון" באלגוריתם) שנבדק ב-property test של
+      200 טריאלים אקראיים (item/group/shard counts משתנים) — אף פעם לא מוצא הפרת disjoint/covering/shared-file.
+      `fanout.ts`'s `planFanout` ממפה את כל 5 המצבים ל-`TaskSpec[]`: `shard` דרך `buildShards`;
+      `ensemble`/`debate` **זהים** ברמת התזמון (N Tasks עצמאיים עם הקלט המלא — ההבדל ביניהם הוא רק ב-reducer
+      שממזג בהמשך, לא כאן); `pipeline` בונה שרשרת לינארית (`pipelineDependsOn` מצביע ל-Task הקודם);
+      `single` תמיד Task יחיד בלי תלות ב-`fanout.count`. 12 בדיקות.
 - [ ] **P5-T6 · מריץ סוכן** — טעינת `agent.md`, מילוי משתנים, `{{outputSpec}}` **נגזר מהסכמה**.
       *גמור:* פרומפט וּוַלידטור לא יכולים להיות לא-מסונכרנים ([ADR-006](DECISIONS.md#adr-006)).
 - [x] **P5-T7 · פרסר NDJSON** — כל 6 הכללים מ-[`PROTOCOLS.md` §3](PROTOCOLS.md#3-חוזה-פלט-סוכן--ndjson).
