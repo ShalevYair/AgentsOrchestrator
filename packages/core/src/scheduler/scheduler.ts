@@ -45,6 +45,8 @@ export interface TaskOutcome<T> {
 export interface StageRunResult<T> {
   stageId: string;
   outcomes: TaskOutcome<T>[];
+  /** P6-T6 — true when this Stage was skipped entirely because it already completed in a prior run/plan version and its output is preserved in the Blackboard (`options.skipStageIds`); `outcomes` is always `[]` in that case, and no Task in this Stage was ever admitted or run. Optional and simply absent (never `false`) for every Stage that actually ran, keeping this purely additive to P5-T4's existing shape. */
+  skipped?: true;
 }
 
 export interface SchedulerRunResult<T> {
@@ -64,6 +66,8 @@ export interface RunSchedulerOptions<T> {
   signal?: AbortSignal;
   /** An extra run-wide concurrency ceiling on top of each Stage's own `fanout.maxParallel` (BUDGET.md §1's goal-button cap). Omit for no additional ceiling beyond each Stage's own. */
   globalMaxParallel?: number;
+  /** P6-T6 — stage ids to skip entirely (never admitted, never run) because they already completed in a prior run/plan version and their output survives in the Blackboard (`computeResumePoint`, P5-T12, generalized to a replanned DAG that may or may not still declare the same stage ids). Omit for a normal first-time run, where nothing is pre-completed. */
+  skipStageIds?: ReadonlySet<string>;
 }
 
 async function runTaskOnce<T>(
@@ -125,6 +129,11 @@ async function runTaskOnce<T>(
  * at which point its reservation is released the normal way (see
  * `runTaskOnce`). No stage runs after the signal has fired; `cancelled`
  * reports whether that happened.
+ *
+ * `options.skipStageIds` (P6-T6) is checked before any of that for each
+ * Stage in turn: a listed id is recorded as `{ outcomes: [], skipped: true }`
+ * and the loop moves straight to the next Stage — no `admit()`, no
+ * `runTask`, no Ledger spend at all for it.
  */
 export async function runScheduler<T>(options: RunSchedulerOptions<T>): Promise<SchedulerRunResult<T>> {
   const order = topologicalStageOrder(options.plan.stages);
@@ -139,6 +148,13 @@ export async function runScheduler<T>(options: RunSchedulerOptions<T>): Promise<
       break;
     }
     const stage = stageById.get(stageId)!;
+    if (options.skipStageIds?.has(stage.id)) {
+      // P6-T6: never admitted, never run — this stage's Ledger cost was
+      // already paid and its output already lives in the Blackboard from
+      // whichever prior run/plan version completed it.
+      stages.push({ stageId: stage.id, outcomes: [], skipped: true });
+      continue;
+    }
     const shardItems = options.buildShardItems ? options.buildShardItems(stage) : [];
     const fanoutPlan = planFanout(stage.id, stage.fanout, shardItems);
 
