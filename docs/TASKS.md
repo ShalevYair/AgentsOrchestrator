@@ -32,7 +32,7 @@
 | [P2](#p2) | 🏁 שלד הליכה — צ'אט E2E 🪟 | M | P1 | ✅ |
 | [P3](#p3) | קליטה ו-ArtifactStore | L | P0 | ✅ |
 | [P4](#p4) | Ledger ומנוע התקציב | M | P1 | ✅ |
-| [P5](#p5) | 🏁 ליבת התזמור | L | P2,P3,P4 | ⬜ |
+| [P5](#p5) | 🏁 ליבת התזמור | L | P2,P3,P4 | ✅ |
 | [P6](#p6) | צ'קפוינטים ותכנון אדפטיבי | M | P5 | ⬜ |
 | [P7](#p7) | כלים מקומיים (toolsmith) 🪟 | M | P3,P5 | ⬜ |
 | [P8](#p8) | פלט גדול וארטיפקטים 🪟 | L | P5 | ⬜ |
@@ -359,32 +359,214 @@
 
 **מטרה:** לב המערכת. **השלב הכי חשוב בפרויקט.**
 
-- [ ] **P5-T1 · סכמת `Plan` + ולידציה** — כל 8 הוולידציות V1–V8 מ-[`PROTOCOLS.md` §1](PROTOCOLS.md#1-plan--סכמת-התוכנית).
+- [x] **P5-T1 · סכמת `Plan` + ולידציה** — כל 8 הוולידציות V1–V8 מ-[`PROTOCOLS.md` §1](PROTOCOLS.md#1-plan--סכמת-התוכנית).
       *גמור:* בדיקה לכל ולידציה בנפרד · תוכנית לא תקינה **לעולם** לא מתחילה לרוץ.
-- [ ] **P5-T2 · `recon`** — סוכן + סכמת `TaskUnderstanding`.
+      *כפי שמומש:* `packages/core/src/plan/validate.ts` — כל V-check הוא פונקציה מיוצאת עצמאית
+      (`validateV1`...`validateV8`, ניתנות לבדיקה ישירה), ו-`validatePlan(input, context)` הוא המצרף:
+      `PlanSchema.safeParse` קודם (קצר-מעגל בכשל, לעולם לא זורק), ואז כל שאר הבדיקות רצות במלואן ומצטברות
+      יחד — כדי שתוכנית פסולה תחזיר את **כל** הבעיות בבת אחת ולא לולאת "תקן-אחת-הרץ-שוב". נקודות פרשנות
+      שהמסמכים לא קבעו במפורש, כל אחת מתועדת בקוד: V4's "מרווח ביטחון 10%" מיושם כ-
+      `maxOutputTokens ≤ floor(modelMaxOutputTokens × 0.9)`; V5's "מוקדם יותר ב-DAG" נבדק כהשתייכות ל-סגור
+      ה-`dependsOn` הטרנזיטיבי של השלב הצורך (לא רק מיקום מוקדם יותר במערך); V6 גם אוכף את חסימת
+      `ensemble`/`debate` ב-`draft` מ-[BUDGET.md §1](BUDGET.md#1-כפתור-מטרה) (המסמך מייחס את זה ל-`Ledger`,
+      אך זו בדיקת "תקרה גלובלית" מובהקת ששייכת לוולידציית התוכנית); ו-V7, ש-`Stage` לא נושא שדה מפורש
+      שמקשר אותו ל-`Deliverable`, ממומש כמיפוי מתועד (`DELIVERABLE_KIND_AGENT_TYPES` ב-`plan/types.ts`) בין
+      `Deliverable.kind` לתפקידי הסוכנים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#4-סוגי-סוכנים)
+      (`writer`/`synthesizer`→`markdown`, `coder`→`files`, קבוצה רחבה יותר→`data`) — אותה מוסכמה ישמש גם
+      ה-`planner` (P5-T3) שנבנה באותו שלב, כך שהצדדים לא יכולים לסטות זה מזה. תקרות `maxParallel`/`maxRung`
+      לפי רמת תקציב (`draft`/`standard`/`deep`/`custom`) מגיעות ישירות מ-[BUDGET.md §1](BUDGET.md#1-כפתור-מטרה).
+      27 בדיקות, כולל בדיקת "אף פעם לא זורק" על קלט `null`/`undefined`/פרימיטיבי.
+- [x] **P5-T2 · `recon`** — סוכן + סכמת `TaskUnderstanding`.
       *גמור:* מקבל אינוונטר בלבד, **לא תוכן** · עולה פחות מ-2% מהתקציב.
-- [ ] **P5-T3 · `planner`** — מייצר DAG תקף בתוך התקציב, עם הערכות לכל שלב.
+      *כפי שמומש:* `packages/core/src/recon/recon.ts` — `ReconRequest` נושא רק `userRequest`+`inventory`;
+      **אין שדה** לתוכן קבצים גולמי בחתימת הפונקציה כלל, כך ש"מקבל אינוונטר בלבד" נאכף מבנית (כמו הגישה
+      שכבר ננקטה ב-Blackboard, P5-T9). קריאת recon בונה `GenerateRequest` יחיד עם `responseSchema:
+      TaskUnderstandingSchema` (אובייקט JSON יחיד, לא NDJSON — recon לא עובר דרך מריץ הסוכן הגנרי של
+      P5-T6). ⚠️ **תיקון בזמן פיתוח:** ההנחה הראשונית הייתה ש-ניתוב הקריאה דרך דלי `"recon"` ב-Ledger
+      **אוכף מבנית** את תקרת 2% (כי `buckets.recon = 2%·total`) — **זו טעות שנתפסה ע"י בדיקה שנכשלה**:
+      `Ledger.commit` (P4-T1, `ledger.ts`) בודק רק את `available` **ברמת הריצה כולה**, לא קיבולת דלי
+      ספציפי — שיוך לדלי הוא רישום/דיווח בלבד, לא תקרה. `runRecon` לכן בודק **במפורש** `worstCase` מול
+      `ledger.bucketSnapshot("recon").available` **לפני** `runAdmitted`, וזורק `BudgetExceededError` בלי
+      להגיע לספק בכלל אם חורג — זו האכיפה האמיתית של "פחות מ-2%", לא הנחה שגויה על ניתוב-דלי. 6 בדיקות,
+      כולל הבדיקה שתפסה את הבאג (worstCase שחורג מקיבולת הדלי נדחה **בלי אף קריאה לספק**) ובדיקות JSON
+      לא-תקין/לא-תואם-סכמה שלא משאירות reservation דולף.
+- [x] **P5-T3 · `planner`** — מייצר DAG תקף בתוך התקציב, עם הערכות לכל שלב.
       *גמור:* 10 משימות לדוגמה מייצרות תוכניות תקפות · חריגת תקציב נדחית ונשלחת לתיקון.
-- [ ] **P5-T4 · Scheduler** — ביצוע DAG, מקביליות חסומה, ריצה טופולוגית, ביטול.
+      *כפי שמומש:* `packages/core/src/planner/planner.ts` — `runPlanner` מריץ את כל 8 הוולידציות V1-V8
+      (`validatePlan` מ-P5-T1, לא כפילות לוגיקה) על **כל** תגובת מודל לפני קבלתה; תוכנית לא תקינה — כולל
+      חריגת תקציב (V2) — לעולם לא מוחזרת, אלא נדחית ומוזנת חזרה למודל כפרומפט תיקון (`buildRepairPrompt`,
+      עם רשימת הבעיות המדויקות מ-`validatePlan`) עד `maxRepairAttempts` (ברירת מחדל 2, כלומר 3 ניסיונות
+      סה"כ); מיצוי כל הניסיונות זורק `PlanInvalidError` עם תקציר הבעיות האחרונות. JSON לא-תקין מטופל
+      **באותה לולאת תיקון** בדיוק כמו תוכנית לא-תקינה סכמטית (לא נכשל מיידית) — קוד V1 סינתטי. שימוש בדלי
+      `planning` (3%, לפי BUDGET.md §3 שכולל "בניית התוכנית **+ תיקונים**" באותו דלי במפורש — לא כמו
+      דלי `repair` הנפרד של P5-T8's continuations) עם אותה בדיקת קיבולת-דלי מפורשת שנלמדה ב-P5-T2 (לא
+      הנחה שגויה על ניתוב-דלי). 5 בדיקות: הצלחה בניסיון ראשון · חריגת תקציב → תיקון → הצלחה (כולל בדיקה
+      שהפרומפט השני אכן מזכיר את קוד V2) · מיצוי כל הניסיונות → `PlanInvalidError` · JSON פגום מתאושש
+      בניסיון הבא · חריגה מקיבולת דלי ה-planning נדחית לפני קריאה לספק.
+- [x] **P5-T4 · Scheduler** — ביצוע DAG, מקביליות חסומה, ריצה טופולוגית, ביטול.
       *גמור:* **בדיקת property: אף פעם לא מעבר ל-`maxParallel`** · ביטול עוצר נקי בלי לדלוף `committed`.
-- [ ] **P5-T5 · פילוח (sharding)** — כל 5 המצבים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#מצבי-fan-out).
+      *כפי שמומש:* `packages/core/src/scheduler/` — `pool.ts`'s `runPool` הוא worker-pool מקומי (לא
+      `ConcurrencyLimiter` של `@ao/providers` — `core` לא יכול לתלות בו בקוד ייצור, רק כ-devDependency
+      לבדיקות כפי שנקבע ב-P5-T8); התקרה נכונה כי `nextIndex += 1` תמיד קורה סינכרונית לפני ה-`await` הבא,
+      אין תזמון מקדים ב-JS. `topo.ts`'s `topologicalStageOrder` (Kahn's algorithm) מניח DAG א-מעגלי —
+      P5-T1's V1 כבר הוכיח את זה לפני שהתוכנית מגיעה ל-Scheduler בכלל — עם שבירת תיקו דטרמיניסטית
+      לפי מזהה שלב. `scheduler.ts`'s `runScheduler` מריץ שלבים אחד־אחרי-השני בסדר טופולוגי (לא מקביליות
+      חוצת-שלבים — הפרשנות הפשוטה והמוצדקת יותר, תואמת את דיאגרמת מחזור החיים ב-ARCHITECTURE.md §3 שמתארת
+      כל שלב כרצף a-f); בתוך שלב, Tasks (מ-`planFanout`, P5-T5) רצים עם `runPool` בתקרת
+      `min(stage.fanout.maxParallel, globalMaxParallel)` — **חוץ** ממצב `pipeline`, שנאכף לרוץ בתקרה 1
+      תמיד (שרשרת תלות אמיתית לא יכולה לרוץ במקביל, לא משנה מה `maxParallel` מצהיר). כניסה לכל Task
+      משתמשת ב-`admit()` (לא `runAdmitted`) בכוונה: דחיית תקציב ברמת Task היא מדיניות כשל של
+      [`ARCHITECTURE.md` §10](ARCHITECTURE.md#10-מדיניות-כשל) ("דילוג עם רישום פער"), לא חריגה שמפילה את
+      כל הריצה — עדיין אותם primitives בדיוק (`admit`/`settle`/`release` מ-P4-T3/T4), רק דיווח כתוצאה רכה
+      במקום זריקה. ביטול (`AbortSignal`) נבדק לפני כל שלב חדש ולפני כל Task חדש בתוך pool; Task שכבר
+      בטיסה כשה-signal יורה מטופל ע"י `runTask` שלו (מיושם ע"י הקורא) שדוחה, ואז `ledger.release()` רץ
+      באותו נתיב catch בדיוק כמו כשל רגיל — "לא דולף" הוא לא מנגנון מיוחד, הוא תוצאה ישירה משימוש עקבי
+      ב-admit/settle/release. 17 בדיקות: סדר טופולוגי (שרשרת + יהלום + שבירת-תיקו) · property test של
+      25 טריאלים אקראיים על maxParallel/count · pipeline נאכף לתקרה 1 · ביטול תוך-כדי-טיסה בלי דליפת
+      reservation · ביטול-לפני-התחלה · דחיית תקציב בלי קריאה ל-runTask · כשל Task לא עוצר את הריצה ·
+      חיווט sharding נכון.
+- [x] **P5-T5 · פילוח (sharding)** — כל 5 המצבים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#מצבי-fan-out).
       *גמור:* `shard` מייצר פלחים **זרים ומכסים** · אין שני Tasks עם אותו קובץ באותו שלב.
-- [ ] **P5-T6 · מריץ סוכן** — טעינת `agent.md`, מילוי משתנים, `{{outputSpec}}` **נגזר מהסכמה**.
+      *כפי שמומש:* `packages/core/src/sharding/` — `shard.ts`'s `buildShards` היא bin-packing חמדני
+      (longest-processing-time-first: קבוצות ממוינות לפי משקל יורד, כל קבוצה הולכת ל-shard הכי קל כרגע),
+      תוך שמירת לכידות `groupKey` — כל הפריטים עם אותו `groupKey` (למשל קבצי אותו מודול) נשארים תמיד באותו
+      shard, וזה בדיוק מה שמבטיח מבנית ש"אין שני Tasks עם אותו קובץ": כל עוד `shardKey` נפתר ל-`groupKey`ים
+      שלא חופפים בקבצים (אחריות הקורא — המתכנן/agent runner, ש-`shard.ts` לא יודע איך "module" מתפרש
+      בפועל). `verifyShards` הוא בודק-הגנה-כפולה עצמאי (לא רק "אמון" באלגוריתם) שנבדק ב-property test של
+      200 טריאלים אקראיים (item/group/shard counts משתנים) — אף פעם לא מוצא הפרת disjoint/covering/shared-file.
+      `fanout.ts`'s `planFanout` ממפה את כל 5 המצבים ל-`TaskSpec[]`: `shard` דרך `buildShards`;
+      `ensemble`/`debate` **זהים** ברמת התזמון (N Tasks עצמאיים עם הקלט המלא — ההבדל ביניהם הוא רק ב-reducer
+      שממזג בהמשך, לא כאן); `pipeline` בונה שרשרת לינארית (`pipelineDependsOn` מצביע ל-Task הקודם);
+      `single` תמיד Task יחיד בלי תלות ב-`fanout.count`. 12 בדיקות.
+- [x] **P5-T6 · מריץ סוכן** — טעינת `agent.md`, מילוי משתנים, `{{outputSpec}}` **נגזר מהסכמה**.
       *גמור:* פרומפט וּוַלידטור לא יכולים להיות לא-מסונכרנים ([ADR-006](DECISIONS.md#adr-006)).
-- [ ] **P5-T7 · פרסר NDJSON** — כל 6 הכללים מ-[`PROTOCOLS.md` §3](PROTOCOLS.md#3-חוזה-פלט-סוכן--ndjson).
+      *כפי שמומש:* `packages/core/src/agent-runner/` — "טעינת `agent.md`/`agent.json`" מפוצלת בכוונה: קריאת
+      הקבצים בפועל מהדיסק (`agents/<type>/`) היא I/O ונשארת אחריות ה-composition root (`apps/runtime`, טרם
+      נבנה P5) — `parseAgentDefinition` (`request.ts`) מקבל את תוכן ה-JSON **שכבר נקרא**ומאמת אותו מול
+      `AgentDefinitionSchema` הקיים; `buildAgentPrompt`/`fillTemplate` (`prompt.ts`) מקבלים את תוכן `agent.md`
+      כטקסט מוכן. `{{outputSpec}}` נגזר תמיד מ-`z.toJSONSchema()` (`toJsonSchema` הקיים ב-`@ao/shared`) על
+      אותה סכמת Zod חיה שהפרסר יאמת נגדה בפועל — **אין דרך** לכתוב תיאור פלט ידני שיכול לסטות מהוולידטור,
+      כי `{{outputSpec}}` אף פעם לא מוקלד ביד. `fillTemplate` נכשל בקול (זורק) על placeholder לא-מוכר
+      במקום להשאיר `{{x}}` גולמי בפרומפט — זו אכיפת ADR-006 השנייה: תבנית שמתייחסת למשתנה לא קיים נתפסת
+      בזמן בניית הפרומפט, לא כתשובת מודל מבולבלת. `buildAgentRequest` (`request.ts`) **אף פעם לא** מגדיר
+      `responseSchema`: `outputContract.format` של כל סוכן-עבודה קבוע ל-`"ndjson"` (טקסט חופשי מרובה-שורות,
+      לא אובייקט מובנה יחיד) — מנגנון `responseSchema` של Gemini שייך ל-`recon`/`planner` (P5-T2/P5-T3),
+      שבונים `GenerateRequest` משלהם ישירות מול `TaskUnderstandingSchema`/`PlanSchema`, לא דרך מריץ הסוכן
+      הגנרי הזה. 13 בדיקות, כולל בדיקה מפורשת ששתי סכמות שונות מייצרות `{{outputSpec}}` שונה (מוכיחה
+      שהתלות היא בסכמה בפועל, לא בהעתק ישן).
+- [x] **P5-T7 · פרסר NDJSON** — כל 6 הכללים מ-[`PROTOCOLS.md` §3](PROTOCOLS.md#3-חוזה-פלט-סוכן--ndjson).
       *גמור:* **fuzz על פלט קטוע בכל מיקום אפשרי — הפרסר לא קורס לעולם** · שורה חלקית נזרקת בשקט.
-- [ ] **P5-T8 · המשכיות** — פרוטוקול [`PROTOCOLS.md` §5](PROTOCOLS.md#5-פרוטוקול-המשכיות).
+      *כפי שמומש:* `packages/core/src/parse/ndjson.ts` — `parseNdjson(text)` טהורה וסינכרונית, אף פעם לא
+      זורקת. שורה אחרונה שהטקסט לא מסתיים ב-`\n` מטופלת בנפרד (כלל 2): מנסים לפרסר אותה, ובכשל היא נזרקת
+      בלי להיספר לא ב-`totalLines` ולא ב-`schemaViolations`. `schemaViolations` (כלל 1) נספר רק על שורות
+      שנכשלות ב-JSON.parse **או** לא תואמות אף וריאנט ב-`NdjsonEnvelopeSchema` — לעומת זאת `file_chunk` יתום
+      (כלל 4) נספר בנפרד (`orphanedChunkCount`), כי השורה עצמה תקינה סכמטית; רק סדר הפרוטוקול שגוי. הרכבת
+      קבצים (כללים 4–5) ממיינת chunks לפי `seq` לפני שרשור, מחשבת `sha256` עם `node:crypto` (חישוב טהור,
+      לא I/O — לא סותר את "`core` בלי I/O" של README), ודוחה קובץ עם `sha256-mismatch` בלי לכתוב אותו.
+      כלל 3 (השלמה) מדווח `done`/`doneEnvelope` בלבד — ההחלטה על פרוטוקול המשכיות היא באחריות P5-T8, לא
+      הפרסר. כלל 6 מחושב כ-`violationRatioExceeded` מול הסף הקבוע `VIOLATION_RATIO_THRESHOLD=0.15`.
+      נוסף גם `lastCompleteEnvelope` — העוגן ל"lastComplete" של פרוטוקול ההמשכיות ([`PROTOCOLS.md` §5](PROTOCOLS.md#5-פרוטוקול-המשכיות)).
+      19 בדיקות: כלל-אחר-כלל, ושני fuzz — (א) כל prefix אפשרי (offset-by-offset) של stream ריאליסטי
+      מרובה-מעטפות, (ב) 300 מחרוזות בייטים אקראיות עם PRNG זרוע קבוע (ללא תלות חדשה — אותה מוסכמה
+      "לולאה ידנית" שכבר קיימת ב-`packages/ingest`'s ContextBroker property test).
+- [x] **P5-T8 · המשכיות** — פרוטוקול [`PROTOCOLS.md` §5](PROTOCOLS.md#5-פרוטוקול-המשכיות).
       *גמור:* פלט שנקטע מושלם ושורשר נכון · עד 3 המשכות · חוסר התקדמות = כישלון · הכל נספר ב-`Ledger`.
-- [ ] **P5-T9 · `Blackboard`** — מצב משותף + דדופליקציית ממצאים.
+      *כפי שמומש:* `packages/core/src/continuation/continuation.ts` — `runWithContinuation` נותב **כל** קריאת
+      המשך דרך `runAdmitted` (P4-T3) על דלי `repair` (BUDGET.md §3 קורא לזה בשם: "ניסיונות חוזרים, המשכות,
+      תיקוני כשל"), כך שכשל בקריאה משחרר `committed` בלי דליפה (נבדק ישירות). "אין התקדמות" ממומש כהשוואת
+      `lastCompleteEnvelope` (מ-P5-T7's parser) בין שני parses עוקבים — זהה → כישלון (`outcome:"no-progress"`),
+      בדיוק ה"lastComplete" ש-PROTOCOLS.md §5 מתאר. המשכיות מופעלת **רק** כש-`finishReason==="max_tokens"`
+      וגם `!done` — כל סיבת אי-סיום אחרת (`safety`/`other`) מסומנת `"not-truncated"` ומוחזרת לשכבת מדיניות
+      הכשל (P5-T11), לא מטופלת כאן. `MAX_CONTINUATIONS=3` נאכף בלולאה; מיצוי 3 ניסיונות בלי `done` מחזיר
+      `"max-continuations-exceeded"`. `collectGenerate` (עוזר משותף לשימוש חוזר ב-P5-T6) מרוקן stream
+      `AsyncIterable<Delta>` לטקסט+usage+finishReason יחיד, ומתעלם מ-`isThought` deltas (לא חלק מה-NDJSON).
+      12 בדיקות מול `MockLLMProvider` (מ-`@ao/providers`, נוסף כ-devDependency בלבד — ללא תלות של קוד
+      הייצור ב-`@ao/providers`, לפי אותו כלל שכבות מ-[P1-T1](#p1)) ו-`Ledger` אמיתי: כבר-הושלם/השלמה אחרי
+      המשך יחיד/חוסר-התקדמות/3 המשכות ממצות עם התקדמות אמיתית בכל אחת/כשל ספק משחרר reservation/
+      finishReason שאינו max_tokens לא מפעיל המשכיות כלל.
+- [x] **P5-T9 · `Blackboard`** — מצב משותף + דדופליקציית ממצאים.
       *גמור:* ממצאים כפולים ממוזגים · **סוכן לעולם לא מקבל את כולו** — רק דרך ה-Broker.
-- [ ] **P5-T10 · Reducers** — כל ה-`local:*` מ-[`PROTOCOLS.md` §8](PROTOCOLS.md#8-reducers).
+      *כפי שמומש:* `packages/core/src/blackboard/` — `dedupe.ts` מממש את שלושת השלבים מ-[`PROTOCOLS.md` §7](PROTOCOLS.md#7-blackboard)
+      (נורמליזציה → דמיון לקסיקלי → מיזוג ראיות עם ה-confidence הגבוה): המסמך לא קובע סף דמיון קונקרטי,
+      אז נבחר סף Jaccard שמרני (`FINDING_SIMILARITY_THRESHOLD=0.8`) על סטים של טוקנים מנורמלים — תואם את
+      אותה מוסכמה "לקסיקלי" שכבר קיימת ב-BM25 של `packages/ingest`. `Blackboard` (`blackboard.ts`) היא
+      מחלקת מצב טהורה עם `addFinding` שממזג במקום לשכפל. אכיפת "סוכן לעולם לא מקבל את כולו" **לא** יכולה
+      להיות מכנית לגמרי כאן: `packages/core` לא יכול לתלות ב-`@ao/ingest` (חבילת ה-`ContextBroker`) בלי
+      להפוך את שכבות התלות שנקבעו כבר ב-[P1-T1](#p1)/[P4-T1](#p4) ("`core` תלוי רק ב-`@ao/shared`") — לכן
+      האכיפה מבנית-בתיעוד: `snapshot()` מתועד במפורש כמיועד ל-event sourcing (P5-T12) בלבד, ו-
+      `findingsAsContextCandidates()` הוא נתיב הקריאה **היחיד** האחר, ומחזיר פריטים בצורה תואמת-מבנית
+      (duck-typed) ל-`ContextItem` של `selectContext` — בלי לייבא את הטיפוס בפועל. חיווט אמיתי מול
+      `selectContext` האמיתי הוא עבודת ה-composition root (`apps/runtime`, טרם קיים). נוסף גם
+      `Blackboard.fromSnapshot`/`snapshot` round-trip לתמיכה ב-P5-T12. 23 בדיקות.
+- [x] **P5-T10 · Reducers** — כל ה-`local:*` מ-[`PROTOCOLS.md` §8](PROTOCOLS.md#8-reducers).
       *גמור:* **טהורים ודטרמיניסטיים** · אותו קלט → אותו פלט bit-for-bit · אפס רשת.
-- [ ] **P5-T11 · מדיניות כשל** — כל רמות מדיניות הכשל מ-[`ARCHITECTURE.md` §10](ARCHITECTURE.md#10-מדיניות-כשל).
+      *כפי שמומש:* `packages/core/src/reducers/` — `local-reducers.ts` מממש `concat-ordered`/`dedupe-findings`/
+      `vote`/`assemble-files` כפונקציות סינכרוניות טהורות; `dedupe-findings` ו-`vote` משתמשים **ישירות**
+      ב-`findDuplicate`/`mergeFindings`/`isDuplicateClaim` מ-P5-T9 (לא מימוש כפול) כך שדדופליקציה בשלב
+      ה-reduce ובזמן כתיבה ל-Blackboard לעולם לא יכולות לסטות זו מזו. `vote` ממומש כרוב-מוחלט על קבוצות
+      טענות דומות-לקסיקלית (לא זיהוי סתירה סמנטית — מעבר ליכולת של reducer מקומי ללא רשת); טענה שלא
+      עברה רוב הופכת ל-`Gap` ולא נעלמת. `assemble-files` מבצע **רק את החלק הטהור בזיכרון** — איחוד קבצים
+      + דיווח על התנגשות path בין שתי Tasks (הגנה כפולה; האכיפה העיקרית היא בזמן פילוח, P5-T5) — **בלי
+      לגעת בדיסק**: כתיבה בפועל ל-staging + הרצת הטולצ'יין של הפרויקט כאורקל אימות הם I/O ולכן שייכים
+      ל-P8-T3/T4/T6, לא ל-`packages/core` שנשאר "בלי I/O" (README). `reduce-tree.ts` הוא `reduceTree`
+      גנרי (מיזוג בינארי-מאוזן, לא לולאה שטוחה) — פרמטרי; נבדק שהוא שומר על סדר שמאל-לימין לצירוף
+      לא-קומוטטיבי (concat) ותואם fold רציף לצירוף קומוטטיבי (sum). `llm-synthesize.ts` מממש את
+      `llm:synthesize` **כפי שהמסמך עצמו קובע שהוא היוצא-מן-הכלל**: לא טהור/דטרמיניסטי מבחינת המסמך,
+      ולעולם לא קורא בעצמו לספק (זה עדיין תפקיד `runWithContinuation`/`collectGenerate` מ-P5-T8, שנשארים
+      האחראים היחידים על קריאת LLM אמיתית בתוך `packages/core`) — מחזיר תמיד `needsLlmStitch:true` +
+      `stitchScope` מלא + ערך fallback שסופק מבחוץ. 17 בדיקות, כולל קביעה מפורשת שאותו קלט מוחזר bit-for-bit
+      זהה (`toEqual` על שתי הרצות עוקבות).
+- [x] **P5-T11 · מדיניות כשל** — כל רמות מדיניות הכשל מ-[`ARCHITECTURE.md` §10](ARCHITECTURE.md#10-מדיניות-כשל).
       *גמור:* כל מדיניות נבדקת עם כשל מדומה · **ריצה כושלת עדיין מחזירה תוצר חלקי**.
-- [ ] **P5-T12 · Event sourcing** — `events.jsonl` + חידוש ([ADR-008](DECISIONS.md#adr-008)).
+      *כפי שמומש:* `packages/core/src/failure-policy/` מכסה את הרמות ש-P5 בפועל אחראית עליהן — רמת
+      "קריאה" (retry עם jitter על 429/5xx, מודל חלופי) שייכת כולה ל-`@ao/providers`'s `withRetry` (P1-T5),
+      אין ל-`core` מה להוסיף שם (מתועד ב-`task-failure.ts`'s הערת הפתיחה). `task-failure.ts`'s
+      `nextTaskFailureAction` היא פונקציית החלטה טהורה למדרגות Task: ניסיון-חוזר-עם-הקשר-מצומצם →
+      הקצאה-מחדש → דילוג, לפי `attemptsSoFar`. `stage-failure.ts`'s `applyStageFailurePolicy` מיישמת את
+      ארבע מדיניות `Stage.onFailure` נגד `StageRunResult` אמיתי מה-Scheduler (P5-T4): `retry` מבקשת הרצה
+      חוזרת של השלב; `degrade` שומרת תוצאות מוצלחות והופכת כשלים ל-`Gap`; `skip` **מפילה את כל תוצרי
+      השלב**, כולל הצלחות — הבחנה מכוונת מ-`degrade` (המילה "skip" מתייחסת ליחידת השלב, לא רק לדילול);
+      `replan` מאותתת ש-P6 (תכנון אדפטיבי) צריך להיכנס לתמונה — לא בהיקף P5. `run-outcome.ts`'s
+      `assembleRunOutcome` הוא הצעד הסופי הבלתי-מותנה של הערבות הגלובלית: אף ענף לא זורק ואף ענף לא
+      מחזיר `undefined`, כך שכל עוד כל שכבה למעלה (Reducers של P5-T10, שכבר תמיד מחזירים `value` לצד
+      `gaps` ולא זורקים) מקיימת את אותה ערבות, שרשרת שלמה לעולם לא יכולה להסתיים ב"כלום" — רק ב-
+      `status:"partial"` עם `gaps` שמסבירים בדיוק מה חסר ולמה. בדיקת אינטגרציה ייעודית (`run-outcome.test.ts`)
+      מרכיבה Scheduler+stage-failure+`local:concat-ordered`+`assembleRunOutcome` על **ריצה שבה כל Task
+      בכל שלב נכשל** ומוכיחה: אף שלב בשרשרת לא זורק, `RunOutcome` תקין מוחזר (`status:"partial"`, `gaps`
+      לא ריק), ו-`ledger.openReservationCount === 0` גם אחרי כישלון מוחלט. 12 בדיקות סה"כ.
+- [x] **P5-T12 · Event sourcing** — `events.jsonl` + חידוש ([ADR-008](DECISIONS.md#adr-008)).
       *גמור:* הרג התהליך באמצע שלב 3 — הפעלה מחדש ממשיכה מ-3, לא מ-1.
+      *כפי שמומש:* `packages/core/src/event-log/` — `EventLog` (`log.ts`) מחלקת log מוסיפה-בלבד בזיכרון
+      סביב `RuntimeEvent` הקיים מ-`@ao/shared` ([`PROTOCOLS.md` §9](PROTOCOLS.md#9-אירועי-runtime--ui)),
+      עם `seq` עולה שנאכף אך ורק ע"י `append` (הקורא מספק ערך placeholder בלבד). כתיבת/קריאת הקובץ
+      `runs/<runId>/events.jsonl` בפועל היא I/O ונשארת אחריות ה-composition root (`apps/runtime`, טרם
+      נבנה) — כמו גבול P5-T6/P5-T9; `serialize`/`fromSerialized` הם קידוד/פענוח NDJSON טהורים בלבד.
+      `parseEventLog` **סובל קטיעה** (קריסה באמצע כתיבת שורה) — אותה מכניקה בדיוק כמו פרסר ה-NDJSON של
+      P5-T7 (שורה אחרונה לא-שלמה נזרקת בשקט, לא נספרת כהפרה), פרסר עצמאי כי הסכמה שונה לגמרי; נבדק גם
+      עם fuzz על כל offset אפשרי של log אמיתי. `resume.ts`'s `computeResumePoint` היא ההחלטה הטהורה
+      עצמה: שלב עם אירוע `stage.finished` לא רץ שוב; השלב הראשון **בלי** `stage.finished` (כולל שלב עם
+      `stage.started` בלי `stage.finished` — בדיוק מקרה הקריסה-באמצע) הוא נקודת ההמשך. ⚠️ **באג שנתפס
+      בזמן פיתוח**: הבדיקה הראשונית ל"קריסה באמצע שלב 3" נכשלה כי `runId` הבדיקה (`"run_crash_test"`)
+      הכיל `_` בתוך החלק שאחרי `run_` — `RunIdSchema` (`/^run_[A-Za-z0-9]+$/`) דוחה זאת, כך ש-
+      `RuntimeEventSchema.safeParse` נכשל בשקט על **כל** האירועים (בדיוק ההתנהגות הנכונה של "זרוק שורה
+      פסולה בלי לקרוס" — אבל חשפה קלט בדיקה לא תקין, לא באג במימוש). תוקן ל-`"run_crashtest"`; אומת
+      ישירות מול הסכמה לפני התיקון כדי לוודא שזה אכן הגורם. 12 בדיקות, כולל התרחיש המדויק מהגדרת ה"גמור":
+      5 אירועים (s1 started+finished, s2 started+finished, s3 started **בלבד**) → serialize → "התחלה
+      מחדש" (fromSerialized) → `computeResumePoint` מחזיר `resumeFromStageId: "s3"`, לא `"s1"`.
 
 > **🏁 הדגמת M2:** "נתח את המאגר וכתוב מסמך ארכיטקטורה" על תיקייה אמיתית — 4 שלבים, 14 סוכנים, fan-out מקבילי, מיזוג מקומי, בתוך התקציב.
+> *כפי שמומש:* `packages/core/src/integration/m2-scenario.test.ts` — לא תיקייה אמיתית (זו תלויה
+> ב-`@ao/ingest` וב-composition root שטרם נבנו), אלא בדיקת אינטגרציה מלאה מול `MockLLMProvider`
+> שמרכיבה `runRecon` (P5-T2) → `runPlanner` (P5-T3, עם `validatePlan` P5-T1 שני פעמים — פעם בתוך
+> ה-planner ופעם עצמאית על הפלט) → `runScheduler` (P5-T4) עם תוכנית אמיתית של **4 שלבים סה"כ 14
+> Tasks** (6+4+3+1, בדיוק המספרים מההדגמה) → כל Task עובר `buildAgentPrompt`/`buildAgentRequest`
+> (P5-T6) → `collectGenerate` → `parseNdjson` (P5-T7) → כתיבה ל-`Blackboard` (P5-T9) וגם ל-Reducer
+> (`local:dedupe-findings`/`local:concat-ordered`, P5-T10) → `applyStageFailurePolicy` (P5-T11) →
+> `assembleRunOutcome`. שני שלבי ה-reader (s1) כוללים בכוונה שתי טענות זהות מ-shards שונים —
+> מוכיח ש-Blackboard's דדופליקציה אמיתית פעילה (6 ממצאים גולמיים → 5 ייחודיים), לא רק שהקוד "מתקמפל".
+> בתקציב "standard" (2.5M, התואם את הדוגמה ב-[BUDGET.md §6](BUDGET.md#6-סימולטור-עלות-dry-run)):
+> `ledger.available > 0` ו-`ledger.openReservationCount === 0` בסוף. המשכיות (P5-T8) לא נכפתה לתוך
+> התרחיש הזה בכוונה — כבר מכוסה ביסודיות בבדיקות האינטגרציה העצמאיות שלה מול `Ledger` אמיתי.
 
 ---
 
