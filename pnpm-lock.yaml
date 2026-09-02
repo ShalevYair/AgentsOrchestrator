@@ -283,6 +283,19 @@ importers:
         specifier: ^26.4.0
         version: 26.4.0
 
+  packages/tools:
+    dependencies:
+      '@ao/platform':
+        specifier: workspace:*
+        version: link:../platform
+      '@ao/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^26.4.0
+        version: 26.4.0
+
 packages:
 
   '@adobe/css-tools@4.5.0':
