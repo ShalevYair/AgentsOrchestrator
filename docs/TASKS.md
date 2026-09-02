@@ -32,7 +32,7 @@
 | [P2](#p2) | 🏁 שלד הליכה — צ'אט E2E 🪟 | M | P1 | ✅ |
 | [P3](#p3) | קליטה ו-ArtifactStore | L | P0 | ✅ |
 | [P4](#p4) | Ledger ומנוע התקציב | M | P1 | ✅ |
-| [P5](#p5) | 🏁 ליבת התזמור | L | P2,P3,P4 | ⬜ |
+| [P5](#p5) | 🏁 ליבת התזמור | L | P2,P3,P4 | ✅ |
 | [P6](#p6) | צ'קפוינטים ותכנון אדפטיבי | M | P5 | ⬜ |
 | [P7](#p7) | כלים מקומיים (toolsmith) 🪟 | M | P3,P5 | ⬜ |
 | [P8](#p8) | פלט גדול וארטיפקטים 🪟 | L | P5 | ⬜ |
@@ -555,6 +555,18 @@
       מחדש" (fromSerialized) → `computeResumePoint` מחזיר `resumeFromStageId: "s3"`, לא `"s1"`.
 
 > **🏁 הדגמת M2:** "נתח את המאגר וכתוב מסמך ארכיטקטורה" על תיקייה אמיתית — 4 שלבים, 14 סוכנים, fan-out מקבילי, מיזוג מקומי, בתוך התקציב.
+> *כפי שמומש:* `packages/core/src/integration/m2-scenario.test.ts` — לא תיקייה אמיתית (זו תלויה
+> ב-`@ao/ingest` וב-composition root שטרם נבנו), אלא בדיקת אינטגרציה מלאה מול `MockLLMProvider`
+> שמרכיבה `runRecon` (P5-T2) → `runPlanner` (P5-T3, עם `validatePlan` P5-T1 שני פעמים — פעם בתוך
+> ה-planner ופעם עצמאית על הפלט) → `runScheduler` (P5-T4) עם תוכנית אמיתית של **4 שלבים סה"כ 14
+> Tasks** (6+4+3+1, בדיוק המספרים מההדגמה) → כל Task עובר `buildAgentPrompt`/`buildAgentRequest`
+> (P5-T6) → `collectGenerate` → `parseNdjson` (P5-T7) → כתיבה ל-`Blackboard` (P5-T9) וגם ל-Reducer
+> (`local:dedupe-findings`/`local:concat-ordered`, P5-T10) → `applyStageFailurePolicy` (P5-T11) →
+> `assembleRunOutcome`. שני שלבי ה-reader (s1) כוללים בכוונה שתי טענות זהות מ-shards שונים —
+> מוכיח ש-Blackboard's דדופליקציה אמיתית פעילה (6 ממצאים גולמיים → 5 ייחודיים), לא רק שהקוד "מתקמפל".
+> בתקציב "standard" (2.5M, התואם את הדוגמה ב-[BUDGET.md §6](BUDGET.md#6-סימולטור-עלות-dry-run)):
+> `ledger.available > 0` ו-`ledger.openReservationCount === 0` בסוף. המשכיות (P5-T8) לא נכפתה לתוך
+> התרחיש הזה בכוונה — כבר מכוסה ביסודיות בבדיקות האינטגרציה העצמאיות שלה מול `Ledger` אמיתי.
 
 ---
 
