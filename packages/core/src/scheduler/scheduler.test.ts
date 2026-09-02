@@ -283,3 +283,54 @@ describe("runScheduler — sharding wiring", () => {
     expect(seenShards.every((s) => s.length === 1)).toBe(true); // disjoint — one item per shard here
   });
 });
+
+describe("runScheduler — P6-T6: skipStageIds", () => {
+  it("never runs or spends on a skipped stage, and still runs its dependents", async () => {
+    const ledger = new Ledger({ total: 1_000_000 });
+    const executed: string[] = [];
+    const runTask: RunTaskFn<null> = (task) => {
+      executed.push(task.stageId);
+      return Promise.resolve({
+        usage: { promptTokens: 10, candidatesTokens: 10, thoughtsTokens: 0, cachedTokens: 0 },
+        value: null,
+      });
+    };
+    const testPlan = plan([stage("s1"), stage("s2", { dependsOn: ["s1"] })]);
+
+    const result = await runScheduler({
+      ledger,
+      plan: testPlan,
+      runTask,
+      estimateWorstCase: () => 100,
+      skipStageIds: new Set(["s1"]),
+    });
+
+    expect(executed).toEqual(["s2"]); // s1 never invoked runTask at all
+    const s1Result = result.stages.find((s) => s.stageId === "s1");
+    expect(s1Result).toEqual({ stageId: "s1", outcomes: [], skipped: true });
+    const s2Result = result.stages.find((s) => s.stageId === "s2");
+    expect(s2Result?.skipped).toBeUndefined();
+    expect(ledger.bucketSnapshot("execution").spent).toBeGreaterThan(0); // only from s2
+    expect(ledger.snapshot().byStage["s1"]).toBeUndefined();
+  });
+
+  it("skips every stage when the whole plan is already complete", async () => {
+    const ledger = new Ledger({ total: 1_000_000 });
+    const runTask: RunTaskFn<null> = () => {
+      throw new Error("should never be called");
+    };
+    const testPlan = plan([stage("s1"), stage("s2", { dependsOn: ["s1"] })]);
+
+    const result = await runScheduler({
+      ledger,
+      plan: testPlan,
+      runTask,
+      estimateWorstCase: () => 100,
+      skipStageIds: new Set(["s1", "s2"]),
+    });
+
+    expect(result.stages.every((s) => s.skipped)).toBe(true);
+    expect(ledger.spent).toBe(0);
+    expect(ledger.committed).toBe(0);
+  });
+});
