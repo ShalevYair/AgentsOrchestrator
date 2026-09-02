@@ -5,3 +5,4 @@ export * from "./continuation/index.js";
 export * from "./blackboard/index.js";
 export * from "./reducers/index.js";
 export * from "./sharding/index.js";
+export * from "./agent-runner/index.js";

@@ -395,8 +395,22 @@
       `ensemble`/`debate` **זהים** ברמת התזמון (N Tasks עצמאיים עם הקלט המלא — ההבדל ביניהם הוא רק ב-reducer
       שממזג בהמשך, לא כאן); `pipeline` בונה שרשרת לינארית (`pipelineDependsOn` מצביע ל-Task הקודם);
       `single` תמיד Task יחיד בלי תלות ב-`fanout.count`. 12 בדיקות.
-- [ ] **P5-T6 · מריץ סוכן** — טעינת `agent.md`, מילוי משתנים, `{{outputSpec}}` **נגזר מהסכמה**.
+- [x] **P5-T6 · מריץ סוכן** — טעינת `agent.md`, מילוי משתנים, `{{outputSpec}}` **נגזר מהסכמה**.
       *גמור:* פרומפט וּוַלידטור לא יכולים להיות לא-מסונכרנים ([ADR-006](DECISIONS.md#adr-006)).
+      *כפי שמומש:* `packages/core/src/agent-runner/` — "טעינת `agent.md`/`agent.json`" מפוצלת בכוונה: קריאת
+      הקבצים בפועל מהדיסק (`agents/<type>/`) היא I/O ונשארת אחריות ה-composition root (`apps/runtime`, טרם
+      נבנה P5) — `parseAgentDefinition` (`request.ts`) מקבל את תוכן ה-JSON **שכבר נקרא**ומאמת אותו מול
+      `AgentDefinitionSchema` הקיים; `buildAgentPrompt`/`fillTemplate` (`prompt.ts`) מקבלים את תוכן `agent.md`
+      כטקסט מוכן. `{{outputSpec}}` נגזר תמיד מ-`z.toJSONSchema()` (`toJsonSchema` הקיים ב-`@ao/shared`) על
+      אותה סכמת Zod חיה שהפרסר יאמת נגדה בפועל — **אין דרך** לכתוב תיאור פלט ידני שיכול לסטות מהוולידטור,
+      כי `{{outputSpec}}` אף פעם לא מוקלד ביד. `fillTemplate` נכשל בקול (זורק) על placeholder לא-מוכר
+      במקום להשאיר `{{x}}` גולמי בפרומפט — זו אכיפת ADR-006 השנייה: תבנית שמתייחסת למשתנה לא קיים נתפסת
+      בזמן בניית הפרומפט, לא כתשובת מודל מבולבלת. `buildAgentRequest` (`request.ts`) **אף פעם לא** מגדיר
+      `responseSchema`: `outputContract.format` של כל סוכן-עבודה קבוע ל-`"ndjson"` (טקסט חופשי מרובה-שורות,
+      לא אובייקט מובנה יחיד) — מנגנון `responseSchema` של Gemini שייך ל-`recon`/`planner` (P5-T2/P5-T3),
+      שבונים `GenerateRequest` משלהם ישירות מול `TaskUnderstandingSchema`/`PlanSchema`, לא דרך מריץ הסוכן
+      הגנרי הזה. 13 בדיקות, כולל בדיקה מפורשת ששתי סכמות שונות מייצרות `{{outputSpec}}` שונה (מוכיחה
+      שהתלות היא בסכמה בפועל, לא בהעתק ישן).
 - [x] **P5-T7 · פרסר NDJSON** — כל 6 הכללים מ-[`PROTOCOLS.md` §3](PROTOCOLS.md#3-חוזה-פלט-סוכן--ndjson).
       *גמור:* **fuzz על פלט קטוע בכל מיקום אפשרי — הפרסר לא קורס לעולם** · שורה חלקית נזרקת בשקט.
       *כפי שמומש:* `packages/core/src/parse/ndjson.ts` — `parseNdjson(text)` טהורה וסינכרונית, אף פעם לא
