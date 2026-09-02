@@ -91,7 +91,7 @@ export class WindowsSandbox implements Sandbox {
     return new Promise((resolvePromise) => {
       const child = this.deps.spawnFn(options.command, options.args, {
         cwd: jail.resolvedPath,
-        env: options.env ?? {},
+        env: { ...process.env, ...options.env },
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"],
       });

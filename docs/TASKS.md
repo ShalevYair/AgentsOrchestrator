@@ -714,10 +714,33 @@
       תהליך יתום — כולם עוברים בפועל בסביבה הזו. הבדיקה היחידה שדולגה בפועל (לא רק "אם הפלטפורמה שונה"
       אלא **גם על לינוקס עצמו**) היא חסימת רשת ב-macOS (`darwin-sandbox.test.ts`'s "network blocking"
       test) — עם סיבה מפורשת בטקסט הבדיקה: אין `sandbox-exec` על לינוקס. 19 בדיקות סה"כ בחבילה.
-- [ ] **P7-T2 · הרצת Python** 🪟 — `LocalTool` לפי [`PROTOCOLS.md` §11](PROTOCOLS.md#11-localtool).
+- [x] **P7-T2 · הרצת Python** 🪟 — `LocalTool` לפי [`PROTOCOLS.md` §11](PROTOCOLS.md#11-localtool).
       גילוי מפרש דרך שכבת ה-`paths` מ-[P0-T10](#p0) (`py -3` ב-Windows) · venv מבודד לכל התקנה ·
       קידוד פלט **`utf-8` מאולץ** (ברירת המחדל של קונסולת Windows היא cp1252 ותשבור עברית).
       *גמור:* stdlib + `pandas`/`numpy` · **פלט עברי תקין ב-Windows** · פלט חורג נחתך ומסומן, לא נעלם בשקט.
+      *כפי שמומש:* `packages/tools/src/runtime/python-runner.ts` + `python-venv.ts` — `runPythonTool`
+      מקבל `LocalTool`+`Sandbox`, כותב `script.py`+`inputs.json` לספריית עבודה טרייה תחת ה-jail, מריץ דרך
+      `ensureVenv` (venv מבודד, ממופתח לפי `sha256(pythonVersion, packages-ממוינים)` — ריצה שנייה עם אותה
+      קבוצת חבילות היא cache hit, לא התקנה חוזרת) ומחזיר `ToolResult` (`tool-result.ts`, משותף גם ל-T3).
+      גילוי המפרש **הוא** `@ao/platform`'s `discoverPython` (P0-T10) — לא נכתב שוב. **רשימת ההיתר לחבילות
+      נאכפת לא ע"י ניתוח סטטי** (טריוויאלי לעקיפה: `importlib.import_module`, `__import__`) **אלא ע"י
+      תוכן ה-venv עצמו** — `detectRequestedPackages` (regex על `import`/`from`) הוא רק נוחות להחלטה מה
+      להתקין, לא מנגנון האכיפה; נבדק בפועל: סקריפט שמייבא חבילה לא-ברשימה נכשל ב-`ModuleNotFoundError`
+      אמיתי כי היא פשוט לא מותקנת. `PYTHONIOENCODING=utf-8`/`PYTHONUTF8=1` מוזרקים תמיד וללא תנאי —
+      נבדק round-trip עברי אמיתי (לא רק תיאורטי). ⚠️ **תיקון בזמן פיתוח, לא הונח מראש:** `tool.limits.
+      memoryMb` הוא `ulimit -v` אמיתי בלינוקס/macOS, ונבדק **ישירות** ש-`import pandas` לבדו דורש כמה
+      מאות MB של כתובות זיכרון וירטואליות רק כדי לטעון את תת-המודולים שלו — תקרה של 256MB זורקת
+      `MemoryError` **באמצע ה-import עצמו**, לפני שהסקריפט אפילו רץ; 384MB+ עובד. תועד כהערת אזהרה
+      ל-caller בקוד עצמו (לא רק כאן) — `LocalTool` שמייבא `pandas` צריך לבקש ~512MB לפחות, בלי קשר לכמה
+      זיכרון הלוגיקה של הסקריפט עצמו צריכה. **מה שנבדק בפועל בסביבה הזו (לינוקס):** stdlib בלבד, עברית,
+      pandas+numpy יחד (התקנת pip אמיתית מול PyPI האמיתי — `pypi.org` פתוח דרך ה-proxy של הסביבה, בניגוד
+      ל-`ai.google.dev`/`googleapis.github.io` שנחסמו ב-P1-T2/T7), חיתוך פלט, ואכיפת רשימת ההיתר. **מה
+      שלא נבדק בפועל:** התנהגות קונסולת Windows בפועל (cp1252) — אין מכונת Windows כאן; מטריצת ה-CI
+      הקיימת (`windows-latest`, P0-T5) תריץ את אותה בדיקת round-trip עברי בפועל שם, לא רק את הלוגיקה.
+      ⚠️ **תיקון נלווה שנתפס תוך כדי אינטגרציה, רלוונטי לכל `Sandbox`:** `LinuxSandbox`/`WindowsSandbox`
+      העבירו את `options.env` **כתחליף מלא** לסביבת התהליך (`env: options.env ?? {}`) — `{}` היה מוחק
+      את `PATH`/`HOME` כולם, ושובר את הרצת ה-python מה-venv בפועל. תוקן ל-**מיזוג** מעל `process.env`
+      (`{ ...process.env, ...options.env }`) בשני הקבצים — נתפס ע"י בדיקות T2 עצמן שנכשלו, לא הונח מראש.
 - [ ] **P7-T3 · הרצת Node** — אותם גבולות.
       *גמור:* זהה ל-T2.
 - [ ] **P7-T4 · סוכן `toolsmith`** — מקבל **סכמה, לא תוכן**; כותב סקריפט.

@@ -8,6 +8,7 @@ export interface PosixExecOptions {
   cwd: string;
   timeoutMs: number;
   maxOutputBytes: number;
+  /** Overrides layered on top of the current process's own environment — never a full replacement (a bare `{}` would strip `PATH`/`HOME`/etc. and break the interpreter itself). */
   env: Record<string, string>;
   networkBlocked: boolean;
 }
@@ -27,7 +28,7 @@ export async function runPosixProcess(options: PosixExecOptions): Promise<Sandbo
   return new Promise((resolvePromise) => {
     const child = spawn(options.command, options.args, {
       cwd: options.cwd,
-      env: options.env,
+      env: { ...process.env, ...options.env },
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
