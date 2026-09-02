@@ -10,3 +10,4 @@ export * from "./recon/index.js";
 export * from "./planner/index.js";
 export * from "./scheduler/index.js";
 export * from "./failure-policy/index.js";
+export * from "./event-log/index.js";

@@ -534,8 +534,25 @@
       מרכיבה Scheduler+stage-failure+`local:concat-ordered`+`assembleRunOutcome` על **ריצה שבה כל Task
       בכל שלב נכשל** ומוכיחה: אף שלב בשרשרת לא זורק, `RunOutcome` תקין מוחזר (`status:"partial"`, `gaps`
       לא ריק), ו-`ledger.openReservationCount === 0` גם אחרי כישלון מוחלט. 12 בדיקות סה"כ.
-- [ ] **P5-T12 · Event sourcing** — `events.jsonl` + חידוש ([ADR-008](DECISIONS.md#adr-008)).
+- [x] **P5-T12 · Event sourcing** — `events.jsonl` + חידוש ([ADR-008](DECISIONS.md#adr-008)).
       *גמור:* הרג התהליך באמצע שלב 3 — הפעלה מחדש ממשיכה מ-3, לא מ-1.
+      *כפי שמומש:* `packages/core/src/event-log/` — `EventLog` (`log.ts`) מחלקת log מוסיפה-בלבד בזיכרון
+      סביב `RuntimeEvent` הקיים מ-`@ao/shared` ([`PROTOCOLS.md` §9](PROTOCOLS.md#9-אירועי-runtime--ui)),
+      עם `seq` עולה שנאכף אך ורק ע"י `append` (הקורא מספק ערך placeholder בלבד). כתיבת/קריאת הקובץ
+      `runs/<runId>/events.jsonl` בפועל היא I/O ונשארת אחריות ה-composition root (`apps/runtime`, טרם
+      נבנה) — כמו גבול P5-T6/P5-T9; `serialize`/`fromSerialized` הם קידוד/פענוח NDJSON טהורים בלבד.
+      `parseEventLog` **סובל קטיעה** (קריסה באמצע כתיבת שורה) — אותה מכניקה בדיוק כמו פרסר ה-NDJSON של
+      P5-T7 (שורה אחרונה לא-שלמה נזרקת בשקט, לא נספרת כהפרה), פרסר עצמאי כי הסכמה שונה לגמרי; נבדק גם
+      עם fuzz על כל offset אפשרי של log אמיתי. `resume.ts`'s `computeResumePoint` היא ההחלטה הטהורה
+      עצמה: שלב עם אירוע `stage.finished` לא רץ שוב; השלב הראשון **בלי** `stage.finished` (כולל שלב עם
+      `stage.started` בלי `stage.finished` — בדיוק מקרה הקריסה-באמצע) הוא נקודת ההמשך. ⚠️ **באג שנתפס
+      בזמן פיתוח**: הבדיקה הראשונית ל"קריסה באמצע שלב 3" נכשלה כי `runId` הבדיקה (`"run_crash_test"`)
+      הכיל `_` בתוך החלק שאחרי `run_` — `RunIdSchema` (`/^run_[A-Za-z0-9]+$/`) דוחה זאת, כך ש-
+      `RuntimeEventSchema.safeParse` נכשל בשקט על **כל** האירועים (בדיוק ההתנהגות הנכונה של "זרוק שורה
+      פסולה בלי לקרוס" — אבל חשפה קלט בדיקה לא תקין, לא באג במימוש). תוקן ל-`"run_crashtest"`; אומת
+      ישירות מול הסכמה לפני התיקון כדי לוודא שזה אכן הגורם. 12 בדיקות, כולל התרחיש המדויק מהגדרת ה"גמור":
+      5 אירועים (s1 started+finished, s2 started+finished, s3 started **בלבד**) → serialize → "התחלה
+      מחדש" (fromSerialized) → `computeResumePoint` מחזיר `resumeFromStageId: "s3"`, לא `"s1"`.
 
 > **🏁 הדגמת M2:** "נתח את המאגר וכתוב מסמך ארכיטקטורה" על תיקייה אמיתית — 4 שלבים, 14 סוכנים, fan-out מקבילי, מיזוג מקומי, בתוך התקציב.
 
