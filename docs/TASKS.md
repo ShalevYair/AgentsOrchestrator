@@ -516,8 +516,24 @@
       האחראים היחידים על קריאת LLM אמיתית בתוך `packages/core`) — מחזיר תמיד `needsLlmStitch:true` +
       `stitchScope` מלא + ערך fallback שסופק מבחוץ. 17 בדיקות, כולל קביעה מפורשת שאותו קלט מוחזר bit-for-bit
       זהה (`toEqual` על שתי הרצות עוקבות).
-- [ ] **P5-T11 · מדיניות כשל** — כל רמות מדיניות הכשל מ-[`ARCHITECTURE.md` §10](ARCHITECTURE.md#10-מדיניות-כשל).
+- [x] **P5-T11 · מדיניות כשל** — כל רמות מדיניות הכשל מ-[`ARCHITECTURE.md` §10](ARCHITECTURE.md#10-מדיניות-כשל).
       *גמור:* כל מדיניות נבדקת עם כשל מדומה · **ריצה כושלת עדיין מחזירה תוצר חלקי**.
+      *כפי שמומש:* `packages/core/src/failure-policy/` מכסה את הרמות ש-P5 בפועל אחראית עליהן — רמת
+      "קריאה" (retry עם jitter על 429/5xx, מודל חלופי) שייכת כולה ל-`@ao/providers`'s `withRetry` (P1-T5),
+      אין ל-`core` מה להוסיף שם (מתועד ב-`task-failure.ts`'s הערת הפתיחה). `task-failure.ts`'s
+      `nextTaskFailureAction` היא פונקציית החלטה טהורה למדרגות Task: ניסיון-חוזר-עם-הקשר-מצומצם →
+      הקצאה-מחדש → דילוג, לפי `attemptsSoFar`. `stage-failure.ts`'s `applyStageFailurePolicy` מיישמת את
+      ארבע מדיניות `Stage.onFailure` נגד `StageRunResult` אמיתי מה-Scheduler (P5-T4): `retry` מבקשת הרצה
+      חוזרת של השלב; `degrade` שומרת תוצאות מוצלחות והופכת כשלים ל-`Gap`; `skip` **מפילה את כל תוצרי
+      השלב**, כולל הצלחות — הבחנה מכוונת מ-`degrade` (המילה "skip" מתייחסת ליחידת השלב, לא רק לדילול);
+      `replan` מאותתת ש-P6 (תכנון אדפטיבי) צריך להיכנס לתמונה — לא בהיקף P5. `run-outcome.ts`'s
+      `assembleRunOutcome` הוא הצעד הסופי הבלתי-מותנה של הערבות הגלובלית: אף ענף לא זורק ואף ענף לא
+      מחזיר `undefined`, כך שכל עוד כל שכבה למעלה (Reducers של P5-T10, שכבר תמיד מחזירים `value` לצד
+      `gaps` ולא זורקים) מקיימת את אותה ערבות, שרשרת שלמה לעולם לא יכולה להסתיים ב"כלום" — רק ב-
+      `status:"partial"` עם `gaps` שמסבירים בדיוק מה חסר ולמה. בדיקת אינטגרציה ייעודית (`run-outcome.test.ts`)
+      מרכיבה Scheduler+stage-failure+`local:concat-ordered`+`assembleRunOutcome` על **ריצה שבה כל Task
+      בכל שלב נכשל** ומוכיחה: אף שלב בשרשרת לא זורק, `RunOutcome` תקין מוחזר (`status:"partial"`, `gaps`
+      לא ריק), ו-`ledger.openReservationCount === 0` גם אחרי כישלון מוחלט. 12 בדיקות סה"כ.
 - [ ] **P5-T12 · Event sourcing** — `events.jsonl` + חידוש ([ADR-008](DECISIONS.md#adr-008)).
       *גמור:* הרג התהליך באמצע שלב 3 — הפעלה מחדש ממשיכה מ-3, לא מ-1.
 
