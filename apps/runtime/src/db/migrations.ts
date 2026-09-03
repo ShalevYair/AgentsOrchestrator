@@ -55,6 +55,14 @@ export const MIGRATIONS: Migration[] = [
       CREATE UNIQUE INDEX IF NOT EXISTS idx_events_run_seq ON events(run_id, seq);
     `,
   },
+  {
+    // P9-T1: the goal button's settings (packages/shared's GoalConfig),
+    // persisted per-thread ("נשמר לשיחה", UX.md §3) — NULL means "never
+    // customized", read back as DEFAULT_GOAL_CONFIG (see threads.repo.ts),
+    // not as a separate "unset" state the UI has to handle.
+    id: "0002_thread_goal_config",
+    sql: `ALTER TABLE threads ADD COLUMN goal_config_json TEXT;`,
+  },
 ];
 
 export function applyMigrations(driver: SqlDriver, migrations: Migration[] = MIGRATIONS): void {

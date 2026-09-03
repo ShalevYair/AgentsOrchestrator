@@ -77,6 +77,46 @@
       "text": "Text"
     }
   },
+  "goal": {
+    "title": "Goal",
+    "budgetSection": "Token budget",
+    "levels": {
+      "draft": "Draft",
+      "standard": "Standard",
+      "deep": "Deep",
+      "custom": "Custom"
+    },
+    "levelHint": {
+      "draft": "A focused question, a single file, a quick review",
+      "standard": "Default — a document, an analysis, a feature in a project",
+      "deep": "A whole project, broad research, a cross-file refactor",
+      "custom": "You're in control"
+    },
+    "derivedLimits": "Up to {{rung}} · {{ensemble}} · up to {{maxParallel}} in parallel",
+    "ensembleAllowed": "ensemble allowed",
+    "ensembleBlocked": "ensemble/debate blocked",
+    "customBudgetLabel": "Custom budget (tokens)",
+    "effortSection": "Effort level",
+    "effort": {
+      "low": "Fast",
+      "medium": "Balanced",
+      "high": "Thorough"
+    },
+    "overrunSection": "On budget overrun",
+    "overrun": {
+      "degrade": "Degrade automatically",
+      "ask": "Ask me",
+      "hard-stop": "Stop"
+    },
+    "advanced": "Advanced",
+    "maxParallelLabel": "Max parallel agents",
+    "allowScripts": "Run local scripts",
+    "allowFolderWrite": "Write to the connected folder",
+    "requirePlanApproval": "Show the plan for approval before running",
+    "close": "Close",
+    "saveFailed": "Couldn't save the goal settings. Try again.",
+    "triggerLabel": "Goal: {{level}}, {{tokens}} tokens, about {{cost}}"
+  },
   "onboarding": {
     "title": "Welcome to AgentsOrchestrator",
     "body": "To start chatting with Gemini, add an API key in Settings. You can also continue without a key and get mock replies.",

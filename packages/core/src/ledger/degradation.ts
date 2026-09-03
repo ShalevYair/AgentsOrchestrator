@@ -1,6 +1,12 @@
 import type { Ledger } from "./ledger.js";
 import { admit, type AdmitRequest } from "./admission.js";
-import type { DegradableSpec, DegradationEvent, DegradationLevel, Reservation } from "./types.js";
+import type {
+  DegradableSpec,
+  DegradationEvent,
+  DegradationLevel,
+  ExceedPolicy,
+  Reservation,
+} from "./types.js";
 
 /** BUDGET.md §5's table, in order. Index 0 is level 1. */
 const LEVEL_LABELS: Readonly<Record<DegradationLevel, string>> = {
@@ -98,7 +104,7 @@ export interface DegradationNeedsUserDecisionOutcome {
 export type DegradationOutcome = DegradationApprovedOutcome | DegradationNeedsUserDecisionOutcome;
 
 export interface DegradationOptions {
-  policy?: "degrade" | "ask" | "hard-stop";
+  policy?: ExceedPolicy;
 }
 
 /**

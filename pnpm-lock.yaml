@@ -44,6 +44,9 @@ importers:
 
   apps/runtime:
     dependencies:
+      '@ao/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@ao/platform':
         specifier: workspace:*
         version: link:../../packages/platform
@@ -75,6 +78,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@ao/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@ao/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
       '@ao/shared':
         specifier: workspace:*
         version: link:../../packages/shared

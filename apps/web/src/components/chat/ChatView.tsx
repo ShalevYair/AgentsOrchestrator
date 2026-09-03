@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import type { RuntimeEvent } from "@ao/shared";
+import type { GoalConfig, RuntimeEvent } from "@ao/shared";
+import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
 import { api, type ChatMessage } from "../../lib/api.js";
 import { RunEventSocket, type WsStatus } from "../../lib/ws.js";
 import { sumThreadTokens } from "../../lib/usage.js";
@@ -27,6 +28,8 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
   const [streamingText, setStreamingText] = React.useState<string | null>(null);
   const [wsStatus, setWsStatus] = React.useState<WsStatus | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [goalConfig, setGoalConfig] = React.useState<GoalConfig>(DEFAULT_GOAL_CONFIG);
+  const [goalSaveError, setGoalSaveError] = React.useState<string | null>(null);
   const socketRef = React.useRef<RunEventSocket | null>(null);
   // "Latest callback" ref so the tokens-changed effect below doesn't need
   // `onTokensChange` itself in its dependency array (a new function
@@ -42,6 +45,7 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
         const thread = threads[0] ?? (await api.createThread());
         if (cancelled) return;
         setThreadId(thread.id);
+        setGoalConfig(thread.goalConfig);
         const existing = await api.listMessages(thread.id);
         if (!cancelled) setMessages(existing);
       })
@@ -93,6 +97,24 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
     [threadId],
   );
 
+  /**
+   * Optimistic update (the dialog reflects the new value immediately) with
+   * rollback on failure — same pattern as every other write in this file.
+   * `threadId` is guaranteed non-null here in practice (GoalButton only
+   * renders once a thread exists), but the guard keeps this honest if that
+   * ever changes.
+   */
+  const handleGoalConfigChange = (next: GoalConfig): void => {
+    if (!threadId) return;
+    const previous = goalConfig;
+    setGoalConfig(next);
+    setGoalSaveError(null);
+    api.setGoalConfig(threadId, next).catch(() => {
+      setGoalConfig(previous);
+      setGoalSaveError(t("goal.saveFailed"));
+    });
+  };
+
   const handleSend = (text: string): void => {
     if (!threadId) return;
     setError(null);
@@ -130,7 +152,13 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
         </div>
       )}
       <MessageList messages={messages} streamingText={streamingText} />
-      <ChatInput onSend={handleSend} disabled={!threadId || streamingText !== null} />
+      <ChatInput
+        onSend={handleSend}
+        disabled={!threadId || streamingText !== null}
+        goalConfig={goalConfig}
+        onGoalConfigChange={handleGoalConfigChange}
+        goalSaveError={goalSaveError}
+      />
     </div>
   );
 }

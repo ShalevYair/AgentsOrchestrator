@@ -1,10 +1,11 @@
-import type { RuntimeEvent, SerializedError, Usage } from "@ao/shared";
+import type { GoalConfig, RuntimeEvent, SerializedError, Usage } from "@ao/shared";
 
 export interface Thread {
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
+  goalConfig: GoalConfig;
 }
 
 export interface ChatMessage {
@@ -67,6 +68,11 @@ export const api = {
   createThread: (title?: string) =>
     request<Thread>("/api/threads", { method: "POST", body: JSON.stringify({ title }) }),
   listMessages: (threadId: string) => request<ChatMessage[]>(`/api/threads/${threadId}/messages`),
+  setGoalConfig: (threadId: string, goalConfig: GoalConfig) =>
+    request<GoalConfig>(`/api/threads/${threadId}/goal-config`, {
+      method: "PUT",
+      body: JSON.stringify(goalConfig),
+    }),
   postMessage: (threadId: string, content: string) =>
     request<PostMessageResult>(`/api/threads/${threadId}/messages`, {
       method: "POST",

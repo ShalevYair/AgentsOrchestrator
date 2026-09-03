@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDatabase, type SqlDriver } from "./driver.js";
-import { applyMigrations } from "./migrations.js";
+import { applyMigrations, MIGRATIONS } from "./migrations.js";
 import { createThread, listThreads } from "./threads.repo.js";
 import { insertMessage, listMessages } from "./messages.repo.js";
 
@@ -33,7 +33,10 @@ describe("SqlDriver / migrations", () => {
     applyMigrations(driver);
     applyMigrations(driver); // must not throw on CREATE TABLE / duplicate id
     const rows = driver.all<{ id: string }>("SELECT id FROM schema_migrations");
-    expect(rows).toHaveLength(1);
+    // Derived from MIGRATIONS.length, not hardcoded — this assertion is about
+    // idempotency (no duplicate rows from the second applyMigrations call),
+    // not about how many migrations happen to exist today.
+    expect(rows).toHaveLength(MIGRATIONS.length);
     driver.close();
   });
 

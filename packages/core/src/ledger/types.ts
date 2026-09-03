@@ -1,4 +1,11 @@
-import type { AgentTier, ReadRung, ThinkingLevel, Usage } from "@ao/shared";
+import {
+  OverrunPolicySchema,
+  type AgentTier,
+  type OverrunPolicy,
+  type ReadRung,
+  type ThinkingLevel,
+  type Usage,
+} from "@ao/shared";
 
 /**
  * The six normal spending buckets from BUDGET.md §3. `reserve` is
@@ -21,9 +28,16 @@ export type BudgetBucketId = (typeof BUDGET_BUCKET_IDS)[number];
 export const RESERVE_BUCKET_ID = "reserve";
 export type LedgerBucketId = BudgetBucketId | typeof RESERVE_BUCKET_ID;
 
-/** BUDGET.md §1 — the exceed policy chosen alongside the goal button. */
-export const EXCEED_POLICIES = ["degrade", "ask", "hard-stop"] as const;
-export type ExceedPolicy = (typeof EXCEED_POLICIES)[number];
+/**
+ * BUDGET.md §1 — the exceed policy chosen alongside the goal button.
+ * `ExceedPolicy` is just `OverrunPolicy` (packages/shared's
+ * `GoalConfig.overrunPolicy`, P9-T1) under this module's pre-existing
+ * name — re-exported rather than redefined, so this package and the
+ * goal-button config it eventually drives can never disagree on the
+ * three values.
+ */
+export const EXCEED_POLICIES = OverrunPolicySchema.options;
+export type ExceedPolicy = OverrunPolicy;
 
 export interface BucketState {
   /** Tokens allocated to this bucket at construction time — fixed for the life of the Ledger. */

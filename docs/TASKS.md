@@ -1066,8 +1066,48 @@
 
 **מטרה:** להפוך מנוע לכלי. מימוש מלא של [`UX.md`](UX.md).
 
-- [ ] **P9-T1 · כפתור מטרה** — [`UX.md` §3](UX.md#3-כפתור-המטרה) במלואו, עם עלות חיה ושמירה לשיחה.
+- [x] **P9-T1 · כפתור מטרה** — [`UX.md` §3](UX.md#3-כפתור-המטרה) במלואו, עם עלות חיה ושמירה לשיחה.
       *גמור:* כל שדה משפיע בפועל על ההרצה · ה-$ מתעדכן מטבלת המחירים.
+      *כפי שמומש:* `GoalConfigSchema`/`OverrunPolicySchema` חדשים ב-`packages/shared/src/schemas/goal-config.ts`
+      (הראשונים מסוגם — אין להם קודם קיים, בניגוד לרוב הסכמות של P0-P8). `apps/web/src/components/goal/GoalButton.tsx`
+      (טריגר+Dialog, ל"תגית על התיבה מציגה את המצב הנוכחי") ו-`GoalForm.tsx` (כל שדות UX.md §3 — 4 רמות
+      תקציב, מאמץ, מדיניות חריגה, ומקטע "מתקדם" עם `<details>`) מרכיבים את הפיצ'ר. **החלטת ארכיטקטורה
+      מרכזית:** כדי שהעלות תתעדכן מ**אותה** טבלת מחירים אמיתית (`packages/providers/src/models.ts`, לא
+      עותק ב-UI) והמגבלות הנגזרות (`BUDGET_LEVEL_MAX_PARALLEL`/`MAX_RUNG`/`BLOCKS_ENSEMBLE`,
+      `packages/core/src/plan/types.ts`) לא יוכלו לסטות מהוולידטור שינ P9-T3 ישתמש בו — הוספתי **ייצוא
+      תת-נתיב** ל-`package.json` של שתי החבילות (`@ao/providers/models`, `@ao/core/plan`, `@ao/core/checkpoint`)
+      במקום ייבוא ה-barrel המלא: ה-barrel המלא של `@ao/providers` גורר `@napi-rs/keyring` (תלות נייטיב)
+      ושל `@ao/core` גורר `node:crypto`/`node:fs` (דרך `parse/`/`artifacts/`) — אף אחד מהם לא בטוח לבאנדל
+      דפדפן. אומת ישירות ש-`plan/`/`checkpoint/` נקיים לגמרי מ-`node:*` (grep), ושה-build המלא של
+      `apps/web` (כולל Vite) עדיין עובר נקי אחרי ההוספה. `DEFAULT_GOAL_CONFIG` (גם הוא ב-`plan/types.ts`,
+      לא ב-`shared`, כי `shared` לא יכול לתלות ב-`@ao/core` — נבנה מתוך `BUDGET_LEVEL_TOKENS.standard`/
+      `BUDGET_LEVEL_MAX_PARALLEL.standard` הקיימים, לא ממציא מספרים) הוא ברירת המחדל גם ב-web (מצב UI
+      התחלתי) וגם ב-runtime (thread חדש). **שמירה לשיחה אמיתית, לא מדומה:** מיגרציה `0002_thread_goal_config`
+      מוסיפה `goal_config_json` ל-`threads`; `threads.repo.ts` קורא/כותב אותו עם נפילה בטוחה ל-
+      `DEFAULT_GOAL_CONFIG` על JSON פגום (לא זורק); `PUT /api/threads/:id/goal-config` (עם `GoalConfigSchema.safeParse`)
+      חדש. **אומת אמפירית ב-Playwright אמיתי** (לא רק unit tests): שינוי רמה/תקציב מותאם/checkbox → טעינה
+      מחדש של הדף → אותם ערכים בדיוק חוזרים — כולל תקציב מותאם `777000` וה-$ הנגזר ממנו (`$1.05`, מחושב
+      נכון). **"כל שדה משפיע בפועל" — פירוט כן/לא, לא הצהרה גורפת:** `run-chat.ts` (P2's שלד-הליכה) שוכתב
+      להשתמש ב-`Ledger`/`admit` **אמיתיים** (P4) במקום קבוע `NOMINAL_BUDGET_TOKENS` — `budgetTotal`/`level`
+      קובעים את `run.started`, `effort` מוזרם כ-`thinkingLevel` אמיתי ל-`provider.generate` (אומת: הבקשה
+      שנתפסה ב-mock נושאת `thinkingLevel:"high"`), ו-`overrunPolicy` נאכף באמת: `degrade` שנכשל ב-`admit()`
+      נופל ל-`ledger.drawFromReserve` (דרגה 8, תמיד מצליחה); `ask`/`hard-stop` זורקים `BudgetExceededError`
+      **לפני** כל קריאה לספק (אומת: `provider.calls.generate.length === 0`) — אין עדיין UI לשאלה
+      אמצע-ריצה (זה P9-T9/T11), אז שניהם מתנהגים אותו דבר כרגע, בכוונה ומתועד. **לעומת זאת** `maxParallel`/
+      `allowScripts`/`allowFolderWrite`/`requirePlanApproval` **נשמרים ונטענים נכון אך אין להם עדיין השפעה
+      נצפית** — אין scheduler/tool-runner/folder-writer מחווט ל-runtime (זה עדיין הפער התשתיתי הגדול
+      שה-handoff לשלב הזה ציין; P9-T1 לא היה אמור לסגור אותו, רק לוודא שההגדרות מוכנות לרגע שהוא ייסגר).
+      **באג שנתפס תוך כדי:** `packages/core/src/ledger/types.ts` כבר הכיל `EXCEED_POLICIES`/`ExceedPolicy`
+      זהה-בערכו אך **בלתי-תלוי** (`["degrade","ask","hard-stop"] as const`, לא בשימוש בשום מקום מלבד
+      ההגדרה שלו עצמה — `runDegradationLadder`'s `policy` השתמש ב-union מוקלד-יד נפרד) — אוחד: `ExceedPolicy`
+      הוא כעת alias ל-`OverrunPolicy` (`@ao/shared`), `EXCEED_POLICIES` נגזר מ-`OverrunPolicySchema.options`,
+      ו-`runDegradationLadder` עודכן להשתמש בטיפוס המאוחד. 467 בדיקות `@ao/core` הקיימות ממשיכות לעבור
+      ללא שינוי. גם `driver.test.ts`'s בדיקת אידמפוטנטיות של מיגרציות תוקנה (הייתה עם `toHaveLength(1)`
+      קשיח שהיה נשבר בכל מיגרציה חדשה — הוחלף ב-`MIGRATIONS.length`). 7 בדיקות חדשות ב-`run-chat.test.ts`
+      (כולל תרחישי hard-stop/ask/degrade עם תקציב זעיר אמיתי), בדיקות ל-`threads.repo`/`server.test.ts`
+      (round-trip PUT+GET, דחיית קונפיג פגום, 404), ו-14 בדיקות רכיב ל-`GoalForm`/`GoalButton`.
+      ⚠️ `packages/tools`'s `docker-sandbox.test.ts` נכשלת בסביבה הזו (container טרי בלי `dockerd` רץ,
+      כפי שה-handoff הזהיר במפורש) — לא נגעתי ב-`packages/tools` בכלל, כשל סביבתי קיים-מראש ולא רגרסיה.
 - [ ] **P9-T2 · כרטיס תוכנית** — [`UX.md` §4](UX.md#4-כרטיס-התוכנית), כולל עדכון חי בתיקון + דיף.
       *גמור:* `plan.amended` מעדכן במקום · הבאנר מסביר מה השתנה ולמה.
 - [ ] **P9-T3 · עריכת תוכנית** — שינוי סוכנים, מקביליות, דרגת קריאה, הסרת שלבים אופציונליים.

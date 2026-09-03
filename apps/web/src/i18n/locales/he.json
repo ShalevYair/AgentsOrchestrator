@@ -77,6 +77,46 @@
       "text": "טקסט"
     }
   },
+  "goal": {
+    "title": "מטרה",
+    "budgetSection": "תקציב טוקנים",
+    "levels": {
+      "draft": "טיוטה",
+      "standard": "סטנדרט",
+      "deep": "עומק",
+      "custom": "מותאם"
+    },
+    "levelHint": {
+      "draft": "שאלה ממוקדת, קובץ בודד, סקירה מהירה",
+      "standard": "ברירת מחדל — מסמך, ניתוח, פיצ'ר בפרויקט",
+      "deep": "פרויקט שלם, מחקר רחב, ריפקטור חוצה־קבצים",
+      "custom": "שליטה ידנית"
+    },
+    "derivedLimits": "עד {{rung}} · {{ensemble}} · מקסימום {{maxParallel}} מקביליים",
+    "ensembleAllowed": "ensemble מותר",
+    "ensembleBlocked": "ensemble/debate חסומים",
+    "customBudgetLabel": "תקציב מותאם אישית (טוקנים)",
+    "effortSection": "רמת מאמץ",
+    "effort": {
+      "low": "מהיר",
+      "medium": "מאוזן",
+      "high": "יסודי"
+    },
+    "overrunSection": "בחריגה מהתקציב",
+    "overrun": {
+      "degrade": "הורד דרגה אוטומטית",
+      "ask": "שאל אותי",
+      "hard-stop": "עצור"
+    },
+    "advanced": "מתקדם",
+    "maxParallelLabel": "מקס' סוכנים במקביל",
+    "allowScripts": "הרצת סקריפטים מקומיים",
+    "allowFolderWrite": "כתיבה לתיקייה המחוברת",
+    "requirePlanApproval": "הצג תוכנית לאישור לפני הרצה",
+    "close": "סגור",
+    "saveFailed": "שמירת הגדרות המטרה נכשלה. נסו שוב.",
+    "triggerLabel": "מטרה: {{level}}, {{tokens}} טוקנים, בערך {{cost}}"
+  },
   "onboarding": {
     "title": "ברוכים הבאים ל-AgentsOrchestrator",
     "body": "כדי להתחיל לשוחח עם Gemini, הכניסו מפתח API בהגדרות. אפשר גם להמשיך בלי מפתח ולקבל תשובות דמה.",

@@ -161,6 +161,66 @@ describe("threads + messages", () => {
   });
 });
 
+describe("goal config", () => {
+  it("a new thread starts with the standard-level default", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<{ goalConfig: { level: string; budgetTotal: number } }>();
+    expect(thread.goalConfig).toMatchObject({ level: "standard", budgetTotal: 2_500_000 });
+  });
+
+  it("PUT persists a customized config, reflected by a subsequent GET of the thread list", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<ThreadDto>();
+
+    const customized = {
+      level: "deep",
+      budgetTotal: 5_000_000,
+      effort: "high",
+      overrunPolicy: "hard-stop",
+      maxParallel: 12,
+      allowScripts: true,
+      allowFolderWrite: true,
+      requirePlanApproval: true,
+    };
+    const put = await app.inject({
+      method: "PUT",
+      url: `/api/threads/${thread.id}/goal-config`,
+      payload: customized,
+    });
+    expect(put.statusCode).toBe(200);
+    expect(put.json()).toEqual(customized);
+
+    const list = await app.inject({ method: "GET", url: "/api/threads" });
+    const [found] = list.json<{ id: string; goalConfig: unknown }[]>();
+    expect(found?.goalConfig).toEqual(customized);
+  });
+
+  it("rejects a malformed config and leaves the stored one untouched", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<ThreadDto>();
+
+    const put = await app.inject({
+      method: "PUT",
+      url: `/api/threads/${thread.id}/goal-config`,
+      payload: { level: "not-a-real-level" },
+    });
+    expect(put.statusCode).toBe(400);
+
+    const list = await app.inject({ method: "GET", url: "/api/threads" });
+    const [found] = list.json<{ goalConfig: { level: string } }[]>();
+    expect(found?.goalConfig.level).toBe("standard");
+  });
+
+  it("404s for an unknown thread", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/threads/thr_missing/goal-config",
+      payload: {},
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
 describe("keys", () => {
   it("reports no key stored by default, then set/status/delete round-trips", async () => {
     const status0 = await app.inject({ method: "GET", url: "/api/keys/status" });
