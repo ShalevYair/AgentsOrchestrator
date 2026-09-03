@@ -15,8 +15,8 @@
       "default": "./dist/plan/index.js"
     },
     "./checkpoint": {
-      "types": "./dist/checkpoint/index.d.ts",
-      "default": "./dist/checkpoint/index.js"
+      "types": "./dist/checkpoint/browser.d.ts",
+      "default": "./dist/checkpoint/browser.js"
     }
   },
   "scripts": {

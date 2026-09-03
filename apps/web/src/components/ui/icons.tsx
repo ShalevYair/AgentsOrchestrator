@@ -128,3 +128,11 @@ export function ImageIcon(props: IconProps): React.JSX.Element {
     </Icon>
   );
 }
+
+export function ChevronDown(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}

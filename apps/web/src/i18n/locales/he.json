@@ -136,6 +136,21 @@
     "cancel": "בטל",
     "validationErrors": "יש לתקן לפני ההרצה:"
   },
+  "board": {
+    "title": "לוח תזמור",
+    "empty": "אין ריצה פעילה",
+    "collapse": "כווץ את לוח התזמור",
+    "expand": "הרחב את לוח התזמור",
+    "stageProgress": "{{done}}/{{total}}",
+    "tokensActual": "{{actual}} / {{estimate}}",
+    "status": {
+      "pending": "ממתין",
+      "running": "פועל",
+      "done": "הושלם",
+      "issue": "יש בעיה",
+      "skipped": "דולג"
+    }
+  },
   "onboarding": {
     "title": "ברוכים הבאים ל-AgentsOrchestrator",
     "body": "כדי להתחיל לשוחח עם Gemini, הכניסו מפתח API בהגדרות. אפשר גם להמשיך בלי מפתח ולקבל תשובות דמה.",

@@ -136,6 +136,21 @@
     "cancel": "Cancel",
     "validationErrors": "Fix before running:"
   },
+  "board": {
+    "title": "Orchestration board",
+    "empty": "No active run",
+    "collapse": "Collapse the orchestration board",
+    "expand": "Expand the orchestration board",
+    "stageProgress": "{{done}}/{{total}}",
+    "tokensActual": "{{actual}} / {{estimate}}",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "done": "Done",
+      "issue": "Issue",
+      "skipped": "Skipped"
+    }
+  },
   "onboarding": {
     "title": "Welcome to AgentsOrchestrator",
     "body": "To start chatting with Gemini, add an API key in Settings. You can also continue without a key and get mock replies.",

@@ -62,4 +62,13 @@ export function formatTokenCount(tokens: number): string {
 /** Fixed levels only — "custom" has no built-in token count (BUDGET_LEVEL_TOKENS.custom is undefined). */
 export const FIXED_BUDGET_LEVELS: readonly Exclude<BudgetLevel, "custom">[] = ["draft", "standard", "deep"];
 
+/** Client-measured elapsed time (P9-T4's task rows: "time" — see run-state.ts's TaskState doc comment on why this is wall-clock-from-the-browser, not server-authoritative) as "12s" / "1m 05s". */
+export function formatDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes === 0) return `${String(seconds)}s`;
+  return `${String(minutes)}m ${String(seconds).padStart(2, "0")}s`;
+}
+
 export { WORKER_MODEL_ID, MODEL_REGISTRY };

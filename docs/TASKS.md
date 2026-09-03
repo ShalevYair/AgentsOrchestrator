@@ -1170,8 +1170,55 @@
       חזרה מפעיל שוב את השמירה, הסרת שלב אופציונלי מעדכנת את הכרטיס והצפי, ו-`onRun`/`onPlanEdited` מקבלים
       את התוכנית הערוכה בפועל (לא את המקורית). 11+8=19 בדיקות רכיב/יחידה חדשות
       (`plan-edit.test.ts`, `plan-validation.test.ts`, `PlanEditor.test.tsx`) + עדכון `PlanCard.test.tsx`.
-- [ ] **P9-T4 · לוח תזמור** — שלוש הרמות מ-[`UX.md` §5](UX.md#5-לוח-התזמור).
+- [x] **P9-T4 · לוח תזמור** — שלוש הרמות מ-[`UX.md` §5](UX.md#5-לוח-התזמור).
       *גמור:* 20 סוכנים מקבילים ללא גמגום · ניווט מקלדת מלא.
+      *כפי שמומש:* **רק רמות 1+2** ממומשות כאן (עץ שלבים/משימות `role="tree"`) — רמה 3 (הקופסה
+      השקופה) היא מגירה נפרדת שנפתחת דרך `onSelectTask` (prop קיים ומחווט, עדיין לא מטופל ע"י אף
+      caller — זה בדיוק מה ש-P9-T5 בונה). `apps/web/src/lib/run-state.ts` הורחב (`StageState`,
+      `TaskState`, `tasksByStage`, `currentStageId`) כדי לתמוך בלוח: **`task.started` לא נושא `stageId`**
+      (PROTOCOLS.md §9) — `currentStageId` עוקב אחרי זה, לא ניחוש: P5-T4's scheduler מריץ שלבים ברצף
+      קפדני (לעולם לא שני שלבים חופפים), אז "השלב שהתחיל אחרון ועוד לא הסתיים" הוא חד-משמעי. גם
+      סטטוס שלב/משימה **נגזר** מהשדות הקיימים ולא ממציא שדה חדש בפרוטוקול: `criteriaMet` מול
+      `successCriteria` המוצהר של השלב בתוכנית (`done`/`issue`/`skipped`), `finishReason`+`violations`
+      למשימה. `OrchestrationBoard.tsx` (חדש) — עץ נגיש מלא: `role="tree"`/`"treeitem"`, `aria-expanded`/
+      `aria-level`, roving-tabindex עם ניווט מקלדת מלא (`↑`/`↓`/`Home`/`End`/`→` פותח או יורד/`←` סוגר
+      או עולה להורה/`Enter`+`Space` מפעילים). הרחבה ראשונית (`useState` עצל): השלב הרץ, ואם אין (טעינה
+      לתוך ריצה שכבר הסתיימה/reconnect) — השלב האחרון שהיה פעיל בסדר התוכנית; **זה תיקן באג אמיתי**
+      שנתפס באמצע העבודה — `useEffect` תגובתי-בלבד לא הרחיב שלב שכבר *היה* גמור ברגע ה-mount הראשון.
+      **ביצועים ל"20 מקבילים ללא גמגום" — לא הנחה, מומש ונבדק:** `run-state.ts`'s `withEntry` מחליף
+      רשומה *אחת* ב-`Record` ומשאיר את כל השאר עם אותו object reference; `StageRow`/`TaskRow` שניהם
+      `React.memo(React.forwardRef(...))`; `doneCountByStage` מחושב **פעם אחת** בהורה (לא בכל שורה).
+      בדיקה ייעודית ב-`run-state.test.ts` מוכיחה יציבות reference בין 20 משימות מקביליות כש-`task.delta`
+      אחד מגיע. `ChatView.tsx` שולב: הלוח מוצג כ-`<aside>` צד לצד לזרם ההודעות, **רק כש-`runState.plan`
+      קיים** (UX.md §1: "בלי ... ריצה פעילה — הלוח מוסתר לגמרי") — לא תמיד-מורכב. כפתור קיפול/הרחבה
+      ידני (`נפתח/נסגר` מ-UX.md §1) מכווץ את הפאנל לרצועה דקה (`w-10`, לא משאיר שטח ריק גדול), עם
+      `aria-expanded`+`aria-label` תקינים. מיקום הלוח בפריסה מבוסס **אך ורק על מאפייני CSS לוגיים**
+      (`border-s`, סדר DOM בתוך `flex` רגיל) — **לא** ענף JS לפי כיוון; אומת אמפירית: RTL מציב את הלוח
+      בצד ימין (תואם את מוקאפ UX.md §1) והיפוך ל-`dir="ltr"` מראה שהלוח עובר לצד שמאל **אוטומטית**,
+      בלי שינוי קוד.
+      **באג אמיתי וחמור שנתפס ותוקן תוך כדי אימות ב-Playwright, לא קשור ללוח עצמו:** האפליקציה **כולה**
+      קרסה (מסך ריק) בכל דפדפן אמיתי — `run-state.ts` (P9-T2) מייבא `applyJsonPatch` מ-`@ao/core/checkpoint`,
+      וה-barrel המלא של `checkpoint/index.ts` גורר (`export * from "./agent.js"`) את `continuation/` ←
+      `parse/ndjson.ts` ← `node:crypto`; Vite מנטרל `node:crypto` בבאנדל דפדפן וזורק ברגע שהבינדינג
+      נקרא — **בזמן טעינת המודול, לא רק בזמן קריאה בפועל**. זה היה קיים מאז P9-T2 ולא נתפס כי אף harness
+      קודם לא הרכיב את `ChatView` המלאה בדפדפן אמיתי (T4 הוא הראשון). **התיקון:** `packages/core/src/
+      checkpoint/browser.ts` חדש — גזרה טהורה-דפדפן (`json-pointer`+`json-patch-apply`+`diff` בלבד, בדיוק
+      מה ש-`run-state.ts` צריך), ו-`packages/core/package.json`'s `./checkpoint` export מצביע אליה במקום
+      ל-`checkpoint/index.ts` המלא. הכניסה הראשית `@ao/core` (בשימוש שרת ב-runtime) **לא** נגעה בה —
+      עדיין ה-barrel המלא. `apps/runtime`/שאר `packages/core` לא מייבאים דרך תת-הנתיב הזה בכלל (רק
+      `apps/web` עושה זאת), אז אין סיכון לשבור שימוש קיים. אומת: האפליקציה האמיתית (`/index.html`,
+      לא רק ה-harness) עולה נקי אחרי התיקון (`document.getElementById("root")` מתמלא, אין `pageerror`).
+      אומת ב-Chromium אמיתי (לא רק unit tests) עם harness זמני שהרכיב את `ChatView` **האמיתית** עצמה
+      (לא עותק) דרך mock ל-`window.fetch`/`window.WebSocket` ברמת הדפדפן: 20 משימות מקבילות בשלב אחד +
+      שלב סינתזה בודד אחריו, כולל `task.delta` באמצע (זרם לא מפריע לשורות אחרות), סטטוסים מעורבים
+      (✅/⚠️/⏳), ניווט מקלדת מלא, קיפול/הרחבת הפאנל, וסיום ריצה (`run.finished`) — הכל עם RTL עברי
+      תקין (טוקנים אטומיים ב-`<bdi>` נפרדים, כמו התיקון מ-T2, ללא הישנות). נתפסה גם באג-fixture משלי
+      (לא קוד המוצר): `fanout.mode:"single"` עדיין דורש `count`/`maxParallel` בסכמה (`FanoutSchema`
+      אינה union לפי מצב) — תוקן ב-harness, לא ב-`PlanCard`/`plan-edit.ts` שהיו נכונים מלכתחילה.
+      harness.html/harness.tsx נמחקו לפני commit, כרגיל. 12 בדיקות רכיב חדשות (`OrchestrationBoard.test.tsx`)
+      + 11 בדיקות reducer חדשות (`run-state.test.ts`, 18 סה"כ בקובץ). ריצה מלאה של המונו-רפו אחרי הכל
+      (typecheck+lint+test בכל 9 החבילות): 1154/1155 עוברות — הכשל היחיד הוא `docker-sandbox.test.ts`
+      הידוע-מראש (סביבה בלי `dockerd`), לא רגרסיה.
 - [ ] **P9-T5 · קופסה שקופה** — הקשר מפורק, פלט זורם, שימוש, העתקה/הרצה חוזרת/ייצוא.
       *גמור:* אפשר לענות "למה הסוכן הזה החזיר את זה" רק מהמסך הזה.
 - [ ] **P9-T6 · מד תקציב** — [`UX.md` §1](UX.md#1-פריסה) + [`BUDGET.md` §8](BUDGET.md#8-תצוגה-למשתמש): צפי סיום, כתום ב-75%, אדום ב-90%.

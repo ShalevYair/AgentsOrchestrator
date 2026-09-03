@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateCostUsd, formatTokenCount, formatUsd } from "./cost.js";
+import { estimateCostUsd, formatDuration, formatTokenCount, formatUsd } from "./cost.js";
 
 describe("estimateCostUsd", () => {
   // BUDGET.md §1's own worked examples — this is the regression check that
@@ -58,5 +58,21 @@ describe("formatTokenCount", () => {
   it("formats small counts verbatim", () => {
     expect(formatTokenCount(999)).toBe("999");
     expect(formatTokenCount(0)).toBe("0");
+  });
+});
+
+describe("formatDuration", () => {
+  it("shows seconds only under a minute", () => {
+    expect(formatDuration(12_000)).toBe("12s");
+    expect(formatDuration(0)).toBe("0s");
+  });
+
+  it("shows minutes and zero-padded seconds at or above a minute", () => {
+    expect(formatDuration(65_000)).toBe("1m 05s");
+    expect(formatDuration(600_000)).toBe("10m 00s");
+  });
+
+  it("never goes negative for a slightly-off clock reading", () => {
+    expect(formatDuration(-50)).toBe("0s");
   });
 });

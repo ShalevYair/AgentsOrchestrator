@@ -139,3 +139,210 @@ describe("applyRuntimeEvent", () => {
     expect(next).toBe(state); // same reference — default branch returns state as-is
   });
 });
+
+describe("applyRuntimeEvent — orchestration board (P9-T4)", () => {
+  it("stage.started creates the stage entry, tracks order, and sets currentStageId", () => {
+    const next = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("stage.started", { stageId: "s1", taskCount: 6, tokensUsed: 0, criteriaMet: [] }),
+    );
+    expect(next.stages["s1"]).toEqual({
+      stageId: "s1",
+      status: "running",
+      taskCount: 6,
+      tokensUsed: 0,
+      criteriaMet: [],
+    });
+    expect(next.stageOrder).toEqual(["s1"]);
+    expect(next.currentStageId).toBe("s1");
+  });
+
+  it("task.started attributes the task to currentStageId (task.started itself carries no stageId)", () => {
+    const afterStage = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("stage.started", { stageId: "s1", taskCount: 1, tokensUsed: 0, criteriaMet: [] }),
+    );
+    const next = applyRuntimeEvent(
+      afterStage,
+      event("task.started", { taskId: "t1", agentType: "reader", shard: "module-a", contextTokens: 5000 }),
+    );
+    expect(next.tasks["t1"]).toMatchObject({
+      taskId: "t1",
+      stageId: "s1",
+      agentType: "reader",
+      status: "running",
+    });
+    expect(next.tasksByStage["s1"]).toEqual(["t1"]);
+    expect(next.tasks["t1"]?.startedAt).toBeGreaterThan(0);
+  });
+
+  it("task.delta only replaces its own task's entry — every other task keeps the same object reference (no board-wide jank)", () => {
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("stage.started", { stageId: "s1", taskCount: 2, tokensUsed: 0, criteriaMet: [] }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("task.started", { taskId: "t1", agentType: "reader", shard: "a", contextTokens: 1000 }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("task.started", { taskId: "t2", agentType: "reader", shard: "b", contextTokens: 1000 }),
+    );
+    const t2Before = state.tasks["t2"];
+
+    const next = applyRuntimeEvent(
+      state,
+      event("task.delta", { taskId: "t1", envelope: { t: "note", text: "hi" } }),
+    );
+
+    expect(next.tasks["t1"]?.deltas).toEqual([{ t: "note", text: "hi" }]);
+    expect(next.tasks["t2"]).toBe(t2Before); // reference-equal — untouched
+  });
+
+  it("task.delta for an unknown task id is a no-op", () => {
+    const next = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("task.delta", { taskId: "ghost", envelope: { t: "note", text: "x" } }),
+    );
+    expect(next).toBe(INITIAL_RUN_STATE);
+  });
+
+  it("task.finished derives 'done' for a clean stop with no violations, 'issue' otherwise", () => {
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("stage.started", { stageId: "s1", taskCount: 2, tokensUsed: 0, criteriaMet: [] }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("task.started", { taskId: "t1", agentType: "reader", shard: "a", contextTokens: 1000 }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("task.started", { taskId: "t2", agentType: "reader", shard: "b", contextTokens: 1000 }),
+    );
+
+    const usage = { promptTokens: 100, candidatesTokens: 50, thoughtsTokens: 0, cachedTokens: 0 };
+    const done = applyRuntimeEvent(
+      state,
+      event("task.finished", { taskId: "t1", usage, finishReason: "stop", violations: 0 }),
+    );
+    expect(done.tasks["t1"]?.status).toBe("done");
+    expect(done.tasks["t1"]?.finishedAt).toBeGreaterThan(0);
+
+    const issueByViolation = applyRuntimeEvent(
+      state,
+      event("task.finished", { taskId: "t2", usage, finishReason: "stop", violations: 2 }),
+    );
+    expect(issueByViolation.tasks["t2"]?.status).toBe("issue");
+  });
+
+  it("task.finished with finishReason other than stop is an issue even with zero violations", () => {
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("stage.started", { stageId: "s1", taskCount: 1, tokensUsed: 0, criteriaMet: [] }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("task.started", { taskId: "t1", agentType: "reader", shard: "a", contextTokens: 1000 }),
+    );
+    const usage = { promptTokens: 100, candidatesTokens: 50, thoughtsTokens: 0, cachedTokens: 0 };
+    const next = applyRuntimeEvent(
+      state,
+      event("task.finished", { taskId: "t1", usage, finishReason: "max_tokens", violations: 0 }),
+    );
+    expect(next.tasks["t1"]?.status).toBe("issue");
+  });
+
+  it("stage.finished derives 'done' when every declared successCriteria was met", () => {
+    const plan = buildPlan([buildStage({ id: "s1", successCriteria: ["a", "b"] })]);
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("plan.ready", { plan, estimatedTokens: 1000, requiresApproval: false }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("stage.started", { stageId: "s1", taskCount: 6, tokensUsed: 0, criteriaMet: [] }),
+    );
+    const next = applyRuntimeEvent(
+      state,
+      event("stage.finished", { stageId: "s1", taskCount: 6, tokensUsed: 228000, criteriaMet: ["a", "b"] }),
+    );
+    expect(next.stages["s1"]?.status).toBe("done");
+    expect(next.currentStageId).toBeNull(); // the finished stage was the current one
+  });
+
+  it("stage.finished derives 'issue' when some declared criteria weren't met", () => {
+    const plan = buildPlan([buildStage({ id: "s1", successCriteria: ["a", "b"] })]);
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("plan.ready", { plan, estimatedTokens: 1000, requiresApproval: false }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("stage.started", { stageId: "s1", taskCount: 6, tokensUsed: 0, criteriaMet: [] }),
+    );
+    const next = applyRuntimeEvent(
+      state,
+      event("stage.finished", { stageId: "s1", taskCount: 6, tokensUsed: 228000, criteriaMet: ["a"] }),
+    );
+    expect(next.stages["s1"]?.status).toBe("issue");
+  });
+
+  it("stage.finished derives 'skipped' when the stage produced zero tasks", () => {
+    const next = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("stage.finished", { stageId: "s2", taskCount: 0, tokensUsed: 0, criteriaMet: [] }),
+    );
+    expect(next.stages["s2"]?.status).toBe("skipped");
+  });
+
+  it("sequential stages don't clobber each other — s1 stays in stages/stageOrder once s2 starts", () => {
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("stage.started", { stageId: "s1", taskCount: 1, tokensUsed: 0, criteriaMet: [] }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("stage.finished", { stageId: "s1", taskCount: 1, tokensUsed: 1000, criteriaMet: [] }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("stage.started", { stageId: "s2", taskCount: 1, tokensUsed: 0, criteriaMet: [] }),
+    );
+
+    expect(state.stageOrder).toEqual(["s1", "s2"]);
+    expect(state.stages["s1"]).toBeDefined();
+    expect(state.currentStageId).toBe("s2");
+  });
+
+  it("handles 20 parallel tasks within one stage — every task tracked, none dropped or merged", () => {
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("stage.started", { stageId: "s1", taskCount: 20, tokensUsed: 0, criteriaMet: [] }),
+    );
+    for (let i = 0; i < 20; i++) {
+      state = applyRuntimeEvent(
+        state,
+        event("task.started", {
+          taskId: `t${String(i)}`,
+          agentType: "reader",
+          shard: `shard-${String(i)}`,
+          contextTokens: 1000,
+        }),
+      );
+    }
+    expect(state.tasksByStage["s1"]).toHaveLength(20);
+    expect(Object.keys(state.tasks)).toHaveLength(20);
+
+    // Finishing task 10 must not disturb any of the other 19.
+    const usage = { promptTokens: 10, candidatesTokens: 5, thoughtsTokens: 0, cachedTokens: 0 };
+    const task5Before = state.tasks["t5"];
+    const next = applyRuntimeEvent(
+      state,
+      event("task.finished", { taskId: "t10", usage, finishReason: "stop", violations: 0 }),
+    );
+    expect(next.tasks["t10"]?.status).toBe("done");
+    expect(next.tasks["t5"]).toBe(task5Before);
+  });
+});
