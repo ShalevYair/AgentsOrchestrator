@@ -8,6 +8,7 @@ export * from "./file-envelope.js";
 export * from "./checkpoint.js";
 export * from "./blackboard.js";
 export * from "./outline-spec.js";
+export * from "./seam-stitch.js";
 export * from "./agent-registry.js";
 export * from "./events.js";
 export * from "./json-schema.js";
