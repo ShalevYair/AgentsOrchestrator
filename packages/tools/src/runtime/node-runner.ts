@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { LocalTool, ToolResult } from "@ao/shared";
 import type { Sandbox } from "../sandbox/types.js";
+import type { ToolRunLog } from "../transparency/tool-run-log.js";
 import { buildToolResult } from "./tool-result.js";
 
 export interface RunNodeToolOptions {
@@ -11,6 +12,8 @@ export interface RunNodeToolOptions {
   stagingRoot: string;
   /** Injectable for tests; defaults to the Node binary currently running this process. */
   nodeBin?: string;
+  /** P7-T6 — when provided, every run is recorded (script, output size, exit code, timing), regardless of success/failure. */
+  runLog?: ToolRunLog;
 }
 
 /**
@@ -76,6 +79,7 @@ export async function runNodeTool(options: RunNodeToolOptions): Promise<ToolResu
   writeFileSync(join(workDir, "script.js"), options.tool.script, "utf8");
   writeFileSync(join(workDir, "inputs.json"), JSON.stringify(options.tool.inputs), "utf8");
 
+  const startedAtMs = Date.now();
   const runResult = await options.sandbox.run({
     command: nodeBin,
     args: [`--max-old-space-size=${String(options.tool.limits.memoryMb)}`, "script.js", "inputs.json"],
@@ -87,6 +91,7 @@ export async function runNodeTool(options: RunNodeToolOptions): Promise<ToolResu
     network: options.tool.limits.network,
     env: {},
   });
+  options.runLog?.record(options.tool, runResult, startedAtMs);
 
   return buildToolResult(options.tool, runResult);
 }

@@ -9,6 +9,7 @@ import {
   ensureVenv,
   type EnsureVenvOptions,
 } from "./python-venv.js";
+import type { ToolRunLog } from "../transparency/tool-run-log.js";
 import { buildToolResult } from "./tool-result.js";
 
 export interface RunPythonToolOptions {
@@ -22,6 +23,8 @@ export interface RunPythonToolOptions {
   interpreter?: PythonInterpreter | null;
   allowlist?: string[];
   ensureVenvFn?: typeof ensureVenv;
+  /** P7-T6 — when provided, every run is recorded (script, output size, exit code, timing), regardless of success/failure. */
+  runLog?: ToolRunLog;
 }
 
 export class PythonInterpreterNotFoundError extends Error {
@@ -67,6 +70,7 @@ export async function runPythonTool(options: RunPythonToolOptions): Promise<Tool
   writeFileSync(join(workDir, "script.py"), options.tool.script, "utf8");
   writeFileSync(join(workDir, "inputs.json"), JSON.stringify(options.tool.inputs), "utf8");
 
+  const startedAtMs = Date.now();
   const runResult = await options.sandbox.run({
     command: pythonBin,
     args: ["script.py", "inputs.json"],
@@ -78,6 +82,7 @@ export async function runPythonTool(options: RunPythonToolOptions): Promise<Tool
     network: options.tool.limits.network,
     env: { PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" },
   });
+  options.runLog?.record(options.tool, runResult, startedAtMs);
 
   return buildToolResult(options.tool, runResult);
 }
