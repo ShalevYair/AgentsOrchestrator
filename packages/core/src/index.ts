@@ -16,3 +16,4 @@ export * from "./toolsmith/index.js";
 export * from "./outliner/index.js";
 export * from "./assembler/index.js";
 export * from "./validation/index.js";
+export * from "./artifacts/index.js";
