@@ -346,3 +346,66 @@ describe("applyRuntimeEvent — orchestration board (P9-T4)", () => {
     expect(next.tasks["t5"]).toBe(task5Before);
   });
 });
+
+describe("applyRuntimeEvent — budget meter (P9-T6)", () => {
+  it("ledger.updated stores the real spent/committed/remaining/byStage from the wire", () => {
+    const next = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("ledger.updated", {
+        spent: 120_000,
+        committed: 30_000,
+        remaining: 2_350_000,
+        projection: 150_000,
+        byStage: { chat: 120_000 },
+      }),
+    );
+    expect(next.spent).toBe(120_000);
+    expect(next.committed).toBe(30_000);
+    expect(next.remaining).toBe(2_350_000);
+    expect(next.byStage).toEqual({ chat: 120_000 });
+  });
+
+  it("a later ledger.updated replaces the earlier snapshot rather than merging byStage", () => {
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("ledger.updated", {
+        spent: 100,
+        committed: 0,
+        remaining: 999_900,
+        projection: 100,
+        byStage: { s1: 100 },
+      }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("ledger.updated", {
+        spent: 300,
+        committed: 0,
+        remaining: 999_700,
+        projection: 300,
+        byStage: { s1: 200, s2: 100 },
+      }),
+    );
+    expect(state.spent).toBe(300);
+    expect(state.byStage).toEqual({ s1: 200, s2: 100 });
+  });
+
+  it("run.started resets spent/committed/remaining/byStage along with everything else", () => {
+    const afterLedger = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("ledger.updated", {
+        spent: 500,
+        committed: 0,
+        remaining: 999_500,
+        projection: 500,
+        byStage: { s1: 500 },
+      }),
+    );
+    const next = applyRuntimeEvent(
+      afterLedger,
+      event("run.started", { runId: "run_test123", budget: 1_000_000, mode: "standard" }),
+    );
+    expect(next.spent).toBe(0);
+    expect(next.byStage).toEqual({});
+  });
+});

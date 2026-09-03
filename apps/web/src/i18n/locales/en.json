@@ -3,8 +3,6 @@
     "title": "AgentsOrchestrator"
   },
   "header": {
-    "tokensUsed": "{{count}} tokens",
-    "tokensUsed_zero": "0 tokens",
     "settingsButton": "Settings",
     "themeToggle": "Toggle theme",
     "themeLight": "Light mode",
@@ -184,6 +182,22 @@
         "truncated": "(truncated)",
         "criteria": "{{met}}/{{total}} criteria"
       }
+    }
+  },
+  "budgetMeter": {
+    "triggerLabel": "Budget: {{spent}} of {{total}} tokens used",
+    "spent": "Spent",
+    "committed": "Committed",
+    "remaining": "Remaining",
+    "projection": "Projected total",
+    "noProjection": "Not enough data yet for a projection.",
+    "byStage": "By stage",
+    "warningNote": "Approaching the budget.",
+    "dangerNote": "Very close to the budget.",
+    "toast": {
+      "degraded": "{{amount}} tokens drawn from the reserve to keep this going.",
+      "degradedClamped": "{{amount}} tokens drawn from the reserve (already low) to keep this going.",
+      "dismiss": "Dismiss"
     }
   },
   "onboarding": {

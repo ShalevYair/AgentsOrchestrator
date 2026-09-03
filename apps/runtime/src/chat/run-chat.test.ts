@@ -127,8 +127,20 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
 
     expect(provider.calls.generate).toHaveLength(1);
     expect(assistantMessage.content).toBe("hi back");
-    const finished = listEventsSince(driver, runId, -1).find((e) => e.type === "run.finished");
+    const events = listEventsSince(driver, runId, -1);
+    const finished = events.find((e) => e.type === "run.finished");
     expect(finished).toMatchObject({ payload: { status: "completed" } });
+
+    // BUDGET.md §8 / P9-T6: the reserve draw itself is real and must be
+    // visible on the wire (not just inferred from the run completing).
+    // `clamped: true` here is real, not a guess — this budget is so tiny
+    // that even the reserve itself can't cover the full worst-case draw.
+    const degraded = events.find((e) => e.type === "budget.degraded");
+    expect(degraded).toMatchObject({
+      payload: { stageId: "chat", agentType: "chat", clamped: true },
+    });
+    const degradedPayload = degraded?.payload as { amount: number };
+    expect(degradedPayload.amount).toBeGreaterThan(0);
   });
 
   it("a comfortable standard budget is approved through plain admission, no degradation needed", async () => {

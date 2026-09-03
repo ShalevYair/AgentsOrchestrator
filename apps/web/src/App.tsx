@@ -2,6 +2,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { isRtl } from "./i18n/index.js";
 import { api } from "./lib/api.js";
+import type { BudgetMeterInfo } from "./lib/budget-projection.js";
 import { Header } from "./components/layout/Header.js";
 import { ChatView } from "./components/chat/ChatView.js";
 import { SettingsDialog } from "./components/settings/SettingsDialog.js";
@@ -23,7 +24,7 @@ function useDocumentLocale(): string {
 export default function App(): React.JSX.Element {
   useDocumentLocale();
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [tokens, setTokens] = React.useState(0);
+  const [budgetInfo, setBudgetInfo] = React.useState<BudgetMeterInfo | null>(null);
   const checkedOnboarding = React.useRef(false);
 
   React.useEffect(() => {
@@ -44,9 +45,9 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className="flex h-screen flex-col">
-      <Header tokens={tokens} onOpenSettings={() => setSettingsOpen(true)} />
+      <Header budgetInfo={budgetInfo} onOpenSettings={() => setSettingsOpen(true)} />
       <main className="flex flex-1 overflow-hidden">
-        <ChatView onTokensChange={setTokens} />
+        <ChatView onBudgetChange={setBudgetInfo} />
       </main>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>

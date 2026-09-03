@@ -56,6 +56,12 @@ const EXAMPLES: unknown[] = [
     },
   },
   {
+    type: "budget.degraded",
+    runId: RUN_ID,
+    seq: 6,
+    payload: { stageId: "chat", agentType: "chat", amount: 12_000, clamped: false },
+  },
+  {
     type: "checkpoint.decision",
     runId: RUN_ID,
     seq: 7,

@@ -3,8 +3,6 @@
     "title": "AgentsOrchestrator"
   },
   "header": {
-    "tokensUsed": "{{count}} טוקנים",
-    "tokensUsed_zero": "0 טוקנים",
     "settingsButton": "הגדרות",
     "themeToggle": "החלף ערכת נושא",
     "themeLight": "מצב בהיר",
@@ -184,6 +182,22 @@
         "truncated": "(קוצץ)",
         "criteria": "{{met}}/{{total}} קריטריונים"
       }
+    }
+  },
+  "budgetMeter": {
+    "triggerLabel": "תקציב: נוצלו {{spent}} מתוך {{total}} טוקנים",
+    "spent": "נוצל",
+    "committed": "משוריין",
+    "remaining": "נותר",
+    "projection": "צפי סופי",
+    "noProjection": "עדיין אין מספיק נתונים לצפי.",
+    "byStage": "לפי שלב",
+    "warningNote": "מתקרב לתקציב.",
+    "dangerNote": "קרוב מאוד לתקציב.",
+    "toast": {
+      "degraded": "נשאבו {{amount}} טוקנים מהרזרבה כדי להמשיך.",
+      "degradedClamped": "נשאבו {{amount}} טוקנים מהרזרבה (כמעט ריקה) כדי להמשיך.",
+      "dismiss": "סגור התראה"
     }
   },
   "onboarding": {

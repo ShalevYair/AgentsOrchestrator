@@ -108,6 +108,22 @@ export const LedgerUpdatedEventSchema = event(
   }),
 );
 
+/**
+ * PROTOCOLS.md §9 doesn't list this one yet — added for P9-T6's degradation
+ * toasts (BUDGET.md §8). `Ledger.drawFromReserve` (P4) is the only place
+ * that actually performs a degradation today; this fires right there, with
+ * its own real return value (`amount`/`clamped`), not invented numbers.
+ */
+export const BudgetDegradedEventSchema = event(
+  "budget.degraded",
+  z.strictObject({
+    stageId: StageIdSchema,
+    agentType: z.string().min(1),
+    amount: z.number().int().nonnegative(),
+    clamped: z.boolean(),
+  }),
+);
+
 export const CheckpointDecisionEventSchema = event("checkpoint.decision", CheckpointDecisionSchema);
 
 export const ToolExecutedEventSchema = event(
@@ -179,6 +195,7 @@ export const RuntimeEventSchema = z.discriminatedUnion("type", [
   TaskDeltaEventSchema,
   TaskFinishedEventSchema,
   LedgerUpdatedEventSchema,
+  BudgetDegradedEventSchema,
   CheckpointDecisionEventSchema,
   ToolExecutedEventSchema,
   EgressRecordedEventSchema,

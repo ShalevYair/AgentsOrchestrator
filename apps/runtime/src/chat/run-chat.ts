@@ -121,6 +121,12 @@ export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatT
     // which doesn't exist on this path) — drawing from reserve is the only
     // degradation lever a single call has.
     reservation = ledger.drawFromReserve(worstCase, { stageId: CHAT_STAGE_ID, agentType: "chat" });
+    hub.publish(run.id, "budget.degraded", {
+      stageId: CHAT_STAGE_ID,
+      agentType: "chat",
+      amount: reservation.amount,
+      clamped: reservation.clamped,
+    });
   } else {
     // "ask" and "hard-stop" both mean: don't spend without either the
     // user's explicit go-ahead or an explicit stop. There's no mid-turn

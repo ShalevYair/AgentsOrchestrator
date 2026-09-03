@@ -65,6 +65,20 @@ export interface RunState {
    * most recently started and hasn't finished yet" is unambiguous.
    */
   currentStageId: string | null;
+  /**
+   * The `Ledger`'s own real accounting for this run (P9-T6) — `spent`
+   * (already used) and `committed` (reserved for in-flight work, not yet
+   * settled) are tracked separately because `budgetSeverity` needs their
+   * sum: a reservation makes tokens unavailable to the rest of the run
+   * just as surely as spending them does, so a run sitting on a huge
+   * in-flight commitment should read as "close to the limit" even before
+   * any of it actually settles.
+   */
+  spent: number;
+  committed: number;
+  remaining: number;
+  /** Per-stage actual spend from the Ledger's own snapshot — BUDGET.md §8's "פירוט לפי שלב". For today's real (single-turn, no-scheduler) chat path this is just `{chat: N}`; a real multi-stage run would report one entry per stage. */
+  byStage: Record<string, number>;
 }
 
 export const INITIAL_RUN_STATE: RunState = {
@@ -79,6 +93,10 @@ export const INITIAL_RUN_STATE: RunState = {
   tasks: {},
   tasksByStage: {},
   currentStageId: null,
+  spent: 0,
+  committed: 0,
+  remaining: 0,
+  byStage: {},
 };
 
 /**
@@ -244,6 +262,11 @@ export function applyRuntimeEvent(state: RunState, event: RuntimeEvent): RunStat
           violations,
         }),
       };
+    }
+
+    case "ledger.updated": {
+      const { spent, committed, remaining, byStage } = event.payload;
+      return { ...state, spent, committed, remaining, byStage };
     }
 
     case "run.finished":

@@ -4,16 +4,17 @@ import type { GoalConfig, RuntimeEvent } from "@ao/shared";
 import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
 import { api, type ChatMessage } from "../../lib/api.js";
 import { RunEventSocket, type WsStatus } from "../../lib/ws.js";
-import { sumThreadTokens } from "../../lib/usage.js";
 import { applyRuntimeEvent, INITIAL_RUN_STATE } from "../../lib/run-state.js";
+import { projectFinalTokens, type BudgetMeterInfo } from "../../lib/budget-projection.js";
 import { AlertCircle, ChevronDown } from "../ui/icons.js";
 import { OrchestrationBoard } from "../board/OrchestrationBoard.js";
 import { TaskDrawer } from "../board/TaskDrawer.js";
+import { DegradationToasts, type DegradationToast } from "../budget/DegradationToasts.js";
 import { ChatInput } from "./ChatInput.js";
 import { MessageList } from "./MessageList.js";
 
 export interface ChatViewProps {
-  onTokensChange: (tokens: number) => void;
+  onBudgetChange: (info: BudgetMeterInfo) => void;
 }
 
 /**
@@ -24,7 +25,7 @@ export interface ChatViewProps {
  * bubble until `run.finished`, at which point the authoritative persisted
  * messages (with real usage) are re-fetched from the runtime.
  */
-export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
+export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
   const { t } = useTranslation();
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -42,12 +43,13 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
   // (not inside OrchestrationBoard) because the drawer needs the owning
   // Stage from `runState.plan` too, not just the TaskState.
   const [openTaskId, setOpenTaskId] = React.useState<string | null>(null);
+  const [toasts, setToasts] = React.useState<DegradationToast[]>([]);
   const socketRef = React.useRef<RunEventSocket | null>(null);
-  // "Latest callback" ref so the tokens-changed effect below doesn't need
-  // `onTokensChange` itself in its dependency array (a new function
+  // "Latest callback" ref so the budget-changed effect below doesn't need
+  // `onBudgetChange` itself in its dependency array (a new function
   // identity from the parent every render would otherwise re-fire it).
-  const onTokensChangeRef = React.useRef(onTokensChange);
-  onTokensChangeRef.current = onTokensChange;
+  const onBudgetChangeRef = React.useRef(onBudgetChange);
+  onBudgetChangeRef.current = onBudgetChange;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -85,6 +87,11 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
         }
         case "error": {
           setError(event.payload.message);
+          break;
+        }
+        case "budget.degraded": {
+          const { amount, clamped } = event.payload;
+          setToasts((prev) => [...prev, { id: `deg-${String(event.seq)}`, amount, clamped }]);
           break;
         }
         case "run.finished": {
@@ -144,9 +151,35 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
       });
   };
 
+  const budgetInfo = React.useMemo<BudgetMeterInfo>(
+    () => ({
+      spent: runState.spent,
+      committed: runState.committed,
+      remaining: runState.remaining,
+      total: goalConfig.budgetTotal,
+      byStage: runState.byStage,
+      projection: projectFinalTokens(runState.plan, runState.stages, runState.spent),
+      overrunPolicy: goalConfig.overrunPolicy,
+    }),
+    [
+      runState.spent,
+      runState.committed,
+      runState.remaining,
+      runState.byStage,
+      runState.plan,
+      runState.stages,
+      goalConfig.budgetTotal,
+      goalConfig.overrunPolicy,
+    ],
+  );
+
   React.useEffect(() => {
-    onTokensChangeRef.current?.(sumThreadTokens(messages));
-  }, [messages]);
+    onBudgetChangeRef.current(budgetInfo);
+  }, [budgetInfo]);
+
+  const dismissToast = React.useCallback((id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
@@ -226,6 +259,7 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
           if (!open) setOpenTaskId(null);
         }}
       />
+      <DegradationToasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
