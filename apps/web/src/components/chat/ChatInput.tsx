@@ -7,13 +7,16 @@ import {
   type AttachmentState,
 } from "../../lib/attachments.js";
 import { Button } from "../ui/button.js";
-import { Paperclip, Send } from "../ui/icons.js";
+import { Paperclip, Send, Square } from "../ui/icons.js";
 import { GoalButton } from "../goal/GoalButton.js";
 import { AttachmentCard } from "./AttachmentCard.js";
 
 export interface ChatInputProps {
   onSend: (text: string) => void;
   disabled?: boolean;
+  /** UX.md §2's "שלח / עצור" — while a run is in flight, the send button becomes a real stop button (P9-T11), not just a disabled one. */
+  isStreaming?: boolean;
+  onStop?: () => void;
   goalConfig: GoalConfig;
   onGoalConfigChange: (next: GoalConfig) => void;
   goalSaveError?: string | null;
@@ -25,6 +28,8 @@ const MAX_TEXTAREA_HEIGHT_PX = 240;
 export function ChatInput({
   onSend,
   disabled,
+  isStreaming = false,
+  onStop,
   goalConfig,
   onGoalConfigChange,
   goalSaveError = null,
@@ -111,7 +116,7 @@ export function ChatInput({
         onKeyDown={handleKeyDown}
         placeholder={t("chat.placeholder")}
         rows={1}
-        disabled={disabled}
+        disabled={isDisabled || isStreaming}
         className="max-h-60 flex-1 resize-none rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:opacity-50 dark:border-neutral-700 dark:placeholder:text-neutral-500"
       />
       <div className="flex items-center justify-between gap-2">
@@ -130,7 +135,7 @@ export function ChatInput({
           <Button
             variant="ghost"
             size="icon"
-            disabled={isDisabled}
+            disabled={isDisabled || isStreaming}
             aria-label={t("chat.attachFiles")}
             title={t("chat.attachFiles")}
             onClick={() => {
@@ -141,14 +146,21 @@ export function ChatInput({
           </Button>
           <GoalButton value={goalConfig} onChange={onGoalConfigChange} saveError={goalSaveError} />
         </div>
-        <Button
-          onClick={submit}
-          disabled={isDisabled || (value.trim().length === 0 && attachments.length === 0)}
-          aria-label={t("chat.send")}
-        >
-          {isDisabled ? t("chat.sending") : t("chat.send")}
-          <Send />
-        </Button>
+        {isStreaming ? (
+          <Button variant="outline" onClick={onStop} aria-label={t("chat.stop")}>
+            {t("chat.stop")}
+            <Square />
+          </Button>
+        ) : (
+          <Button
+            onClick={submit}
+            disabled={isDisabled || (value.trim().length === 0 && attachments.length === 0)}
+            aria-label={t("chat.send")}
+          >
+            {t("chat.send")}
+            <Send />
+          </Button>
+        )}
       </div>
     </div>
   );

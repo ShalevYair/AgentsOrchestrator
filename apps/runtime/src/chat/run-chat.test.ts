@@ -12,11 +12,13 @@ import { applyMigrations } from "../db/migrations.js";
 import { createThread } from "../db/threads.repo.js";
 import { EventHub } from "../ws/hub.js";
 import { runChatTurn } from "./run-chat.js";
+import { RunRegistry } from "./run-registry.js";
 
 let dir: string;
 let driver: SqlDriver;
 let hub: EventHub;
 let provider: MockLLMProvider;
+let runRegistry: RunRegistry;
 
 const MODEL = "gemini-3.7-flash";
 
@@ -26,6 +28,7 @@ beforeEach(() => {
   applyMigrations(driver);
   hub = new EventHub(driver);
   provider = new MockLLMProvider({ responses: [{ text: "hi back", chunkCount: 2 }] });
+  runRegistry = new RunRegistry();
 });
 
 afterEach(() => {
@@ -41,7 +44,14 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
   it("uses DEFAULT_GOAL_CONFIG's budget/mode when none is supplied", async () => {
     const thread = createThread(driver, "t");
     insertMessage(driver, { threadId: thread.id, role: "user", content: "hi" });
-    const { runId } = await runChatTurn({ driver, hub, provider, model: MODEL, threadId: thread.id });
+    const { runId } = await runChatTurn({
+      driver,
+      hub,
+      provider,
+      runRegistry,
+      model: MODEL,
+      threadId: thread.id,
+    });
     const events = listEventsSince(driver, runId, -1);
     expect(events[0]).toMatchObject({
       type: "run.started",
@@ -56,6 +66,7 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
       driver,
       hub,
       provider,
+      runRegistry,
       model: MODEL,
       threadId: thread.id,
       goalConfig: goalConfig({ effort: "high" }),
@@ -70,7 +81,15 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
     const tiny = goalConfig({ budgetTotal: 10, overrunPolicy: "hard-stop" });
 
     await expect(
-      runChatTurn({ driver, hub, provider, model: MODEL, threadId: thread.id, goalConfig: tiny }),
+      runChatTurn({
+        driver,
+        hub,
+        provider,
+        runRegistry,
+        model: MODEL,
+        threadId: thread.id,
+        goalConfig: tiny,
+      }),
     ).rejects.toThrow(BudgetExceededError);
 
     expect(provider.calls.generate).toHaveLength(0);
@@ -84,7 +103,15 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
     const tiny = goalConfig({ budgetTotal: 10, overrunPolicy: "ask" });
 
     await expect(
-      runChatTurn({ driver, hub, provider, model: MODEL, threadId: thread.id, goalConfig: tiny }),
+      runChatTurn({
+        driver,
+        hub,
+        provider,
+        runRegistry,
+        model: MODEL,
+        threadId: thread.id,
+        goalConfig: tiny,
+      }),
     ).rejects.toThrow(BudgetExceededError);
     expect(provider.calls.generate).toHaveLength(0);
   });
@@ -96,7 +123,16 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
     const runId = "run_hardstoptest";
 
     await expect(
-      runChatTurn({ driver, hub, provider, model: MODEL, threadId: thread.id, goalConfig: tiny, runId }),
+      runChatTurn({
+        driver,
+        hub,
+        provider,
+        runRegistry,
+        model: MODEL,
+        threadId: thread.id,
+        goalConfig: tiny,
+        runId,
+      }),
     ).rejects.toThrow(BudgetExceededError);
 
     const types = listEventsSince(driver, runId, -1).map((e) => e.type);
@@ -120,13 +156,14 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
       driver,
       hub,
       provider,
+      runRegistry,
       model: MODEL,
       threadId: thread.id,
       goalConfig: tiny,
     });
 
     expect(provider.calls.generate).toHaveLength(1);
-    expect(assistantMessage.content).toBe("hi back");
+    expect(assistantMessage?.content).toBe("hi back");
     const events = listEventsSince(driver, runId, -1);
     const finished = events.find((e) => e.type === "run.finished");
     expect(finished).toMatchObject({ payload: { status: "completed" } });
@@ -150,6 +187,7 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
       driver,
       hub,
       provider,
+      runRegistry,
       model: MODEL,
       threadId: thread.id,
       goalConfig: DEFAULT_GOAL_CONFIG,
@@ -166,7 +204,14 @@ describe("runChatTurn egress wiring (P9-T7)", () => {
   it("publishes egress.recorded with a real byte count and no artifacts on the chat-only path", async () => {
     const thread = createThread(driver, "t");
     insertMessage(driver, { threadId: thread.id, role: "user", content: "hello there" });
-    const { runId } = await runChatTurn({ driver, hub, provider, model: MODEL, threadId: thread.id });
+    const { runId } = await runChatTurn({
+      driver,
+      hub,
+      provider,
+      runRegistry,
+      model: MODEL,
+      threadId: thread.id,
+    });
 
     const recorded = listEventsSince(driver, runId, -1).find((e) => e.type === "egress.recorded");
     expect(recorded).toBeTruthy();
@@ -207,6 +252,7 @@ describe("runChatTurn egress wiring (P9-T7)", () => {
       driver,
       hub,
       provider: preRedactedProvider,
+      runRegistry,
       model: MODEL,
       threadId: thread.id,
     });
@@ -214,5 +260,92 @@ describe("runChatTurn egress wiring (P9-T7)", () => {
     const recorded = listEventsSince(driver, runId, -1).find((e) => e.type === "egress.recorded");
     const payload = recorded?.payload as { redactions: number };
     expect(payload.redactions).toBe(1); // not 3 (the pre-existing 2 + this call's 1)
+  });
+});
+
+describe("runChatTurn stop wiring (P9-T11)", () => {
+  /** Aborts `runId` from inside the stream itself, right after the first real chunk is yielded — deterministic (no real timers/wall-clock races): the abort call and run-chat.ts's per-delta abort check both happen on the same synchronous microtask chain. */
+  class StoppableProvider extends MockLLMProvider {
+    constructor(
+      private readonly runIdToStop: string,
+      private readonly registry: RunRegistry,
+      options: ConstructorParameters<typeof MockLLMProvider>[0],
+    ) {
+      super(options);
+    }
+    override async *generate(req: Parameters<MockLLMProvider["generate"]>[0]) {
+      let i = 0;
+      for await (const delta of super.generate(req)) {
+        i += 1;
+        if (i === 1) this.registry.requestStop(this.runIdToStop);
+        yield delta;
+      }
+    }
+  }
+
+  it("stopping mid-stream keeps the text streamed so far, releases the ledger, and finishes as 'stopped'", async () => {
+    const thread = createThread(driver, "t");
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "hi" });
+    const runId = "run_stopmidstream";
+    const stoppable = new StoppableProvider(runId, runRegistry, {
+      responses: [{ text: "hello there, this is a longer reply", chunkCount: 4 }],
+    });
+
+    const { assistantMessage } = await runChatTurn({
+      driver,
+      hub,
+      provider: stoppable,
+      runRegistry,
+      model: MODEL,
+      threadId: thread.id,
+      runId,
+    });
+
+    // Only the first of 4 chunks was ever processed — real partial text, not the full reply.
+    expect(assistantMessage?.content).toBeTruthy();
+    expect(assistantMessage?.content.length ?? 0).toBeLessThan("hello there, this is a longer reply".length);
+    expect(assistantMessage?.usage).toBeUndefined(); // no real terminal Usage exists for a cut-short stream
+
+    const events = listEventsSince(driver, runId, -1).map((e) => e.type);
+    expect(events).toContain("task.delta"); // at least the one real chunk
+    expect(events).not.toContain("egress.recorded"); // that only publishes on a normal completion
+    const finished = listEventsSince(driver, runId, -1).find((e) => e.type === "run.finished");
+    expect(finished).toMatchObject({ payload: { status: "stopped" } });
+
+    // The reservation was released, not settled — nothing recorded as spent for this turn.
+    const ledgerPayload = (finished?.payload as { ledger: { tokens: { spent: number } } }).ledger;
+    expect(ledgerPayload.tokens.spent).toBe(0);
+  });
+
+  it("stopping before any text streamed persists no assistant message at all", async () => {
+    const thread = createThread(driver, "t");
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "hi" });
+    const runId = "run_stopimmediate";
+    const stoppable = new StoppableProvider(runId, runRegistry, {
+      responses: [{ text: "", chunkCount: 1 }],
+    });
+
+    const { assistantMessage } = await runChatTurn({
+      driver,
+      hub,
+      provider: stoppable,
+      runRegistry,
+      model: MODEL,
+      threadId: thread.id,
+      runId,
+    });
+
+    expect(assistantMessage).toBeNull();
+    expect(listMessages(driver, thread.id)).toHaveLength(1); // only the user's own message
+  });
+
+  it("requestStop after the run already finished is a no-op — the registry entry is gone", async () => {
+    const thread = createThread(driver, "t");
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "hi" });
+    const runId = "run_alreadydone";
+
+    await runChatTurn({ driver, hub, provider, runRegistry, model: MODEL, threadId: thread.id, runId });
+
+    expect(runRegistry.requestStop(runId)).toBe(false);
   });
 });

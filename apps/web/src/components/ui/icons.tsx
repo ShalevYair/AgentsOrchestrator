@@ -152,3 +152,11 @@ export function Paperclip(props: IconProps): React.JSX.Element {
     </Icon>
   );
 }
+
+export function Square(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+    </Icon>
+  );
+}

@@ -43,12 +43,9 @@ describe("ChatInput (UX.md §2)", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it("disables the textarea and send button while a reply is streaming", () => {
+  it("disables the textarea and send button when there's no thread yet", () => {
     render(<ChatInput onSend={vi.fn()} disabled {...goalProps} />);
     expect(screen.getByRole("textbox")).toBeDisabled();
-    // The send button's accessible name stays "שלח" (its aria-label) even
-    // while its visible text switches to "שולח..." — aria-label always
-    // wins over text content, pre-existing P2-T4 behavior, not changed here.
     expect(screen.getByRole("button", { name: "שלח" })).toBeDisabled();
   });
 
@@ -56,6 +53,41 @@ describe("ChatInput (UX.md §2)", () => {
     render(<ChatInput onSend={vi.fn()} {...goalProps} />);
     expect(screen.getByRole("button", { name: "שלח" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /מטרה/ })).toBeInTheDocument();
+  });
+});
+
+describe("ChatInput stop button (UX.md §2 'שלח / עצור', P9-T11)", () => {
+  it("shows a real, clickable stop button instead of a disabled send button while streaming", async () => {
+    const user = userEvent.setup();
+    const onStop = vi.fn();
+    render(<ChatInput onSend={vi.fn()} isStreaming onStop={onStop} {...goalProps} />);
+
+    expect(screen.queryByRole("button", { name: "שלח" })).not.toBeInTheDocument();
+    const stopButton = screen.getByRole("button", { name: "עצור" });
+    expect(stopButton).toBeEnabled();
+
+    await user.click(stopButton);
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the textarea and the attach button while streaming, even though the composer itself isn't 'disabled'", () => {
+    render(<ChatInput onSend={vi.fn()} isStreaming onStop={vi.fn()} {...goalProps} />);
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "צירוף קבצים" })).toBeDisabled();
+  });
+
+  it("shows the normal send button (not stop) once streaming ends", () => {
+    const { rerender } = render(<ChatInput onSend={vi.fn()} isStreaming onStop={vi.fn()} {...goalProps} />);
+    expect(screen.getByRole("button", { name: "עצור" })).toBeInTheDocument();
+
+    rerender(<ChatInput onSend={vi.fn()} isStreaming={false} onStop={vi.fn()} {...goalProps} />);
+    expect(screen.queryByRole("button", { name: "עצור" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "שלח" })).toBeInTheDocument();
+  });
+
+  it("has no axe violations with the stop button shown (P9-T10/T11)", async () => {
+    const { container } = render(<ChatInput onSend={vi.fn()} isStreaming onStop={vi.fn()} {...goalProps} />);
+    await expectNoAxeViolations(container);
   });
 });
 

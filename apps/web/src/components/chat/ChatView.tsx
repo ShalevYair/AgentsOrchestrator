@@ -55,6 +55,11 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
   // resolves back to `open`, auto-dismissing like the degradation toasts.
   const previousWsStatusRef = React.useRef<WsStatus | null>(null);
   const [showConnectionRestored, setShowConnectionRestored] = React.useState(false);
+  // UX.md §2's "עצור" (stop) button, P9-T11 — set when *this thread's*
+  // most recent run ended via a user-initiated stop (run.finished with
+  // status "stopped"), cleared as soon as a new message is sent (it's a
+  // note about the last turn, not a standing banner).
+  const [lastRunStopped, setLastRunStopped] = React.useState(false);
   const [goalConfig, setGoalConfig] = React.useState<GoalConfig>(DEFAULT_GOAL_CONFIG);
   const [goalSaveError, setGoalSaveError] = React.useState<string | null>(null);
   const [runState, dispatchRunEvent] = React.useReducer(applyRuntimeEvent, INITIAL_RUN_STATE);
@@ -135,6 +140,7 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
           socketRef.current?.close();
           socketRef.current = null;
           setStreamingText(null);
+          setLastRunStopped(event.payload.status === "stopped");
           if (threadId) {
             api
               .listMessages(threadId)
@@ -175,6 +181,7 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
   const handleSend = (text: string): void => {
     if (!threadId) return;
     setError(null);
+    setLastRunStopped(false);
     api
       .postMessage(threadId, text)
       .then(({ runId, userMessage }) => {
@@ -196,6 +203,31 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
         );
       });
   };
+
+  /** UX.md §2's "עצור" — best-effort: the server-side result always arrives as a real `run.finished` (status "stopped") over the WS, so a failed POST here just means the user can try again, not a state to recover from locally. */
+  const handleStop = React.useCallback((): void => {
+    if (!runState.runId) return;
+    api.stopRun(runState.runId).catch(() => {
+      // Best-effort — see the doc comment above.
+    });
+  }, [runState.runId]);
+
+  // UX.md §9's "Esc עצירה" — global (not scoped to the textarea) so it
+  // works regardless of focus, but yields to an open dialog's own Escape
+  // handling (Radix) first: a Settings/GoalButton/TaskDrawer dialog open
+  // during a run should just close on Escape, not *also* stop the run.
+  React.useEffect(() => {
+    if (streamingText === null) return;
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key !== "Escape") return;
+      if (document.querySelector('[role="dialog"]')) return;
+      handleStop();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [streamingText, handleStop]);
 
   const budgetInfo = React.useMemo<BudgetMeterInfo>(
     () => ({
@@ -337,9 +369,19 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
           budgetLevel={goalConfig.level}
         />
       </div>
+      {lastRunStopped && (
+        <p
+          role="status"
+          className="border-t border-neutral-200 px-4 py-1.5 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400"
+        >
+          {t("chat.stoppedNotice")}
+        </p>
+      )}
       <ChatInput
         onSend={handleSend}
-        disabled={!threadId || streamingText !== null}
+        disabled={!threadId}
+        isStreaming={streamingText !== null}
+        onStop={handleStop}
         goalConfig={goalConfig}
         onGoalConfigChange={handleGoalConfigChange}
         goalSaveError={goalSaveError}

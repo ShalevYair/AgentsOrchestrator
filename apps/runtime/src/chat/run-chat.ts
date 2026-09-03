@@ -15,6 +15,10 @@ import { insertMessage, listMessages, type ChatMessage } from "../db/messages.re
 import { createRun, finishRun } from "../db/runs.repo.js";
 import { touchThread } from "../db/threads.repo.js";
 import type { EventHub } from "../ws/hub.js";
+import type { RunRegistry } from "./run-registry.js";
+
+/** No real terminal `Usage` is ever available for a stopped-mid-stream call (`Delta.usage` only arrives on the terminal delta) — recording zeros is honest ("not measured"), the same fallback `run-chat.ts` already uses when a stream ends with no usage at all. */
+const UNMEASURED_USAGE = { promptTokens: 0, candidatesTokens: 0, thoughtsTokens: 0, cachedTokens: 0 };
 
 const CHAT_STAGE_ID = "chat";
 
@@ -40,6 +44,7 @@ export interface RunChatTurnOptions {
   driver: SqlDriver;
   hub: EventHub;
   provider: LLMProvider;
+  runRegistry: RunRegistry;
   model: string;
   threadId: string;
   /**
@@ -62,7 +67,8 @@ export interface RunChatTurnOptions {
 
 export interface RunChatTurnResult {
   runId: string;
-  assistantMessage: ChatMessage;
+  /** `null` only when a stop (P9-T11) landed before any text had streamed in yet — nothing real to persist as "the answer". */
+  assistantMessage: ChatMessage | null;
 }
 
 /**
@@ -77,7 +83,25 @@ export interface RunChatTurnResult {
  * the assistant reply + usage, and closes out the run.
  */
 export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatTurnResult> {
-  const { driver, hub, provider, model, threadId } = options;
+  const { runRegistry } = options;
+  const runId = options.runId ?? genRunId();
+  // Registered synchronously, before any `await` in this function — a
+  // `POST /api/runs/:id/stop` can never arrive before this entry exists,
+  // since the HTTP route that hands the client this same runId doesn't
+  // respond until routes/threads.ts's `void runChatTurn(...)` call has
+  // already run its synchronous prefix (this line included).
+  const abortController = runRegistry.register(runId);
+  try {
+    return await runChatTurnInner({ ...options, runId, abortController });
+  } finally {
+    runRegistry.unregister(runId);
+  }
+}
+
+async function runChatTurnInner(
+  options: RunChatTurnOptions & { runId: string; abortController: AbortController },
+): Promise<RunChatTurnResult> {
+  const { driver, hub, provider, model, threadId, runId, abortController } = options;
   const goalConfig = options.goalConfig ?? DEFAULT_GOAL_CONFIG;
 
   const history = listMessages(driver, threadId);
@@ -86,7 +110,7 @@ export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatT
     parts: [{ text: m.content }],
   }));
 
-  const run = createRun(driver, threadId, options.runId ?? genRunId());
+  const run = createRun(driver, threadId, runId);
   const taskId = `${run.id}#0`;
   const ledger = new Ledger({
     total: goalConfig.budgetTotal,
@@ -129,10 +153,12 @@ export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatT
     });
   } else {
     // "ask" and "hard-stop" both mean: don't spend without either the
-    // user's explicit go-ahead or an explicit stop. There's no mid-turn
-    // "ask" UI yet (that's P9-T9/T11's job), so both surface the same
-    // clear, non-silent error for now rather than silently degrading on
-    // the user's behalf.
+    // user's explicit go-ahead or an explicit stop. There's still no
+    // pre-flight "ask before spending" UI (that needs the message held
+    // client-side pending confirmation before it's ever POSTed — a bigger
+    // change than P9-T11's stop-an-in-flight-run scope), so both surface
+    // the same clear, non-silent error for now rather than silently
+    // degrading on the user's behalf.
     const error = new BudgetExceededError(
       `the "${goalConfig.level}" budget (${String(goalConfig.budgetTotal)} tokens) can't cover this ` +
         `message: ${admitOutcome.reason}`,
@@ -166,6 +192,7 @@ export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatT
   const bytesSent = new TextEncoder().encode(JSON.stringify(generateRequest)).length;
   const redactionsBefore = provider.getEgressRedactions().length;
 
+  let stoppedEarly = false;
   try {
     for await (const delta of provider.generate(generateRequest)) {
       if (delta.text.length > 0 && !delta.isThought) {
@@ -174,6 +201,20 @@ export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatT
       }
       if (delta.usage) usage = delta.usage;
       if (delta.finishReason) finishReason = delta.finishReason;
+      // Checked *after* processing each delta (not before the loop) so a
+      // stop that lands the instant the stream would have ended naturally
+      // anyway is still treated as a real completion, not a stop — see
+      // the `stoppedEarly` branch below for why that distinction matters
+      // for the ledger. `provider.generate()` has no cancellation
+      // parameter of its own (packages/shared's GenerateRequest doesn't
+      // carry a signal, and @google/genai's own docs say an abortSignal
+      // there is "client-only" and still billed anyway) — breaking out of
+      // the loop is what actually stops *this* server from waiting for,
+      // publishing, or paying attention to any further chunks.
+      if (abortController.signal.aborted) {
+        stoppedEarly = true;
+        break;
+      }
     }
   } catch (error) {
     ledger.release(reservation);
@@ -188,7 +229,38 @@ export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatT
     throw error;
   }
 
-  const finalUsage = usage ?? { promptTokens: 0, candidatesTokens: 0, thoughtsTokens: 0, cachedTokens: 0 };
+  if (stoppedEarly) {
+    // No real terminal Usage exists for a stream cut short — `settle()`
+    // needs one, `release()` doesn't (BUDGET.md's own "failed or canceled
+    // call" case). The worst-case hold is freed; nothing is recorded as
+    // spent for this turn, same as any other released reservation.
+    ledger.release(reservation);
+    // An empty message is not "a partial answer", it's nothing — UX.md
+    // §2's "מסיים משימות רצות ומסנתז מה שיש" (finishes running tasks and
+    // synthesizes what exists) only promises a deliverable when there
+    // *is* something; skip persisting a pointless empty bubble.
+    const assistantMessage =
+      assistantText.length > 0
+        ? insertMessage(driver, { threadId, role: "assistant", content: assistantText })
+        : null;
+    if (assistantMessage) touchThread(driver, threadId);
+    hub.publish(run.id, "task.finished", {
+      taskId,
+      usage: UNMEASURED_USAGE,
+      finishReason: "stopped",
+      violations: 0,
+    });
+    finishRun(driver, run.id, "stopped");
+    hub.publish(run.id, "run.finished", {
+      status: "stopped",
+      deliverables: [],
+      ledger: ledger.snapshot(),
+      gaps: [],
+    });
+    return { runId: run.id, assistantMessage };
+  }
+
+  const finalUsage = usage ?? UNMEASURED_USAGE;
   ledger.settle(reservation, finalUsage, model);
   hub.publish(run.id, "task.finished", { taskId, usage: finalUsage, finishReason, violations: 0 });
 

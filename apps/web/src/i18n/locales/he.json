@@ -17,7 +17,7 @@
   "chat": {
     "placeholder": "כתוב הודעה... (Enter לשליחה, Shift+Enter לשורה חדשה)",
     "send": "שלח",
-    "sending": "שולח...",
+    "stop": "עצור",
     "emptyTitle": "איך אפשר לעזור היום?",
     "emptyBody": "כתבו הודעה כדי להתחיל שיחה עם המודל.",
     "you": "אתה",
@@ -33,7 +33,8 @@
     "attachmentSection": "--- קובץ מצורף: {{name}} ---\n{{content}}",
     "attachmentUnsupportedSection": "--- קובץ מצורף (התוכן לא נשלח): {{name}} ---",
     "openSettingsFromError": "מעבר להגדרות",
-    "budgetErrorHint": "אפשר להעלות את התקציב או לשנות רמה בכפתור המטרה שליד תיבת הכתיבה."
+    "budgetErrorHint": "אפשר להעלות את התקציב או לשנות רמה בכפתור המטרה שליד תיבת הכתיבה.",
+    "stoppedNotice": "הריצה נעצרה. התשובה למעלה חלקית."
   },
   "attachment": {
     "tokens": "~{{tokens}} טוקנים",

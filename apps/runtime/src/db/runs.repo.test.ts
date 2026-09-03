@@ -44,4 +44,10 @@ describe("runs.repo", () => {
     finishRun(driver, run.id, "failed");
     expect(getRun(driver, run.id)?.status).toBe("failed");
   });
+
+  it("finishRun can record a user-initiated stop (P9-T11, 0003_run_status_stopped)", () => {
+    const run = createRun(driver, threadId);
+    finishRun(driver, run.id, "stopped");
+    expect(getRun(driver, run.id)?.status).toBe("stopped");
+  });
 });

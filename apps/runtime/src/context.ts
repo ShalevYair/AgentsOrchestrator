@@ -1,6 +1,7 @@
 import type { Logger, SecretRegistry } from "@ao/platform";
 import type { KeyStore } from "@ao/providers";
 import type { LLMProvider } from "@ao/shared";
+import type { RunRegistry } from "./chat/run-registry.js";
 import type { SqlDriver } from "./db/driver.js";
 import type { EventHub } from "./ws/hub.js";
 
@@ -14,6 +15,8 @@ export interface AppContext {
   keyStore: KeyStore;
   logger: Logger;
   secretRegistry: SecretRegistry;
+  /** P9-T11: in-flight runs' `AbortController`s, keyed by runId — how `POST /api/runs/:id/stop` reaches a `runChatTurn` call happening on a different request. */
+  runRegistry: RunRegistry;
   /**
    * How `routes/keys.ts` builds the throwaway provider it validates a
    * submitted key against — defaults to a real `GeminiProvider` in

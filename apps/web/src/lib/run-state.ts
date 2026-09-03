@@ -44,7 +44,7 @@ export interface TaskState {
 
 export interface RunState {
   runId: string | null;
-  status: "idle" | "running" | "completed" | "failed";
+  status: "idle" | "running" | "completed" | "failed" | "stopped";
   plan: Plan | null;
   estimatedTokens: number | null;
   requiresApproval: boolean;
@@ -298,8 +298,18 @@ export function applyRuntimeEvent(state: RunState, event: RuntimeEvent): RunStat
       };
     }
 
-    case "run.finished":
-      return { ...state, status: event.payload.status === "completed" ? "completed" : "failed" };
+    case "run.finished": {
+      // P9-T11: a user-initiated stop is neither "completed" nor a
+      // "failed" — collapsing it into "failed" would misrepresent a
+      // deliberate action as an error.
+      const status =
+        event.payload.status === "completed"
+          ? "completed"
+          : event.payload.status === "stopped"
+            ? "stopped"
+            : "failed";
+      return { ...state, status };
+    }
 
     default:
       return state;

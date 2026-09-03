@@ -1,5 +1,6 @@
 import { createLogger, createSecretRegistry, loadConfig } from "@ao/platform";
 import { createKeyStore, GeminiProvider } from "@ao/providers";
+import { RunRegistry } from "./chat/run-registry.js";
 import { openDb } from "./db/index.js";
 import { EventHub } from "./ws/hub.js";
 import { selectProvider } from "./provider/select-provider.js";
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
     driver,
     hub,
     provider,
+    runRegistry: new RunRegistry(),
     providerKind: kind,
     model,
     keyStore,

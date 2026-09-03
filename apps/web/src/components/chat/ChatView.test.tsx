@@ -193,3 +193,120 @@ describe("ChatView (UX.md §10 error states + reconnect banner)", () => {
     expect(screen.queryByText("החיבור התחדש.")).not.toBeInTheDocument();
   });
 });
+
+describe("ChatView stop / run control (UX.md §2 + §9, P9-T11)", () => {
+  beforeEach(() => {
+    sockets.instances.length = 0;
+    vi.spyOn(api, "listThreads").mockResolvedValue([THREAD]);
+    vi.spyOn(api, "listMessages").mockResolvedValue([]);
+    vi.spyOn(api, "postMessage").mockResolvedValue({ runId: "run-1", userMessage: USER_MESSAGE });
+    vi.spyOn(api, "stopRun").mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function fireRunStarted(socket: FakeSocket): void {
+    act(() => {
+      socket.handlers.onEvent({
+        type: "run.started",
+        runId: "run-1",
+        seq: 1,
+        payload: { runId: "run-1", budget: 2_500_000, mode: "standard" },
+      });
+    });
+  }
+
+  it("clicking the real stop button calls api.stopRun with the current run's id", async () => {
+    const user = userEvent.setup();
+    const socket = await renderReadyChatView();
+    fireRunStarted(socket);
+
+    await user.click(screen.getByRole("button", { name: "עצור" }));
+
+    expect(api.stopRun).toHaveBeenCalledWith("run-1");
+  });
+
+  it("a run.finished with status 'stopped' shows the partial-answer notice and re-enables the composer", async () => {
+    const socket = await renderReadyChatView();
+    fireRunStarted(socket);
+
+    act(() => {
+      socket.handlers.onEvent({
+        type: "run.finished",
+        runId: "run-1",
+        seq: 2,
+        payload: { status: "stopped", deliverables: [], ledger: null, gaps: [] },
+      });
+    });
+
+    expect(await screen.findByText("הריצה נעצרה. התשובה למעלה חלקית.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "שלח" })).toBeInTheDocument();
+  });
+
+  it("a normal completed run.finished never shows the stopped notice", async () => {
+    const socket = await renderReadyChatView();
+    fireRunStarted(socket);
+
+    act(() => {
+      socket.handlers.onEvent({
+        type: "run.finished",
+        runId: "run-1",
+        seq: 2,
+        payload: { status: "completed", deliverables: [], ledger: null, gaps: [] },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "שלח" })).toBeInTheDocument();
+    });
+    expect(screen.queryByText("הריצה נעצרה. התשובה למעלה חלקית.")).not.toBeInTheDocument();
+  });
+
+  it("sending a new message clears a previous stop notice", async () => {
+    const user = userEvent.setup();
+    const socket = await renderReadyChatView();
+    fireRunStarted(socket);
+    act(() => {
+      socket.handlers.onEvent({
+        type: "run.finished",
+        runId: "run-1",
+        seq: 2,
+        payload: { status: "stopped", deliverables: [], ledger: null, gaps: [] },
+      });
+    });
+    await screen.findByText("הריצה נעצרה. התשובה למעלה חלקית.");
+
+    await user.type(screen.getByRole("textbox"), "עוד הודעה{Enter}");
+
+    expect(screen.queryByText("הריצה נעצרה. התשובה למעלה חלקית.")).not.toBeInTheDocument();
+  });
+
+  it("pressing Escape while a run is active calls stop", async () => {
+    const user = userEvent.setup();
+    const socket = await renderReadyChatView();
+    fireRunStarted(socket);
+
+    await user.keyboard("{Escape}");
+
+    expect(api.stopRun).toHaveBeenCalledWith("run-1");
+  });
+
+  it("pressing Escape while a dialog is open closes the dialog instead of stopping the run", async () => {
+    const user = userEvent.setup();
+    const socket = await renderReadyChatView();
+    fireRunStarted(socket);
+
+    // The goal button's own popover is a real Radix dialog rendered inside ChatView.
+    await user.click(screen.getByRole("button", { name: /מטרה/ }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(api.stopRun).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+});

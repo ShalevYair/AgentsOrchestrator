@@ -161,6 +161,56 @@ describe("threads + messages", () => {
   });
 });
 
+describe("POST /api/runs/:id/stop (P9-T11)", () => {
+  // `run-chat.test.ts` already proves *what happens* once a run is
+  // actually aborted (partial text kept, ledger released, "stopped"
+  // status) via a deterministic in-process call — MockLLMProvider's
+  // chunks arrive synchronously with no real gap between them, so racing
+  // a real HTTP stop request against a real in-flight stream here would
+  // be timing-dependent, not a meaningful extra proof. What's untested
+  // elsewhere, and what these prove, is the HTTP route itself: it reaches
+  // the exact same `ctx.runRegistry` the chat path uses, and it's always
+  // a safe no-op — never an error — for a run that isn't (or no longer
+  // is) live.
+  it("aborts a real controller registered under ctx.runRegistry, and returns 204", async () => {
+    const controller = ctx.runRegistry.register("run_stoptest01");
+
+    const res = await app.inject({ method: "POST", url: "/api/runs/run_stoptest01/stop" });
+
+    expect(res.statusCode).toBe(204);
+    expect(controller.signal.aborted).toBe(true);
+  });
+
+  it("is a harmless 204 no-op for a runId that was never registered", async () => {
+    const res = await app.inject({ method: "POST", url: "/api/runs/run_neverexisted/stop" });
+    expect(res.statusCode).toBe(204);
+  });
+
+  it("is a harmless 204 no-op for a run that already finished on its own", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<ThreadDto>();
+    const post = await app.inject({
+      method: "POST",
+      url: `/api/threads/${thread.id}/messages`,
+      payload: { content: "hi there" },
+    });
+    const { runId } = post.json<{ runId: string }>();
+
+    await waitFor(async () => {
+      const res = await app.inject({ method: "GET", url: `/api/runs/${runId}/events` });
+      const body = res.json<EventDto[]>();
+      return body.some((e) => e.type === "run.finished") ? true : undefined;
+    });
+
+    const stop = await app.inject({ method: "POST", url: `/api/runs/${runId}/stop` });
+    expect(stop.statusCode).toBe(204);
+
+    // Nothing about the already-completed run changed.
+    const messages = await app.inject({ method: "GET", url: `/api/threads/${thread.id}/messages` });
+    expect(messages.json<MessageDto[]>()).toHaveLength(2);
+  });
+});
+
 describe("goal config", () => {
   it("a new thread starts with the standard-level default", async () => {
     const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });

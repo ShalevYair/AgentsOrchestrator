@@ -40,10 +40,16 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    headers: { "content-type": "application/json", ...init?.headers },
-  });
+  // Only set content-type when there's an actual body — Fastify's default
+  // JSON parser (real bug, found via P9-T11's real-browser verification:
+  // `curl` against the real runtime reproduces `FST_ERR_CTP_EMPTY_JSON_BODY`)
+  // rejects a bodyless request that still carries this header, which
+  // silently broke every no-body call (deleteKey, stopRun) — `.inject()`
+  // in server.test.ts never caught it because Fastify's own test injector
+  // doesn't reproduce this exact real-HTTP content-type check.
+  const headers =
+    init?.body !== undefined ? { "content-type": "application/json", ...init.headers } : init?.headers;
+  const res = await fetch(path, { ...init, ...(headers !== undefined ? { headers } : {}) });
   if (!res.ok) {
     let serialized: SerializedError | undefined;
     try {
@@ -81,6 +87,8 @@ export const api = {
 
   eventsSince: (runId: string, sinceSeq: number) =>
     request<RuntimeEvent[]>(`/api/runs/${runId}/events?sinceSeq=${String(sinceSeq)}`),
+  /** UX.md §2's "עצור" (stop) button, P9-T11 — always a 204, even for a run that already finished on its own (see routes/runs.ts). */
+  stopRun: (runId: string) => request<void>(`/api/runs/${runId}/stop`, { method: "POST" }),
 
   keyStatus: () => request<KeyStatus>("/api/keys/status"),
   setKey: (apiKey: string) =>

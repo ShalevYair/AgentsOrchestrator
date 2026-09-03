@@ -2,6 +2,7 @@ import { Writable } from "node:stream";
 import { createSecretRegistry, createLogger } from "@ao/platform";
 import { MockLLMProvider, type KeyStore, type MockLLMProviderOptions } from "@ao/providers";
 import type { LLMProvider } from "@ao/shared";
+import { RunRegistry } from "../chat/run-registry.js";
 import type { AppContext } from "../context.js";
 import { openDatabase, type SqlDriver } from "../db/driver.js";
 import { applyMigrations } from "../db/migrations.js";
@@ -42,6 +43,7 @@ export function buildTestContext(
     driver,
     hub,
     provider,
+    runRegistry: new RunRegistry(),
     providerKind: "mock",
     model: "gemini-3.7-flash",
     keyStore: createFakeKeyStore(),

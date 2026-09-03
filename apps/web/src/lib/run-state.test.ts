@@ -130,6 +130,16 @@ describe("applyRuntimeEvent", () => {
     ).toBe("failed");
   });
 
+  it("run.finished records a user-initiated stop as its own status, not 'failed' (P9-T11)", () => {
+    const running = { ...INITIAL_RUN_STATE, status: "running" as const };
+    expect(
+      applyRuntimeEvent(
+        running,
+        event("run.finished", { status: "stopped", deliverables: [], ledger: null, gaps: [] }),
+      ).status,
+    ).toBe("stopped");
+  });
+
   it("an event this reducer doesn't care about yet is a no-op", () => {
     const state = { ...INITIAL_RUN_STATE, runId: "run_test123" };
     const next = applyRuntimeEvent(

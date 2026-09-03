@@ -17,7 +17,7 @@
   "chat": {
     "placeholder": "Type a message... (Enter to send, Shift+Enter for a new line)",
     "send": "Send",
-    "sending": "Sending...",
+    "stop": "Stop",
     "emptyTitle": "How can I help today?",
     "emptyBody": "Write a message to start a conversation with the model.",
     "you": "You",
@@ -33,7 +33,8 @@
     "attachmentSection": "--- Attached file: {{name}} ---\n{{content}}",
     "attachmentUnsupportedSection": "--- Attached file (content not sent): {{name}} ---",
     "openSettingsFromError": "Go to settings",
-    "budgetErrorHint": "You can raise the budget or change the level from the goal button next to the input box."
+    "budgetErrorHint": "You can raise the budget or change the level from the goal button next to the input box.",
+    "stoppedNotice": "The run was stopped. The answer above is partial."
   },
   "attachment": {
     "tokens": "~{{tokens}} tokens",

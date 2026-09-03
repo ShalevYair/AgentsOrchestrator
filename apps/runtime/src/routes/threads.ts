@@ -92,6 +92,7 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: AppContext): voi
           driver: ctx.driver,
           hub: ctx.hub,
           provider: ctx.provider,
+          runRegistry: ctx.runRegistry,
           model: ctx.model,
           threadId,
           runId,
