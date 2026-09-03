@@ -5,6 +5,7 @@ import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
 import { api, type ChatMessage } from "../../lib/api.js";
 import { RunEventSocket, type WsStatus } from "../../lib/ws.js";
 import { sumThreadTokens } from "../../lib/usage.js";
+import { applyRuntimeEvent, INITIAL_RUN_STATE } from "../../lib/run-state.js";
 import { AlertCircle } from "../ui/icons.js";
 import { ChatInput } from "./ChatInput.js";
 import { MessageList } from "./MessageList.js";
@@ -30,6 +31,7 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
   const [error, setError] = React.useState<string | null>(null);
   const [goalConfig, setGoalConfig] = React.useState<GoalConfig>(DEFAULT_GOAL_CONFIG);
   const [goalSaveError, setGoalSaveError] = React.useState<string | null>(null);
+  const [runState, dispatchRunEvent] = React.useReducer(applyRuntimeEvent, INITIAL_RUN_STATE);
   const socketRef = React.useRef<RunEventSocket | null>(null);
   // "Latest callback" ref so the tokens-changed effect below doesn't need
   // `onTokensChange` itself in its dependency array (a new function
@@ -61,6 +63,7 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
 
   const handleEvent = React.useCallback(
     (event: RuntimeEvent) => {
+      dispatchRunEvent(event);
       switch (event.type) {
         case "task.delta": {
           const { envelope } = event.payload;
@@ -151,7 +154,12 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
           <span>{error}</span>
         </div>
       )}
-      <MessageList messages={messages} streamingText={streamingText} />
+      <MessageList
+        messages={messages}
+        streamingText={streamingText}
+        runState={runState}
+        budgetTotal={goalConfig.budgetTotal}
+      />
       <ChatInput
         onSend={handleSend}
         disabled={!threadId || streamingText !== null}

@@ -117,6 +117,18 @@
     "saveFailed": "שמירת הגדרות המטרה נכשלה. נסו שוב.",
     "triggerLabel": "מטרה: {{level}}, {{tokens}} טוקנים, בערך {{cost}}"
   },
+  "plan": {
+    "title": "תוכנית ריצה",
+    "summary": "{{stageCount}} שלבים · {{agentCount}} סוכנים",
+    "estimate": "צפי {{estimate}} / {{budget}}",
+    "amendedBanner": "v{{version}}: {{reason}}",
+    "fanoutBy": "לפי",
+    "parallelSuffix": "במקביל",
+    "showDiff": "דיף",
+    "hideDiff": "הסתר דיף",
+    "edit": "ערוך",
+    "run": "הרץ"
+  },
   "onboarding": {
     "title": "ברוכים הבאים ל-AgentsOrchestrator",
     "body": "כדי להתחיל לשוחח עם Gemini, הכניסו מפתח API בהגדרות. אפשר גם להמשיך בלי מפתח ולקבל תשובות דמה.",

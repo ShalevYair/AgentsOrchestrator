@@ -117,6 +117,18 @@
     "saveFailed": "Couldn't save the goal settings. Try again.",
     "triggerLabel": "Goal: {{level}}, {{tokens}} tokens, about {{cost}}"
   },
+  "plan": {
+    "title": "Run plan",
+    "summary": "{{stageCount}} stages · {{agentCount}} agents",
+    "estimate": "Est. {{estimate}} / {{budget}}",
+    "amendedBanner": "v{{version}}: {{reason}}",
+    "fanoutBy": "by",
+    "parallelSuffix": "in parallel",
+    "showDiff": "Diff",
+    "hideDiff": "Hide diff",
+    "edit": "Edit",
+    "run": "Run"
+  },
   "onboarding": {
     "title": "Welcome to AgentsOrchestrator",
     "body": "To start chatting with Gemini, add an API key in Settings. You can also continue without a key and get mock replies.",
