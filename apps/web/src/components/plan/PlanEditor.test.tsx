@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Plan, Stage } from "@ao/shared";
 import "../../i18n/index.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { PlanEditor } from "./PlanEditor.js";
 
 function buildStage(overrides: Partial<Stage> = {}): Stage {
@@ -202,5 +203,26 @@ describe("PlanEditor (UX.md §4 עריכה)", () => {
     const r4 = within(select).getByRole("option", { name: "R4" });
     expect(r5).toBeDisabled();
     expect(r4).not.toBeDisabled();
+  });
+
+  it("has no axe violations with the budget-overrun alert and disabled Save shown (P9-T10)", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <PlanEditor
+        plan={buildPlan([buildStage(), buildStage({ id: "s2", name: "שלב אופציונלי", optional: true })])}
+        budgetTotal={500_000}
+        budgetLevel="draft"
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+    const stageRow = screen.getByText("מיפוי מבנה").closest("li");
+    if (!stageRow) throw new Error("stage row not found");
+    const countInput = within(stageRow).getByLabelText("מספר סוכנים");
+    await user.clear(countInput);
+    await user.type(countInput, "60");
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    await expectNoAxeViolations(container);
   });
 });

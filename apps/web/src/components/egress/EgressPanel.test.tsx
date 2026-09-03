@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "../../i18n/index.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { EgressPanel } from "./EgressPanel.js";
 
 describe("EgressPanel (UX.md §7 — מה יצא מהמחשב)", () => {
@@ -79,5 +80,22 @@ describe("EgressPanel (UX.md §7 — מה יצא מהמחשב)", () => {
     render(<EgressPanel totalBytes={0} totalRedactions={0} calls={[]} />);
     await user.click(screen.getByRole("button"));
     expect(screen.queryByText("קריאות")).not.toBeInTheDocument();
+  });
+
+  it("has no axe violations with the dialog open, redactions, and multiple calls shown (P9-T10)", async () => {
+    const user = userEvent.setup();
+    render(
+      <EgressPanel
+        totalBytes={1500}
+        totalRedactions={1}
+        calls={[
+          { callId: "run_1#0", bytes: 1000, artifactRefs: [], redactions: 0 },
+          { callId: "run_1#1", bytes: 500, artifactRefs: [], redactions: 1 },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /1 סוד/ }));
+    // Radix's Dialog content is portaled onto document.body.
+    await expectNoAxeViolations(document.body);
   });
 });

@@ -40,7 +40,7 @@ export function MessageList({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+    <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4" tabIndex={0}>
       {messages.map((message) => (
         <MessageBubble key={message.id} role={message.role} content={message.content} />
       ))}

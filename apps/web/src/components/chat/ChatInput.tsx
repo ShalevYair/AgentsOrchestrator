@@ -121,6 +121,7 @@ export function ChatInput({
             type="file"
             multiple
             className="hidden"
+            aria-label={t("chat.attachFiles")}
             onChange={(event) => {
               if (event.target.files && event.target.files.length > 0) addFiles(event.target.files);
               event.target.value = "";

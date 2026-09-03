@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import type { NdjsonEnvelope, Stage } from "@ao/shared";
-import { Dialog, DrawerContent } from "../ui/dialog.js";
+import { Dialog, DialogTitle, DrawerContent } from "../ui/dialog.js";
 import { Button } from "../ui/button.js";
 import { Copy, Download, RefreshCw } from "../ui/icons.js";
 import { downloadBlob } from "../../lib/download.js";
@@ -57,9 +57,14 @@ export function TaskDrawer({
         <div className="flex flex-none items-center gap-2 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
           <span aria-hidden="true">🤖</span>
           <div className="flex-1">
-            <h2 className="text-sm font-semibold">
-              <bdi>{task.shard}</bdi>
-            </h2>
+            {/* Radix wires this as the dialog's accessible name (aria-labelledby)
+                automatically — without it, a screen reader announces only
+                "dialog", not which task's drawer just opened. */}
+            <DialogTitle asChild>
+              <h2 className="text-sm font-semibold">
+                <bdi>{task.shard}</bdi>
+              </h2>
+            </DialogTitle>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               <bdi>{task.agentType}</bdi> · {t(`board.status.${task.status}`)}
             </p>

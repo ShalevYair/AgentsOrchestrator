@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
 import "../../i18n/index.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { ChatInput } from "./ChatInput.js";
 
 /** Every render needs these two — factored out so each test only states what it's actually varying. */
@@ -142,5 +143,15 @@ describe("ChatInput attachments (UX.md §2, P9-T8)", () => {
     const sent = onSend.mock.calls[0]?.[0] as string;
     expect(sent).toContain("photo.png");
     expect(sent).not.toContain(String.fromCharCode(1, 2, 3));
+  });
+
+  it("has no axe violations with an attachment card, goal button, and typed text all present (P9-T10)", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<ChatInput onSend={vi.fn()} {...goalProps} />);
+    await attach(container, new File(["hello world"], "notes.txt"));
+    await screen.findByText("notes.txt");
+    await user.type(screen.getByRole("textbox"), "look at this");
+
+    await expectNoAxeViolations(container);
   });
 });

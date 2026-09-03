@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
 import "../../i18n/index.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { GoalButton } from "./GoalButton.js";
 
 describe("GoalButton (UX.md §3)", () => {
@@ -57,5 +58,20 @@ describe("GoalButton (UX.md §3)", () => {
     );
     await user.click(screen.getByRole("button", { name: /סטנדרט/ }));
     expect(screen.getByRole("alert")).toHaveTextContent("שמירת הגדרות המטרה נכשלה");
+  });
+
+  it("has no axe violations with the form open and a save error shown (P9-T10)", async () => {
+    const user = userEvent.setup();
+    render(
+      <GoalButton
+        value={DEFAULT_GOAL_CONFIG}
+        onChange={vi.fn()}
+        saveError="שמירת הגדרות המטרה נכשלה. נסו שוב."
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /סטנדרט/ }));
+    // Radix's Popover content is portaled onto document.body, not a
+    // descendant of the render container — check the whole document.
+    await expectNoAxeViolations(document.body);
   });
 });

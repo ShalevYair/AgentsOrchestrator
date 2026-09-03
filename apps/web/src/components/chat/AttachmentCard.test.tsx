@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "../../i18n/index.js";
 import type { AttachmentState } from "../../lib/attachments.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { AttachmentCard } from "./AttachmentCard.js";
 
 function buildAttachment(overrides: Partial<AttachmentState> = {}): AttachmentState {
@@ -72,5 +73,10 @@ describe("AttachmentCard (UX.md §2 — כרטיס קובץ מצורף)", () => 
     render(<AttachmentCard attachment={attachment} onRemove={onRemove} />);
     await user.click(screen.getByRole("button", { name: /a\.ts/ }));
     expect(onRemove).toHaveBeenCalledWith("unique-id-123");
+  });
+
+  it("has no axe violations (P9-T10)", async () => {
+    const { container } = render(<AttachmentCard attachment={buildAttachment()} onRemove={vi.fn()} />);
+    await expectNoAxeViolations(container);
   });
 });

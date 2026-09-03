@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Plan, Stage } from "@ao/shared";
 import "../../i18n/index.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { PlanCard } from "./PlanCard.js";
 
 /** UX.md §4's own mockup example: 4 stages, reader×6/analyst×4/writer×3/synthesizer×1, 228K/484K/330K/106K, 1.6M estimate / 2.5M budget. Reusing the doc's own numbers means a mismatch here is a real regression, not a fixture-drift false alarm. */
@@ -213,5 +214,23 @@ describe("PlanCard (UX.md §4)", () => {
 
     expect(onPlanEdited).toHaveBeenCalledOnce();
     expect(screen.queryByTestId("plan-editor")).not.toBeInTheDocument();
+  });
+
+  it("has no axe violations with the amendment banner, diff, and edit/run actions all shown (P9-T10)", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <PlanCard
+        plan={buildDemoPlan()}
+        {...baseProps}
+        requiresApproval
+        amendment={{
+          version: 2,
+          reason: "המודולים גדולים מהצפוי",
+          diff: "replace /stages/1/fanout/count: 8 → 4",
+        }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "דיף" }));
+    await expectNoAxeViolations(container);
   });
 });

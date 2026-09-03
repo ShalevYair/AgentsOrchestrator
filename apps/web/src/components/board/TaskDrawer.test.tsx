@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { Stage } from "@ao/shared";
 import "../../i18n/index.js";
 import type { TaskState } from "../../lib/run-state.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { TaskDrawer } from "./TaskDrawer.js";
 
 function buildStage(overrides: Partial<Stage> = {}): Stage {
@@ -205,5 +206,29 @@ describe("TaskDrawer (UX.md §5 level 3)", () => {
     render(<TaskDrawer task={buildTask()} stage={null} open onOpenChange={onOpenChange} />);
     await user.keyboard("{Escape}");
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("has no axe violations with a finished task, real stage, parsed output, and rerun enabled (P9-T10)", async () => {
+    const task = buildTask({
+      status: "done",
+      finishedAt: 4_000,
+      usage: { promptTokens: 5_000, candidatesTokens: 1_200, thoughtsTokens: 300, cachedTokens: 800 },
+      finishReason: "stop",
+      violations: 0,
+      deltas: [
+        { t: "note", text: "בודק תלויות" },
+        {
+          t: "finding",
+          id: "f1",
+          claim: "יש תלות מעגלית",
+          tags: ["arch"],
+          evidence: [{ artifact: "a1", loc: "L1" }],
+          confidence: 0.8,
+        },
+      ],
+    });
+    render(<TaskDrawer task={task} stage={buildStage()} open onOpenChange={vi.fn()} onRerun={vi.fn()} />);
+    // Radix's DrawerContent is portaled onto document.body.
+    await expectNoAxeViolations(document.body);
   });
 });

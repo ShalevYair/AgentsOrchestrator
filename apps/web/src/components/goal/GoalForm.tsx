@@ -113,7 +113,7 @@ export function GoalForm({ value, onChange }: GoalFormProps): React.JSX.Element 
                   {t(`goal.levelHint.${level}`)}
                 </label>
                 {level !== "custom" && (
-                  <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
                     {t("goal.derivedLimits", {
                       rung: BUDGET_LEVEL_MAX_RUNG[level],
                       ensemble: t(

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { Plan, RuntimeEvent, Stage } from "@ao/shared";
 import "../../i18n/index.js";
 import { applyRuntimeEvent, INITIAL_RUN_STATE, type RunState } from "../../lib/run-state.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { OrchestrationBoard } from "./OrchestrationBoard.js";
 
 function buildStage(overrides: Partial<Stage> = {}): Stage {
@@ -288,6 +289,11 @@ describe("OrchestrationBoard (UX.md §5 levels 1+2)", () => {
       task.focus();
       await user.keyboard("{Enter}");
       expect(onSelectTask).toHaveBeenCalledWith("t1");
+    });
+
+    it("has no axe violations on the tree with a stage expanded and a task row (P9-T10)", async () => {
+      const { container } = renderTwoStagesOneExpanded();
+      await expectNoAxeViolations(container);
     });
   });
 

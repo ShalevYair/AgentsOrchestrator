@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import axe from "axe-core";
 import "./i18n/index.js";
 import { api, type KeyStatus } from "./lib/api.js";
 import App from "./App.js";
@@ -93,5 +94,24 @@ describe("App (UX.md §10 onboarding routing)", () => {
       expect(screen.getByTestId("chat-view-stub")).toBeInTheDocument();
     });
     expect(screen.queryByText("ברוכים הבאים ל-AgentsOrchestrator")).not.toBeInTheDocument();
+  });
+
+  /**
+   * P9-T10: `region` ("content must be contained by a landmark") only
+   * means something at this whole-shell level — every other component
+   * test disables it (src/test/axe.ts) since a fragment mounted alone
+   * would always trip it regardless of the real component. Checked here,
+   * for real, against the actual <header>/<main> App.tsx renders.
+   */
+  it("has no axe violations, including landmark structure, in the real app shell (P9-T10)", async () => {
+    vi.spyOn(api, "keyStatus").mockResolvedValue({
+      hasKey: true,
+      backend: "os-keyring",
+      maskedKey: "sk-...abcd",
+    });
+    const { container } = render(<App />);
+    await screen.findByTestId("chat-view-stub");
+    const results = await axe.run(container, { rules: { "color-contrast": { enabled: false } } });
+    expect(results.violations).toEqual([]);
   });
 });

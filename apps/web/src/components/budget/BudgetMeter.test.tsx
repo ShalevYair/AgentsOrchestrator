@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "../../i18n/index.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { BudgetMeter, type BudgetMeterProps } from "./BudgetMeter.js";
 
 function buildProps(overrides: Partial<BudgetMeterProps> = {}): BudgetMeterProps {
@@ -106,5 +107,24 @@ describe("BudgetMeter (UX.md §1 + BUDGET.md §8)", () => {
     render(<BudgetMeter {...buildProps({ spent: 500_000, committed: 450_000, total: 1_000_000 })} />);
     await user.click(screen.getByRole("button", { name: /500K/ }));
     expect(screen.getByRole("status")).toHaveTextContent("קרוב מאוד לתקציב");
+  });
+
+  it("has no axe violations with the dialog open, danger note, projection, and per-stage breakdown shown (P9-T10)", async () => {
+    const user = userEvent.setup();
+    render(
+      <BudgetMeter
+        {...buildProps({
+          spent: 950_000,
+          committed: 0,
+          total: 1_000_000,
+          projection: 1_800_000,
+          byStage: { s1: 300_000, s2: 200_000 },
+          overrunPolicy: "hard-stop",
+        })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /950K/ }));
+    // Radix's Dialog content is portaled onto document.body.
+    await expectNoAxeViolations(document.body);
   });
 });

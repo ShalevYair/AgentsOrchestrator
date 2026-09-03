@@ -6,6 +6,7 @@ import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
 import "../../i18n/index.js";
 import { api, type ChatMessage, type Thread } from "../../lib/api.js";
 import type { WsStatus } from "../../lib/ws.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { ChatView } from "./ChatView.js";
 
 interface FakeSocketHandlers {
@@ -109,6 +110,25 @@ describe("ChatView (UX.md §10 error states + reconnect banner)", () => {
     const user = userEvent.setup();
     await user.click(settingsButton);
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("has no axe violations with a provider-scoped error banner shown (P9-T10)", async () => {
+    const socket = await renderReadyChatView();
+    act(() => {
+      socket.handlers.onEvent({
+        type: "error",
+        runId: "run-1",
+        seq: 1,
+        payload: {
+          scope: "provider",
+          code: "PROVIDER_REQUEST_FAILED",
+          message: "הבקשה אל ספק המודל נכשלה. נסה שוב בעוד רגע.",
+          recoverable: true,
+        },
+      });
+    });
+    await screen.findByText("הבקשה אל ספק המודל נכשלה. נסה שוב בעוד רגע.");
+    await expectNoAxeViolations(document.body);
   });
 
   it("shows a budget-scoped error with the goal-button hint, no settings shortcut", async () => {

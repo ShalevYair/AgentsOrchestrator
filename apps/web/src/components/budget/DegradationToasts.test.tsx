@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "../../i18n/index.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { DegradationToasts } from "./DegradationToasts.js";
 
 describe("DegradationToasts (BUDGET.md §8 — non-blocking toasts)", () => {
@@ -51,6 +52,19 @@ describe("DegradationToasts (BUDGET.md §8 — non-blocking toasts)", () => {
     expect(dismissButtons).toHaveLength(2);
     await user.click(dismissButtons[0]!);
     expect(onDismiss).toHaveBeenCalledExactlyOnceWith("d1");
+  });
+
+  it("has no axe violations with two simultaneous toasts, one clamped (P9-T10)", async () => {
+    const { container } = render(
+      <DegradationToasts
+        toasts={[
+          { id: "d1", amount: 1_000, clamped: false },
+          { id: "d2", amount: 2_000, clamped: true },
+        ]}
+        onDismiss={vi.fn()}
+      />,
+    );
+    await expectNoAxeViolations(container);
   });
 
   describe("auto-dismiss", () => {

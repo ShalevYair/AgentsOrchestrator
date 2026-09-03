@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "../../i18n/index.js";
+import { expectNoAxeViolations } from "../../test/axe.js";
 import { OnboardingScreen } from "./OnboardingScreen.js";
 
 describe("OnboardingScreen (UX.md §10 'אין מפתח API')", () => {
@@ -31,5 +32,10 @@ describe("OnboardingScreen (UX.md §10 'אין מפתח API')", () => {
     await user.click(screen.getByRole("button", { name: "המשך בלי מפתח (מצב הדגמה)" }));
 
     expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it("has no axe violations (P9-T10)", async () => {
+    const { container } = render(<OnboardingScreen onOpenSettings={vi.fn()} onContinue={vi.fn()} />);
+    await expectNoAxeViolations(container);
   });
 });
