@@ -59,6 +59,37 @@ describe("buildAttachmentState", () => {
     const b = await buildAttachmentState(textFile("a.txt", "two, a longer different string"));
     expect(a.id).not.toBe(b.id);
   });
+
+  /** UX.md §10 "הקובץ ריק/פגום": an empty file is still real content (0 tokens), never null/NaN/a crash. */
+  it("handles a genuinely empty (0-byte) file as ready with 0 tokens, not an error", async () => {
+    const file = textFile("empty.txt", "");
+    const state = await buildAttachmentState(file);
+    expect(state.status).toBe("ready");
+    expect(state.estimatedTokens).toBe(0);
+    expect(state.content).toBe("");
+  });
+
+  /** UX.md §10 "הקובץ ריק/פגום": a file that fails to read (permission revoked, deleted on disk) resolves as `read-error` — it must never reject and take the whole `Promise.all` batch down with it (ChatInput.addFiles). */
+  it("resolves as read-error (never rejects) when FileReader itself fails", async () => {
+    // Saved only to be reassigned back onto the same prototype in `finally`
+    // below, never invoked directly by this test — no `this` is lost.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const originalReadAsText = FileReader.prototype.readAsText;
+    FileReader.prototype.readAsText = function (this: FileReader): void {
+      setTimeout(() => {
+        this.dispatchEvent(new Event("error"));
+      }, 0);
+    };
+    try {
+      const file = textFile("corrupt.txt", "irrelevant — the read itself fails");
+      const state = await buildAttachmentState(file);
+      expect(state.status).toBe("read-error");
+      expect(state.estimatedTokens).toBeNull();
+      expect(state.content).toBeNull();
+    } finally {
+      FileReader.prototype.readAsText = originalReadAsText;
+    }
+  });
 });
 
 describe("isEstimatableKind", () => {

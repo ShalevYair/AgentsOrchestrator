@@ -10,3 +10,13 @@ import "@testing-library/jest-dom/vitest";
 afterEach(() => {
   cleanup();
 });
+
+// jsdom doesn't implement scrollIntoView at all (it depends on layout,
+// which jsdom doesn't do) — real browsers all have it. MessageList.tsx
+// calls it on every render to keep the chat scrolled to the latest
+// message; without this stub, any test that renders it throws inside a
+// passive effect and React unmounts the whole tree.
+// eslint-disable-next-line @typescript-eslint/unbound-method -- reading the current value to polyfill it, never calling it unbound
+Element.prototype.scrollIntoView ??= function scrollIntoViewStub(): void {
+  return;
+};

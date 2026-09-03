@@ -31,7 +31,9 @@
     "copyCode": "Copy code",
     "attachFiles": "Attach files",
     "attachmentSection": "--- Attached file: {{name}} ---\n{{content}}",
-    "attachmentUnsupportedSection": "--- Attached file (content not sent): {{name}} ---"
+    "attachmentUnsupportedSection": "--- Attached file (content not sent): {{name}} ---",
+    "openSettingsFromError": "Go to settings",
+    "budgetErrorHint": "You can raise the budget or change the level from the goal button next to the input box."
   },
   "attachment": {
     "tokens": "~{{tokens}} tokens",

@@ -31,7 +31,9 @@
     "copyCode": "העתק קוד",
     "attachFiles": "צירוף קבצים",
     "attachmentSection": "--- קובץ מצורף: {{name}} ---\n{{content}}",
-    "attachmentUnsupportedSection": "--- קובץ מצורף (התוכן לא נשלח): {{name}} ---"
+    "attachmentUnsupportedSection": "--- קובץ מצורף (התוכן לא נשלח): {{name}} ---",
+    "openSettingsFromError": "מעבר להגדרות",
+    "budgetErrorHint": "אפשר להעלות את התקציב או לשנות רמה בכפתור המטרה שליד תיבת הכתיבה."
   },
   "attachment": {
     "tokens": "~{{tokens}} טוקנים",

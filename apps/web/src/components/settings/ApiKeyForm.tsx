@@ -106,7 +106,17 @@ export function ApiKeyForm(): React.JSX.Element {
         </div>
       ) : (
         phase !== "loading" && (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("settings.apiKey.noKey")}</p>
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">{t("settings.apiKey.noKey")}</p>
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-neutral-700 underline hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
+            >
+              {t("settings.apiKey.getKeyLink")}
+            </a>
+          </div>
         )
       )}
 

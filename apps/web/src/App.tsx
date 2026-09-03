@@ -6,6 +6,7 @@ import type { BudgetMeterInfo } from "./lib/budget-projection.js";
 import { Header } from "./components/layout/Header.js";
 import { ChatView } from "./components/chat/ChatView.js";
 import { SettingsDialog } from "./components/settings/SettingsDialog.js";
+import { OnboardingScreen } from "./components/onboarding/OnboardingScreen.js";
 
 /**
  * ADR-010: `dir`/`lang` on `<html>` react live to a language switch, not
@@ -25,31 +26,49 @@ export default function App(): React.JSX.Element {
   useDocumentLocale();
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [budgetInfo, setBudgetInfo] = React.useState<BudgetMeterInfo | null>(null);
-  const checkedOnboarding = React.useRef(false);
+  // UX.md §10 "אין מפתח API": null while we haven't heard back yet (we
+  // optimistically render ChatView during that window, matching prior
+  // behavior), then true/false once `api.keyStatus()` resolves.
+  const [hasKey, setHasKey] = React.useState<boolean | null>(null);
+  const [onboardingDismissed, setOnboardingDismissed] = React.useState(false);
 
-  React.useEffect(() => {
-    if (checkedOnboarding.current) return;
-    checkedOnboarding.current = true;
-    // UX.md §10 / P2-T7: a brand-new user with no API key lands on
-    // Settings first, not a chat screen that quietly only produces mock
-    // replies with no explanation.
+  const refreshKeyStatus = React.useCallback((): void => {
     api
       .keyStatus()
       .then((status) => {
-        if (!status.hasKey) setSettingsOpen(true);
+        setHasKey(status.hasKey);
       })
       .catch(() => {
-        // Runtime unreachable at all is a bigger problem than this nicety.
+        // Runtime unreachable at all is a bigger problem than this nicety —
+        // fail open so an unreachable status check never blocks chat.
+        setHasKey(true);
       });
   }, []);
+
+  React.useEffect(() => {
+    refreshKeyStatus();
+  }, [refreshKeyStatus]);
 
   return (
     <div className="flex h-screen flex-col">
       <Header budgetInfo={budgetInfo} onOpenSettings={() => setSettingsOpen(true)} />
       <main className="flex flex-1 overflow-hidden">
-        <ChatView onBudgetChange={setBudgetInfo} />
+        {hasKey === false && !onboardingDismissed ? (
+          <OnboardingScreen
+            onOpenSettings={() => setSettingsOpen(true)}
+            onContinue={() => setOnboardingDismissed(true)}
+          />
+        ) : (
+          <ChatView onBudgetChange={setBudgetInfo} onOpenSettings={() => setSettingsOpen(true)} />
+        )}
       </main>
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={(open) => {
+          setSettingsOpen(open);
+          if (!open) refreshKeyStatus();
+        }}
+      />
     </div>
   );
 }

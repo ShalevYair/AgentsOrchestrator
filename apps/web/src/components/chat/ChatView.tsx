@@ -2,7 +2,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import type { GoalConfig, RuntimeEvent } from "@ao/shared";
 import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
-import { api, type ChatMessage } from "../../lib/api.js";
+import { api, ApiError, type ChatMessage } from "../../lib/api.js";
 import { RunEventSocket, type WsStatus } from "../../lib/ws.js";
 import { applyRuntimeEvent, INITIAL_RUN_STATE } from "../../lib/run-state.js";
 import { projectFinalTokens, type BudgetMeterInfo } from "../../lib/budget-projection.js";
@@ -14,8 +14,24 @@ import { EgressPanel } from "../egress/EgressPanel.js";
 import { ChatInput } from "./ChatInput.js";
 import { MessageList } from "./MessageList.js";
 
+/**
+ * Matches both the WS `error` event's payload (`ErrorEventSchema`, which
+ * validates `scope`/`code` as plain strings rather than re-deriving
+ * `ErrorScope`/`ErrorCode`'s literal unions) and `ApiError.serialized`
+ * (`SerializedError` from `@ao/shared`, already the wider shape's source)
+ * — one local type both real error sources fit without a cast.
+ */
+interface RunError {
+  scope: string;
+  code: string;
+  message: string;
+  recoverable: boolean;
+}
+
 export interface ChatViewProps {
   onBudgetChange: (info: BudgetMeterInfo) => void;
+  /** UX.md §10 "מפתח לא תקין / פג": a provider-scoped runtime error offers a quick jump to Settings, not just an inert message. */
+  onOpenSettings: () => void;
 }
 
 /**
@@ -26,13 +42,19 @@ export interface ChatViewProps {
  * bubble until `run.finished`, at which point the authoritative persisted
  * messages (with real usage) are re-fetched from the runtime.
  */
-export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
+export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): React.JSX.Element {
   const { t } = useTranslation();
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [streamingText, setStreamingText] = React.useState<string | null>(null);
   const [wsStatus, setWsStatus] = React.useState<WsStatus | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<RunError | null>(null);
+  // UX.md §10 "ניתוק WebSocket": the reconnect + seq-based gap-fill itself
+  // is already real (lib/ws.ts, apps/runtime/src/ws/hub.ts) — this is only
+  // the transient "back online" confirmation once a `reconnecting` spell
+  // resolves back to `open`, auto-dismissing like the degradation toasts.
+  const previousWsStatusRef = React.useRef<WsStatus | null>(null);
+  const [showConnectionRestored, setShowConnectionRestored] = React.useState(false);
   const [goalConfig, setGoalConfig] = React.useState<GoalConfig>(DEFAULT_GOAL_CONFIG);
   const [goalSaveError, setGoalSaveError] = React.useState<string | null>(null);
   const [runState, dispatchRunEvent] = React.useReducer(applyRuntimeEvent, INITIAL_RUN_STATE);
@@ -74,6 +96,20 @@ export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
 
   React.useEffect(() => () => socketRef.current?.close(), []);
 
+  React.useEffect(() => {
+    const previous = previousWsStatusRef.current;
+    previousWsStatusRef.current = wsStatus;
+    if (previous === "reconnecting" && wsStatus === "open") {
+      setShowConnectionRestored(true);
+      const timer = setTimeout(() => {
+        setShowConnectionRestored(false);
+      }, 3000);
+      return () => {
+        clearTimeout(timer);
+      };
+    }
+  }, [wsStatus]);
+
   const handleEvent = React.useCallback(
     (event: RuntimeEvent) => {
       dispatchRunEvent(event);
@@ -87,7 +123,7 @@ export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
           break;
         }
         case "error": {
-          setError(event.payload.message);
+          setError(event.payload);
           break;
         }
         case "budget.degraded": {
@@ -147,8 +183,17 @@ export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
         socketRef.current?.close();
         socketRef.current = new RunEventSocket(runId, { onEvent: handleEvent, onStatusChange: setWsStatus });
       })
-      .catch(() => {
-        setError(t("chat.turnFailed", { message: "" }));
+      .catch((err: unknown) => {
+        setError(
+          err instanceof ApiError && err.serialized
+            ? err.serialized
+            : {
+                scope: "runtime",
+                code: "INTERNAL",
+                message: t("chat.turnFailed", { message: "" }),
+                recoverable: false,
+              },
+        );
       });
   };
 
@@ -192,10 +237,42 @@ export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
           {t("chat.connectionLost")}
         </div>
       )}
+      {showConnectionRestored && (
+        <div
+          role="status"
+          className="bg-emerald-100 px-4 py-1.5 text-center text-xs text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200"
+        >
+          {t("chat.connectionRestored")}
+        </div>
+      )}
       {error && (
-        <div className="flex items-center gap-2 bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          <AlertCircle />
-          <span>{error}</span>
+        <div className="flex flex-col gap-1.5 bg-red-50 px-4 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+          <div className="flex items-center gap-2">
+            <AlertCircle />
+            <span>{error.message}</span>
+          </div>
+          {/* UX.md §10 "מפתח לא תקין / פג": any provider-scoped failure (a
+              revoked/expired key surfaces here as PROVIDER_REQUEST_FAILED,
+              not a distinct code — see run-chat.ts's toProviderError, which
+              only special-cases 429) gets a real jump to Settings, not just
+              inert text. */}
+          {error.scope === "provider" && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="self-start text-xs font-medium underline hover:no-underline"
+            >
+              {t("chat.openSettingsFromError")}
+            </button>
+          )}
+          {/* UX.md §10 "תקציב אזל": this chat path has no multi-stage run to
+              summarize "what was done" from (admission is rejected before
+              any provider call starts, run-chat.ts) — the one real, honest
+              next step is pointing at the goal button that actually controls
+              the budget, not a fabricated "continue" action nothing backs. */}
+          {error.scope === "budget" && (
+            <p className="text-xs text-red-600/80 dark:text-red-300/80">{t("chat.budgetErrorHint")}</p>
+          )}
         </div>
       )}
       <div className="flex flex-1 overflow-hidden">
