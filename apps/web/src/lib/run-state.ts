@@ -79,6 +79,22 @@ export interface RunState {
   remaining: number;
   /** Per-stage actual spend from the Ledger's own snapshot — BUDGET.md §8's "פירוט לפי שלב". For today's real (single-turn, no-scheduler) chat path this is just `{chat: N}`; a real multi-stage run would report one entry per stage. */
   byStage: Record<string, number>;
+  /**
+   * UX.md §7's "מה יצא מהמחשב" panel (P9-T7) — unlike `spent`/`committed`
+   * (one `ledger.updated` snapshot replaces the last), `egress.recorded`
+   * fires once per outbound call with that call's own numbers, so this
+   * accumulates by appending rather than replacing.
+   */
+  egressTotalBytes: number;
+  egressTotalRedactions: number;
+  egressCalls: EgressCallRecord[];
+}
+
+export interface EgressCallRecord {
+  callId: string;
+  bytes: number;
+  artifactRefs: string[];
+  redactions: number;
 }
 
 export const INITIAL_RUN_STATE: RunState = {
@@ -97,6 +113,9 @@ export const INITIAL_RUN_STATE: RunState = {
   committed: 0,
   remaining: 0,
   byStage: {},
+  egressTotalBytes: 0,
+  egressTotalRedactions: 0,
+  egressCalls: [],
 };
 
 /**
@@ -267,6 +286,16 @@ export function applyRuntimeEvent(state: RunState, event: RuntimeEvent): RunStat
     case "ledger.updated": {
       const { spent, committed, remaining, byStage } = event.payload;
       return { ...state, spent, committed, remaining, byStage };
+    }
+
+    case "egress.recorded": {
+      const { callId, bytes, artifactRefs, redactions } = event.payload;
+      return {
+        ...state,
+        egressTotalBytes: state.egressTotalBytes + bytes,
+        egressTotalRedactions: state.egressTotalRedactions + redactions,
+        egressCalls: [...state.egressCalls, { callId, bytes, artifactRefs, redactions }],
+      };
     }
 
     case "run.finished":

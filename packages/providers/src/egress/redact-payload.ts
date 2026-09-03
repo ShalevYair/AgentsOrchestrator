@@ -1,4 +1,5 @@
 import { REDACTED_FIELD_PATHS, createSecretRegistry, type SecretRegistry } from "@ao/platform";
+import type { RedactionEvent } from "@ao/shared";
 
 const REDACTED_MARKER = "[REDACTED]";
 
@@ -67,12 +68,7 @@ function shannonEntropy(value: string): number {
 const ENTROPY_TOKEN_PATTERN = /[A-Za-z0-9+/_=-]{24,}/g;
 const ENTROPY_THRESHOLD = 4.2;
 
-export interface RedactionEvent {
-  /** JSON-Pointer-shaped path to the field this redaction happened in ("" for a bare top-level string). */
-  path: string;
-  /** Which rule matched — one of SECRET_PATTERNS' names, "sensitive-field-name", "high-entropy-token", or "registered-secret". */
-  pattern: string;
-}
+export type { RedactionEvent };
 
 export interface RedactPayloadResult<T> {
   payload: T;

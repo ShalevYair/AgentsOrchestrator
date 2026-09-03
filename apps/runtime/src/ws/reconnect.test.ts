@@ -12,6 +12,7 @@ import type {
   GenerateRequest,
   LLMProvider,
   ModelInfo,
+  RedactionEvent,
 } from "@ao/shared";
 import { buildServer } from "../server.js";
 import { buildTestContext, type TestContext } from "../test-support/build-test-context.js";
@@ -62,6 +63,10 @@ class DelayedProvider implements LLMProvider {
         supportsThinking: false,
       },
     ]);
+  }
+
+  getEgressRedactions(): readonly RedactionEvent[] {
+    return [];
   }
 }
 

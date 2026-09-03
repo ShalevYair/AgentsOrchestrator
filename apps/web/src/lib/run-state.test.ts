@@ -409,3 +409,36 @@ describe("applyRuntimeEvent — budget meter (P9-T6)", () => {
     expect(next.byStage).toEqual({});
   });
 });
+
+describe("applyRuntimeEvent — egress panel (P9-T7)", () => {
+  it("egress.recorded accumulates onto the running totals rather than replacing them", () => {
+    let state = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("egress.recorded", { callId: "run_test123#0", bytes: 500, artifactRefs: [], redactions: 0 }),
+    );
+    state = applyRuntimeEvent(
+      state,
+      event("egress.recorded", { callId: "run_test123#1", bytes: 300, artifactRefs: ["a1"], redactions: 2 }),
+    );
+    expect(state.egressTotalBytes).toBe(800);
+    expect(state.egressTotalRedactions).toBe(2);
+    expect(state.egressCalls).toEqual([
+      { callId: "run_test123#0", bytes: 500, artifactRefs: [], redactions: 0 },
+      { callId: "run_test123#1", bytes: 300, artifactRefs: ["a1"], redactions: 2 },
+    ]);
+  });
+
+  it("run.started resets the egress totals along with everything else", () => {
+    const afterEgress = applyRuntimeEvent(
+      INITIAL_RUN_STATE,
+      event("egress.recorded", { callId: "c1", bytes: 1000, artifactRefs: [], redactions: 1 }),
+    );
+    const next = applyRuntimeEvent(
+      afterEgress,
+      event("run.started", { runId: "run_test123", budget: 1_000_000, mode: "standard" }),
+    );
+    expect(next.egressTotalBytes).toBe(0);
+    expect(next.egressTotalRedactions).toBe(0);
+    expect(next.egressCalls).toEqual([]);
+  });
+});

@@ -10,6 +10,7 @@ import { AlertCircle, ChevronDown } from "../ui/icons.js";
 import { OrchestrationBoard } from "../board/OrchestrationBoard.js";
 import { TaskDrawer } from "../board/TaskDrawer.js";
 import { DegradationToasts, type DegradationToast } from "../budget/DegradationToasts.js";
+import { EgressPanel } from "../egress/EgressPanel.js";
 import { ChatInput } from "./ChatInput.js";
 import { MessageList } from "./MessageList.js";
 
@@ -198,7 +199,7 @@ export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
         </div>
       )}
       <div className="flex flex-1 overflow-hidden">
-        {runState.plan && (
+        {(runState.plan ?? runState.egressCalls.length > 0) && (
           <aside
             className={`flex flex-none flex-col border-s border-neutral-200 dark:border-neutral-800 ${
               boardCollapsed ? "w-10" : "w-72"
@@ -206,7 +207,11 @@ export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
             data-testid="board-panel"
           >
             <div className="flex flex-none items-center justify-between gap-1 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
-              {!boardCollapsed && <h2 className="truncate text-sm font-medium">{t("board.title")}</h2>}
+              {!boardCollapsed && (
+                <h2 className="truncate text-sm font-medium">
+                  {runState.plan ? t("board.title") : t("egress.title")}
+                </h2>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -220,14 +225,29 @@ export function ChatView({ onBudgetChange }: ChatViewProps): React.JSX.Element {
               </button>
             </div>
             {!boardCollapsed && (
-              <div className="flex-1 overflow-y-auto">
-                <OrchestrationBoard
-                  plan={runState.plan}
-                  stages={runState.stages}
-                  tasks={runState.tasks}
-                  tasksByStage={runState.tasksByStage}
-                  onSelectTask={setOpenTaskId}
-                />
+              <div className="flex flex-1 flex-col overflow-y-auto">
+                {runState.plan && (
+                  <OrchestrationBoard
+                    plan={runState.plan}
+                    stages={runState.stages}
+                    tasks={runState.tasks}
+                    tasksByStage={runState.tasksByStage}
+                    onSelectTask={setOpenTaskId}
+                  />
+                )}
+                {runState.egressCalls.length > 0 && (
+                  <div
+                    className={
+                      runState.plan ? "border-t border-neutral-200 p-2 dark:border-neutral-800" : "p-2"
+                    }
+                  >
+                    <EgressPanel
+                      totalBytes={runState.egressTotalBytes}
+                      totalRedactions={runState.egressTotalRedactions}
+                      calls={runState.egressCalls}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </aside>

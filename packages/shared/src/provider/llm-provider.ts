@@ -82,6 +82,20 @@ export interface CacheRef {
   cachedTokenCount?: number;
 }
 
+/**
+ * P1-T9: "every redaction is logged/recorded" — one entry per secret a
+ * provider caught and stripped from an outbound payload before it left
+ * this machine. Lives here (not `@ao/providers`, where `redactPayload`
+ * itself is implemented) so `LLMProvider.getEgressRedactions()` below can
+ * reference the type without `@ao/shared` depending on `@ao/providers`.
+ */
+export interface RedactionEvent {
+  /** JSON-Pointer-shaped path to the field this redaction happened in ("" for a bare top-level string). */
+  path: string;
+  /** Which rule matched — one of the pattern-layer names, "sensitive-field-name", "high-entropy-token", or "registered-secret". */
+  pattern: string;
+}
+
 export interface LLMProvider {
   /** Exact input token count before sending — the basis for admission control (BUDGET.md §4.1), not an estimate. */
   countTokens(req: CountRequest): Promise<number>;
@@ -91,4 +105,6 @@ export interface LLMProvider {
   cacheCreate(content: CacheableContent): Promise<CacheRef>;
   /** Live model catalog — the basis for model registry validation (P1-T7) and key validation (P1-T4). */
   models(): Promise<ModelInfo[]>;
+  /** Every redaction this provider instance has made so far, across every call (P9-T7: BUDGET.md/UX.md §7's "מה יצא מהמחשב" panel needs a per-run delta, not this raw cumulative count — see `run-chat.ts`). */
+  getEgressRedactions(): readonly RedactionEvent[];
 }

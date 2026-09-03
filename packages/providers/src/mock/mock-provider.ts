@@ -8,6 +8,7 @@ import type {
   LLMProvider,
   Message,
   ModelInfo,
+  RedactionEvent,
   Usage,
 } from "@ao/shared";
 
@@ -151,6 +152,11 @@ export class MockLLMProvider implements LLMProvider {
   models(): Promise<ModelInfo[]> {
     this.calls.modelsCallCount += 1;
     return Promise.resolve(this.modelList);
+  }
+
+  /** Never redacts anything — this mock never sends a payload anywhere real. */
+  getEgressRedactions(): readonly RedactionEvent[] {
+    return [];
   }
 
   private resolveResponse(req: GenerateRequest): MockGenerateResponse {

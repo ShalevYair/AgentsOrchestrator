@@ -154,8 +154,20 @@ export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatT
   let usage: Usage | undefined;
   let finishReason = "stop";
 
+  // UX.md §7 / P9-T7's "מה יצא מהמחשב" panel needs real bytes-sent and a
+  // real redaction count for *this* call — `getEgressRedactions()` is
+  // cumulative across the provider's whole (process-lifetime) existence
+  // (apps/runtime constructs it once at startup, see select-provider.ts),
+  // so the delta across this one generate() is what's actually reported,
+  // not the raw running total. Only `generate`/`cacheCreate` payloads ever
+  // get scanned for secrets (countTokens doesn't), so the "before" snapshot
+  // is taken right here, not any earlier.
+  const generateRequest = { model, contents, thinkingLevel: goalConfig.effort };
+  const bytesSent = new TextEncoder().encode(JSON.stringify(generateRequest)).length;
+  const redactionsBefore = provider.getEgressRedactions().length;
+
   try {
-    for await (const delta of provider.generate({ model, contents, thinkingLevel: goalConfig.effort })) {
+    for await (const delta of provider.generate(generateRequest)) {
       if (delta.text.length > 0 && !delta.isThought) {
         assistantText += delta.text;
         hub.publish(run.id, "task.delta", { taskId, envelope: { t: "note", text: delta.text } });
@@ -179,6 +191,16 @@ export async function runChatTurn(options: RunChatTurnOptions): Promise<RunChatT
   const finalUsage = usage ?? { promptTokens: 0, candidatesTokens: 0, thoughtsTokens: 0, cachedTokens: 0 };
   ledger.settle(reservation, finalUsage, model);
   hub.publish(run.id, "task.finished", { taskId, usage: finalUsage, finishReason, violations: 0 });
+
+  hub.publish(run.id, "egress.recorded", {
+    callId: taskId,
+    bytes: bytesSent,
+    // No connected folder/artifacts on this chat-only path (P3's
+    // ingestion pipeline isn't wired into apps/web yet) — an honestly
+    // empty list, not an invented file reference.
+    artifactRefs: [],
+    redactions: provider.getEgressRedactions().length - redactionsBefore,
+  });
 
   const assistantMessage = insertMessage(driver, {
     threadId,

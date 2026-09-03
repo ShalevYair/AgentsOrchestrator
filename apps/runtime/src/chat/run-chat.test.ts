@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
 import { MockLLMProvider } from "@ao/providers";
-import { BudgetExceededError, type GoalConfig } from "@ao/shared";
+import { BudgetExceededError, type GoalConfig, type RedactionEvent } from "@ao/shared";
 import { openDatabase, type SqlDriver } from "../db/driver.js";
 import { listEventsSince } from "../db/events.repo.js";
 import { insertMessage, listMessages } from "../db/messages.repo.js";
@@ -159,5 +159,60 @@ describe("runChatTurn budget wiring (P9-T1)", () => {
     const payload = ledgerUpdated?.payload as { spent: number; remaining: number };
     expect(payload.spent).toBeGreaterThan(0);
     expect(payload.remaining).toBeLessThan(DEFAULT_GOAL_CONFIG.budgetTotal);
+  });
+});
+
+describe("runChatTurn egress wiring (P9-T7)", () => {
+  it("publishes egress.recorded with a real byte count and no artifacts on the chat-only path", async () => {
+    const thread = createThread(driver, "t");
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "hello there" });
+    const { runId } = await runChatTurn({ driver, hub, provider, model: MODEL, threadId: thread.id });
+
+    const recorded = listEventsSince(driver, runId, -1).find((e) => e.type === "egress.recorded");
+    expect(recorded).toBeTruthy();
+    const payload = recorded?.payload as {
+      callId: string;
+      bytes: number;
+      artifactRefs: string[];
+      redactions: number;
+    };
+    expect(payload.bytes).toBeGreaterThan(0);
+    expect(payload.artifactRefs).toEqual([]);
+    expect(payload.redactions).toBe(0); // MockLLMProvider never redacts anything
+  });
+
+  it("reports only this call's redactions, not the provider's whole-lifetime total", async () => {
+    // A provider whose getEgressRedactions() already carries redactions
+    // from *earlier* calls, plus one more made *during* this generate() —
+    // proves the delta math (this call's count only), not the raw
+    // cumulative log Ledger.drawFromReserve-style bugs could re-introduce.
+    class PreRedactedProvider extends MockLLMProvider {
+      private readonly log: RedactionEvent[] = [
+        { path: "", pattern: "from-an-earlier-call" },
+        { path: "", pattern: "from-an-earlier-call" },
+      ];
+      override async *generate(req: Parameters<MockLLMProvider["generate"]>[0]) {
+        this.log.push({ path: "/secret", pattern: "test-secret" });
+        yield* super.generate(req);
+      }
+      override getEgressRedactions(): readonly RedactionEvent[] {
+        return this.log;
+      }
+    }
+    const preRedactedProvider = new PreRedactedProvider({ responses: [{ text: "hi back", chunkCount: 1 }] });
+
+    const thread = createThread(driver, "t");
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "hi" });
+    const { runId } = await runChatTurn({
+      driver,
+      hub,
+      provider: preRedactedProvider,
+      model: MODEL,
+      threadId: thread.id,
+    });
+
+    const recorded = listEventsSince(driver, runId, -1).find((e) => e.type === "egress.recorded");
+    const payload = recorded?.payload as { redactions: number };
+    expect(payload.redactions).toBe(1); // not 3 (the pre-existing 2 + this call's 1)
   });
 });

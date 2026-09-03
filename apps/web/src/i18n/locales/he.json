@@ -200,6 +200,14 @@
       "dismiss": "סגור התראה"
     }
   },
+  "egress": {
+    "triggerLabel": "מה יצא מהמחשב: {{bytes}} ב-{{count}} קריאות",
+    "sent": "יצא: {{bytes}}",
+    "title": "מה יצא מהמחשב",
+    "summary": "סה\"כ {{bytes}} ב-{{count}} קריאות ל-Gemini.",
+    "redactionCount": "{{count}} סודות זוהו והוחלפו לפני שיצאו מהמחשב",
+    "calls": "קריאות"
+  },
   "onboarding": {
     "title": "ברוכים הבאים ל-AgentsOrchestrator",
     "body": "כדי להתחיל לשוחח עם Gemini, הכניסו מפתח API בהגדרות. אפשר גם להמשיך בלי מפתח ולקבל תשובות דמה.",

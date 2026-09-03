@@ -200,6 +200,15 @@
       "dismiss": "Dismiss"
     }
   },
+  "egress": {
+    "triggerLabel": "What left the machine: {{bytes}} in {{count}} calls",
+    "sent": "Sent: {{bytes}}",
+    "title": "What left the machine",
+    "summary": "{{bytes}} total in {{count}} calls to Gemini.",
+    "redactionCount": "{{count}} secret redacted before it left the machine",
+    "redactionCount_other": "{{count}} secrets redacted before they left the machine",
+    "calls": "Calls"
+  },
   "onboarding": {
     "title": "Welcome to AgentsOrchestrator",
     "body": "To start chatting with Gemini, add an API key in Settings. You can also continue without a key and get mock replies.",
