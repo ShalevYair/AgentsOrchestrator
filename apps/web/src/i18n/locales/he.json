@@ -28,7 +28,17 @@
     "turnFailed": "התשובה נכשלה: {{message}}",
     "copy": "העתק",
     "copied": "הועתק!",
-    "copyCode": "העתק קוד"
+    "copyCode": "העתק קוד",
+    "attachFiles": "צירוף קבצים",
+    "attachmentSection": "--- קובץ מצורף: {{name}} ---\n{{content}}",
+    "attachmentUnsupportedSection": "--- קובץ מצורף (התוכן לא נשלח): {{name}} ---"
+  },
+  "attachment": {
+    "tokens": "~{{tokens}} טוקנים",
+    "tooLarge": "גדול מדי להערכה",
+    "notEstimated": "לא זמין לסוג קובץ זה",
+    "readError": "לא ניתן היה לקרוא את הקובץ",
+    "remove": "הסר את {{name}}"
   },
   "settings": {
     "title": "הגדרות",

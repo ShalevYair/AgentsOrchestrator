@@ -1,9 +1,15 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import type { GoalConfig } from "@ao/shared";
+import {
+  buildAttachmentState,
+  composeMessageWithAttachments,
+  type AttachmentState,
+} from "../../lib/attachments.js";
 import { Button } from "../ui/button.js";
-import { Send } from "../ui/icons.js";
+import { Paperclip, Send } from "../ui/icons.js";
 import { GoalButton } from "../goal/GoalButton.js";
+import { AttachmentCard } from "./AttachmentCard.js";
 
 export interface ChatInputProps {
   onSend: (text: string) => void;
@@ -25,7 +31,10 @@ export function ChatInput({
 }: ChatInputProps): React.JSX.Element {
   const { t } = useTranslation();
   const [value, setValue] = React.useState("");
+  const [attachments, setAttachments] = React.useState<AttachmentState[]>([]);
+  const [isDraggingOver, setIsDraggingOver] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     const el = textareaRef.current;
@@ -36,11 +45,27 @@ export function ChatInput({
 
   const isDisabled = disabled === true;
 
+  const addFiles = (files: FileList | File[]): void => {
+    void Promise.all(Array.from(files).map((file) => buildAttachmentState(file))).then((built) => {
+      setAttachments((prev) => [...prev, ...built]);
+    });
+  };
+
+  const removeAttachment = (id: string): void => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
   const submit = (): void => {
     const trimmed = value.trim();
-    if (!trimmed || isDisabled) return;
-    onSend(trimmed);
+    if (isDisabled || (!trimmed && attachments.length === 0)) return;
+    const finalText = composeMessageWithAttachments(trimmed, attachments, (a) =>
+      a.status === "ready" && a.content !== null
+        ? t("chat.attachmentSection", { name: a.file.name, content: a.content })
+        : t("chat.attachmentUnsupportedSection", { name: a.file.name }),
+    );
+    onSend(finalText);
     setValue("");
+    setAttachments([]);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -51,7 +76,32 @@ export function ChatInput({
   };
 
   return (
-    <div className="flex flex-col gap-2 border-t border-neutral-200 p-3 dark:border-neutral-800">
+    <div
+      className={`flex flex-col gap-2 border-t p-3 ${
+        isDraggingOver
+          ? "border-neutral-400 bg-neutral-50 dark:border-neutral-500 dark:bg-neutral-900"
+          : "border-neutral-200 dark:border-neutral-800"
+      }`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setIsDraggingOver(true);
+      }}
+      onDragLeave={() => {
+        setIsDraggingOver(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setIsDraggingOver(false);
+        if (event.dataTransfer.files.length > 0) addFiles(event.dataTransfer.files);
+      }}
+    >
+      {attachments.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {attachments.map((attachment) => (
+            <AttachmentCard key={attachment.id} attachment={attachment} onRemove={removeAttachment} />
+          ))}
+        </div>
+      )}
       <textarea
         ref={textareaRef}
         value={value}
@@ -65,10 +115,34 @@ export function ChatInput({
         className="max-h-60 flex-1 resize-none rounded-md border border-neutral-300 bg-transparent px-3 py-2 text-sm placeholder:text-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 disabled:opacity-50 dark:border-neutral-700 dark:placeholder:text-neutral-500"
       />
       <div className="flex items-center justify-between gap-2">
-        <GoalButton value={goalConfig} onChange={onGoalConfigChange} saveError={goalSaveError} />
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(event) => {
+              if (event.target.files && event.target.files.length > 0) addFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={isDisabled}
+            aria-label={t("chat.attachFiles")}
+            title={t("chat.attachFiles")}
+            onClick={() => {
+              fileInputRef.current?.click();
+            }}
+          >
+            <Paperclip />
+          </Button>
+          <GoalButton value={goalConfig} onChange={onGoalConfigChange} saveError={goalSaveError} />
+        </div>
         <Button
           onClick={submit}
-          disabled={isDisabled || value.trim().length === 0}
+          disabled={isDisabled || (value.trim().length === 0 && attachments.length === 0)}
           aria-label={t("chat.send")}
         >
           {isDisabled ? t("chat.sending") : t("chat.send")}

@@ -81,6 +81,9 @@ importers:
       '@ao/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@ao/ingest':
+        specifier: workspace:*
+        version: link:../../packages/ingest
       '@ao/providers':
         specifier: workspace:*
         version: link:../../packages/providers

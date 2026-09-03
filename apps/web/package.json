@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ao/core": "workspace:*",
+    "@ao/ingest": "workspace:*",
     "@ao/providers": "workspace:*",
     "@ao/shared": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.4",
