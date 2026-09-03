@@ -57,6 +57,26 @@
       "getKeyLink": "Get a free API key from Google AI Studio"
     }
   },
+  "artifacts": {
+    "download": "Download",
+    "downloadAll": "Download all as ZIP",
+    "writeToFolder": "Write to folder",
+    "showDiff": "Show diff",
+    "hideDiff": "Hide diff",
+    "diffAgainstOriginal": "Diff against the original",
+    "zipEntryCount": "{{count}} file",
+    "zipEntryCount_other": "{{count}} files",
+    "emptyTable": "No rows",
+    "imageAlt": "Preview of {{name}}",
+    "kind": {
+      "code": "Code",
+      "markdown": "Markdown",
+      "image": "Image",
+      "table": "Table",
+      "zip": "Archive",
+      "text": "Text"
+    }
+  },
   "onboarding": {
     "title": "Welcome to AgentsOrchestrator",
     "body": "To start chatting with Gemini, add an API key in Settings. You can also continue without a key and get mock replies.",

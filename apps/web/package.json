@@ -13,6 +13,7 @@
     "@ao/shared": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.4",
     "clsx": "^2.1.1",
+    "fflate": "^0.8.3",
     "i18next": "^24.2.1",
     "katex": "^0.16.11",
     "mermaid": "^11.4.1",

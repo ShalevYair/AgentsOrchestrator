@@ -57,6 +57,26 @@
       "getKeyLink": "השיגו מפתח API בחינם מ-Google AI Studio"
     }
   },
+  "artifacts": {
+    "download": "הורדה",
+    "downloadAll": "הורד הכל כ-ZIP",
+    "writeToFolder": "כתוב לתיקייה",
+    "showDiff": "הצג דיף",
+    "hideDiff": "הסתר דיף",
+    "diffAgainstOriginal": "דיף מול המקור",
+    "zipEntryCount": "קובץ אחד",
+    "zipEntryCount_other": "{{count}} קבצים",
+    "emptyTable": "אין שורות",
+    "imageAlt": "תצוגה מקדימה של {{name}}",
+    "kind": {
+      "code": "קוד",
+      "markdown": "Markdown",
+      "image": "תמונה",
+      "table": "טבלה",
+      "zip": "ארכיון",
+      "text": "טקסט"
+    }
+  },
   "onboarding": {
     "title": "ברוכים הבאים ל-AgentsOrchestrator",
     "body": "כדי להתחיל לשוחח עם Gemini, הכניסו מפתח API בהגדרות. אפשר גם להמשיך בלי מפתח ולקבל תשובות דמה.",
