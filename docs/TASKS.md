@@ -860,8 +860,29 @@
 
 **מטרה:** לשבור את תקרת 64K.
 
-- [ ] **P8-T1 · סוכן `outliner`** — שלד עם מזהים, מטרות וגדלים צפויים.
+- [x] **P8-T1 · סוכן `outliner`** — שלד עם מזהים, מטרות וגדלים צפויים.
       *גמור:* הפלט קטן (<4K) · כל סעיף בעל גודל צפוי מתחת לתקרת הסוכן.
+      *כפי שמומש:* `packages/core/src/outliner/outliner.ts` — `runOutliner` בנוי בדיוק לפי התבנית של
+      `recon.ts`/`checkpoint/agent.ts`/`toolsmith.ts` (P5-T2, P6-T2, P7-T4): קריאה יחידה ל-LLM שמחזירה
+      אובייקט JSON מובנה יחיד (`OutlineSpecSchema`, לא NDJSON), עם בדיקת קיבולת-דלי מפורשת (`"execution"`,
+      58%) **לפני** `runAdmitted` — outliner הוא סוכן `worker`-tier (ARCHITECTURE.md §4) שעושה עבודת שלב-0
+      של Stage, אותו דלי בדיוק כמו `toolsmith` ומאותה סיבה. **החלטת סכמה מפורשת:** `OutlineSpec`/
+      `OutlineSpecSection` (`packages/shared/src/schemas/outline-spec.ts`) הם טיפוס **חדש**, לא הרחבה של
+      `blackboard.ts`'s `OutlineSchema` הקיים — כי הפלט הגולמי של ה-outliner חסר `ownerTaskId`/`status`
+      (שדות שמוקצים מאוחר יותר, ב-[P8-T2](#p8)) ומחזיק שדות שה-Blackboard's `Outline` לא צריך (`goal`,
+      `expectedOutputTokens`, `deliverableKind`, ו-`path` לסעיפי `files` בלבד — union מסוגנן עם
+      `z.discriminatedUnion("deliverableKind", ...)` כך שסעיף `markdown` פיזית לא יכול לשאת `path`).
+      הרחבת הטיפוס הקיים הייתה דורשת לגעת בשני קבצי בדיקה קיימים מ-P5-T9/P5-T10 בלי תועלת אמיתית — טיפוס
+      נפרד הוא הפרשנות הנקייה יותר, ו-[P8-T2](#p8) הוא מה שהופך `OutlineSpecSection` ל-`OutlineSection`
+      (מוסיף `ownerTaskId`+`status`). **שני הביקורות של "גמור" נאכפות בפועל, לא רק מתועדות:** תקרת ה-4K
+      של הפלט עצמו נבדקת מול `usage.candidatesTokens` **האמיתי** שחוזר מה-provider (לא הערכה) — נבדק עם
+      תשובת mock גדולה בכוונה (400 סעיפים) שחוצה את הסף בפועל; וגודל צפוי לכל סעיף נבדק מול תקרת סוג
+      הסוכן הבעלים (`writer`/`coder`, מסופקות ע"י הקורא כ-`SectionOwnerCaps` — `core` אין לו רישום סוכנים
+      משלו, כמו בכל מקום אחר בחבילה). שתי הבדיקות רצות **בתוך** ה-callback של `runAdmitted` (לא אחריו) —
+      כשל בהן משחרר (`release`) את ה-reservation במקום ליישב אותו (`settle`), אותה מוסכמה בדיוק כמו כשל
+      פרסור/סכמה ב-`recon.ts`/`toolsmith.ts`. 7 בדיקות: פלט תקין · שיוך לדלי execution בלבד · חריגת
+      קיבולת-דלי נדחית לפני קריאה לספק · JSON לא-תואם-סכמה משחרר reservation · סעיף חורג-תקרה נדחה · פלט
+      שעצמו חוצה 4K (עם בדיקת-שפיות מפורשת שהתרחיש אכן חוצה את הסף) נדחה למרות שהוא תקף-סכמה.
 - [ ] **P8-T2 · פילוח לפי שלד** — בעלות בלעדית לכל סעיף/קובץ.
       *גמור:* **אף סעיף בלי בעלים · אף סעיף עם שני בעלים** — נאכף בזמן הפילוח.
 - [ ] **P8-T3 · `Assembler`** — הרכבה לפי סדר השלד + אימות שלמות.
