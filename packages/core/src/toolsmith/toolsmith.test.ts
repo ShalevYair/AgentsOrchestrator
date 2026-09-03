@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MockLLMProvider } from "@ao/providers";
 import type { LocalTool } from "@ao/shared";
-import { detectSandbox, runNodeTool } from "@ao/tools";
+import { detectSandbox, matchLibraryTool, runNodeTool } from "@ao/tools";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Ledger } from "../ledger/index.js";
 import { buildToolsmithPrompt, runToolsmith, type RunLocalTool } from "./toolsmith.js";
@@ -106,6 +106,46 @@ describe("runToolsmith", () => {
       }),
     ).rejects.toThrow(/LocalToolSchema|not valid JSON/);
     expect(runLocalToolCalled).toBe(false);
+  });
+});
+
+describe("runToolsmith with a pre-built library tool (P7-T5)", () => {
+  it("never calls the LLM at all, and never touches the execution bucket, when a libraryTool is supplied", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ao-toolsmith-library-"));
+    const stagingRoot = mkdtempSync(join(tmpdir(), "ao-toolsmith-library-staging-"));
+    try {
+      writeFileSync(join(dir, "a.ts"), "export const a = 1;\n", "utf8");
+      writeFileSync(join(dir, "b.ts"), "export const b = 2;\n", "utf8");
+      const libraryTool = matchLibraryTool({ kind: "file-stats", params: { dir } });
+
+      const ledger = new Ledger({ total: 1_000_000 });
+      const provider = new MockLLMProvider({
+        responses: [{ text: "if this were parsed, the test below would fail" }],
+      });
+      const sandbox = detectSandbox();
+
+      const outcome = await runToolsmith({
+        ledger,
+        provider,
+        model: "gemini-3.7-flash",
+        stageId: "stage-lib",
+        request: { userRequest: "how many files are here", dataDescription: "a small directory" },
+        worstCase: 2000,
+        libraryTool,
+        runLocalTool: (tool) => runNodeTool({ tool, sandbox, stagingRoot }),
+      });
+
+      expect(outcome.tool.source).toBe("registry");
+      expect(outcome.result.ok).toBe(true);
+      expect((outcome.result.data as { fileCount: number }).fileCount).toBe(2);
+
+      // The point of P7-T5: zero LLM calls, zero tokens spent, when a library match exists.
+      expect(provider.calls.generate).toHaveLength(0);
+      expect(ledger.bucketSnapshot("execution").spent).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(stagingRoot, { recursive: true, force: true });
+    }
   });
 });
 

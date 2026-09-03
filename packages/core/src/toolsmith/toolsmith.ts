@@ -43,6 +43,21 @@ export interface RunToolsmithParams {
   request: ToolsmithRequest;
   /** BUDGET.md §4.1's precomputed worst-case for the *generation* call only — same convention as every other admission call site in this package. Running the resulting script has no LLM cost of its own. */
   worstCase: number;
+  /**
+   * P7-T5 — "המתכנן בוחר מוכן לפני שמייצר חדש": when the caller has already
+   * resolved a pre-built `LocalTool` (`@ao/tools`'s library, `source:
+   * "registry"`) for this request, pass it here and the LLM is **never
+   * called at all** — not just discouraged, structurally skipped (see
+   * `runToolsmith`'s first branch below). This is what makes "כלים מוכנים
+   * עולים אפס טוקנים" true rather than aspirational: `provider.generate`
+   * has no code path that runs when this is set. Matching free-text intent
+   * to a library tool is deliberately **not** done here — that would need
+   * either an LLM call (defeating the zero-token point) or a fragile
+   * keyword heuristic dressed up as intelligence; the caller (a real
+   * planner, eventually) is expected to already know which canned
+   * operation it needs.
+   */
+  libraryTool?: LocalTool;
   runLocalTool: RunLocalTool;
 }
 
@@ -105,6 +120,11 @@ function parseLocalTool(text: string): LocalTool {
  * the small result, never by the underlying data itself.
  */
 export async function runToolsmith(params: RunToolsmithParams): Promise<ToolsmithOutcome> {
+  if (params.libraryTool) {
+    const result = await params.runLocalTool(params.libraryTool);
+    return { tool: params.libraryTool, result };
+  }
+
   const executionBucket = params.ledger.bucketSnapshot("execution");
   if (params.worstCase > executionBucket.available) {
     throw new BudgetExceededError(
