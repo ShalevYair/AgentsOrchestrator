@@ -127,7 +127,14 @@
     "showDiff": "דיף",
     "hideDiff": "הסתר דיף",
     "edit": "ערוך",
-    "run": "הרץ"
+    "run": "הרץ",
+    "agentCountLabel": "מספר סוכנים",
+    "maxParallelLabel": "מקביליות",
+    "removeStage": "הסר שלב",
+    "maxRungLabel": "דרגת קריאה מרבית",
+    "save": "שמור",
+    "cancel": "בטל",
+    "validationErrors": "יש לתקן לפני ההרצה:"
   },
   "onboarding": {
     "title": "ברוכים הבאים ל-AgentsOrchestrator",

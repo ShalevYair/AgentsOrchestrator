@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import type { BudgetLevel } from "@ao/shared";
 import type { ChatMessage } from "../../lib/api.js";
 import type { RunState } from "../../lib/run-state.js";
 import { PlanCard } from "../plan/PlanCard.js";
@@ -11,6 +12,7 @@ export interface MessageListProps {
   /** P9-T2+: the current run's live state (plan, and later stage/task/ledger data), rendered inline in the stream — see run-state.ts. Optional so any other MessageList caller (tests, a future non-orchestration view) isn't forced to wire it. */
   runState?: RunState;
   budgetTotal?: number;
+  budgetLevel?: BudgetLevel;
 }
 
 export function MessageList({
@@ -18,6 +20,7 @@ export function MessageList({
   streamingText,
   runState,
   budgetTotal,
+  budgetLevel,
 }: MessageListProps): React.JSX.Element {
   const { t } = useTranslation();
   const bottomRef = React.useRef<HTMLDivElement>(null);
@@ -46,6 +49,7 @@ export function MessageList({
           plan={plan}
           estimatedTokens={runState?.estimatedTokens ?? 0}
           budgetTotal={budgetTotal ?? 0}
+          budgetLevel={budgetLevel ?? "standard"}
           amendment={runState?.amendment ?? null}
           requiresApproval={runState?.requiresApproval ?? false}
         />

@@ -127,7 +127,14 @@
     "showDiff": "Diff",
     "hideDiff": "Hide diff",
     "edit": "Edit",
-    "run": "Run"
+    "run": "Run",
+    "agentCountLabel": "Agent count",
+    "maxParallelLabel": "Parallelism",
+    "removeStage": "Remove stage",
+    "maxRungLabel": "Max read rung",
+    "save": "Save",
+    "cancel": "Cancel",
+    "validationErrors": "Fix before running:"
   },
   "onboarding": {
     "title": "Welcome to AgentsOrchestrator",

@@ -159,6 +159,7 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
         streamingText={streamingText}
         runState={runState}
         budgetTotal={goalConfig.budgetTotal}
+        budgetLevel={goalConfig.level}
       />
       <ChatInput
         onSend={handleSend}

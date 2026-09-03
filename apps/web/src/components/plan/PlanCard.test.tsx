@@ -84,17 +84,18 @@ function buildDemoPlan(overrides: Partial<Stage> = {}): Plan {
   };
 }
 
+/** Fixed across every render — what varies per test is passed as an override. */
+const baseProps = {
+  estimatedTokens: 1_600_000,
+  budgetTotal: 2_500_000,
+  budgetLevel: "standard" as const,
+  amendment: null,
+  requiresApproval: false,
+};
+
 describe("PlanCard (UX.md §4)", () => {
   it("collapsed summary shows stage/agent counts and the estimate/budget", () => {
-    render(
-      <PlanCard
-        plan={buildDemoPlan()}
-        estimatedTokens={1_600_000}
-        budgetTotal={2_500_000}
-        amendment={null}
-        requiresApproval={false}
-      />,
-    );
+    render(<PlanCard plan={buildDemoPlan()} {...baseProps} />);
     expect(screen.getByText(/4 שלבים · 14 סוכנים/)).toBeInTheDocument();
     expect(screen.getByText(/צפי 1\.6M \/ 2\.5M/)).toBeInTheDocument();
   });
@@ -112,15 +113,7 @@ describe("PlanCard (UX.md §4)", () => {
   }
 
   it("expanded (default) shows every stage with agent type, fanout, and token estimate matching UX.md §4's own numbers", () => {
-    render(
-      <PlanCard
-        plan={buildDemoPlan()}
-        estimatedTokens={1_600_000}
-        budgetTotal={2_500_000}
-        amendment={null}
-        requiresApproval={false}
-      />,
-    );
+    render(<PlanCard plan={buildDemoPlan()} {...baseProps} />);
     const reader = stageRow("reader");
     expect(reader).toHaveTextContent("reader ×6");
     expect(reader).toHaveTextContent("shard לפי module");
@@ -143,44 +136,20 @@ describe("PlanCard (UX.md §4)", () => {
   });
 
   it("analyst's maxParallel equals its count, so 'X במקביל' is not shown for it", () => {
-    render(
-      <PlanCard
-        plan={buildDemoPlan()}
-        estimatedTokens={1_600_000}
-        budgetTotal={2_500_000}
-        amendment={null}
-        requiresApproval={false}
-      />,
-    );
+    render(<PlanCard plan={buildDemoPlan()} {...baseProps} />);
     expect(stageRow("analyst")).not.toHaveTextContent("במקביל");
   });
 
   it("clicking the header collapses the stage list", async () => {
     const user = userEvent.setup();
-    render(
-      <PlanCard
-        plan={buildDemoPlan()}
-        estimatedTokens={1_600_000}
-        budgetTotal={2_500_000}
-        amendment={null}
-        requiresApproval={false}
-      />,
-    );
+    render(<PlanCard plan={buildDemoPlan()} {...baseProps} />);
     expect(screen.getByText("reader")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /תוכנית ריצה/ }));
     expect(screen.queryByText("reader")).not.toBeInTheDocument();
   });
 
   it("no amendment banner when there is no amendment", () => {
-    render(
-      <PlanCard
-        plan={buildDemoPlan()}
-        estimatedTokens={1_600_000}
-        budgetTotal={2_500_000}
-        amendment={null}
-        requiresApproval={false}
-      />,
-    );
+    render(<PlanCard plan={buildDemoPlan()} {...baseProps} />);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
@@ -189,14 +158,12 @@ describe("PlanCard (UX.md §4)", () => {
     render(
       <PlanCard
         plan={buildDemoPlan({ fanout: { mode: "shard", count: 4, maxParallel: 4, shardKey: "module" } })}
-        estimatedTokens={1_600_000}
-        budgetTotal={2_500_000}
+        {...baseProps}
         amendment={{
           version: 2,
           reason: "המודולים גדולים מהצפוי",
           diff: "replace /stages/1/fanout/count: 8 → 4",
         }}
-        requiresApproval={false}
       />,
     );
     const banner = screen.getByRole("status");
@@ -211,37 +178,40 @@ describe("PlanCard (UX.md §4)", () => {
     expect(screen.queryByText(/replace \/stages/)).not.toBeInTheDocument();
   });
 
-  it("edit/run buttons appear only when requiresApproval is true, and call their callbacks", async () => {
-    const user = userEvent.setup();
-    const onEdit = vi.fn();
-    const onRun = vi.fn();
-    const { rerender } = render(
-      <PlanCard
-        plan={buildDemoPlan()}
-        estimatedTokens={1_600_000}
-        budgetTotal={2_500_000}
-        amendment={null}
-        requiresApproval={false}
-        onEdit={onEdit}
-        onRun={onRun}
-      />,
-    );
+  it("edit/run buttons appear only when requiresApproval is true", () => {
+    const { rerender } = render(<PlanCard plan={buildDemoPlan()} {...baseProps} requiresApproval={false} />);
     expect(screen.queryByRole("button", { name: /ערוך/ })).not.toBeInTheDocument();
 
-    rerender(
-      <PlanCard
-        plan={buildDemoPlan()}
-        estimatedTokens={1_600_000}
-        budgetTotal={2_500_000}
-        amendment={null}
-        requiresApproval
-        onEdit={onEdit}
-        onRun={onRun}
-      />,
-    );
-    await user.click(screen.getByRole("button", { name: /ערוך/ }));
-    expect(onEdit).toHaveBeenCalledOnce();
+    rerender(<PlanCard plan={buildDemoPlan()} {...baseProps} requiresApproval />);
+    expect(screen.getByRole("button", { name: /ערוך/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /הרץ/ })).toBeInTheDocument();
+  });
+
+  it("clicking הרץ calls onRun with the current plan", async () => {
+    const user = userEvent.setup();
+    const onRun = vi.fn();
+    const plan = buildDemoPlan();
+    render(<PlanCard plan={plan} {...baseProps} requiresApproval onRun={onRun} />);
     await user.click(screen.getByRole("button", { name: /הרץ/ }));
-    expect(onRun).toHaveBeenCalledOnce();
+    expect(onRun).toHaveBeenCalledWith(plan);
+  });
+
+  it("clicking ערוך opens the plan editor instead of the read-only stage list", async () => {
+    const user = userEvent.setup();
+    render(<PlanCard plan={buildDemoPlan()} {...baseProps} requiresApproval />);
+    await user.click(screen.getByRole("button", { name: /ערוך/ }));
+    expect(screen.getByTestId("plan-editor")).toBeInTheDocument();
+    expect(screen.queryByText("reader")).not.toBeInTheDocument();
+  });
+
+  it("saving an edit calls onPlanEdited and returns to the read-only view with the new numbers", async () => {
+    const user = userEvent.setup();
+    const onPlanEdited = vi.fn();
+    render(<PlanCard plan={buildDemoPlan()} {...baseProps} requiresApproval onPlanEdited={onPlanEdited} />);
+    await user.click(screen.getByRole("button", { name: /ערוך/ }));
+    await user.click(screen.getByRole("button", { name: "שמור" }));
+
+    expect(onPlanEdited).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("plan-editor")).not.toBeInTheDocument();
   });
 });

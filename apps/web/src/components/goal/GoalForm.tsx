@@ -10,8 +10,8 @@ import {
   formatTokenCount,
   formatUsd,
 } from "../../lib/cost.js";
-import { Input } from "../ui/input.js";
 import { cn } from "../../lib/utils.js";
+import { NumericField } from "../ui/numeric-field.js";
 
 export interface GoalFormProps {
   value: GoalConfig;
@@ -31,69 +31,6 @@ const OVERRUN_POLICIES: readonly OverrunPolicy[] = ["degrade", "ask", "hard-stop
 
 const RADIO_ROW = "flex items-start gap-2 rounded-md p-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800";
 const SECTION_TITLE = "text-xs font-semibold text-neutral-500 dark:text-neutral-400";
-
-interface NumericFieldProps {
-  value: number;
-  onCommit: (next: number) => void;
-  min?: number;
-  step?: number;
-  className?: string;
-  "aria-label"?: string;
-  onFocus?: () => void;
-}
-
-/**
- * A positive-integer input that stays a plain controlled `<input>` from
- * React's point of view, but keeps its OWN draft string while the user is
- * typing — a bare `value={n} onChange={...}` number field can't represent
- * "the box is momentarily empty because the user just selected all and is
- * about to type a replacement" without either rejecting the keystroke or
- * lying about what's on screen. `onCommit` only fires once the draft is a
- * valid positive integer; an invalid draft reverts to `value` on blur.
- */
-function NumericField({
-  value,
-  onCommit,
-  min,
-  step,
-  className,
-  onFocus,
-  ...rest
-}: NumericFieldProps): React.JSX.Element {
-  const [draft, setDraft] = React.useState(String(value));
-  const isFocused = React.useRef(false);
-
-  // Follows external changes to `value` (e.g. picking a different level)
-  // — but never while the field itself has focus, so it can't clobber a
-  // keystroke that hasn't committed yet.
-  React.useEffect(() => {
-    if (!isFocused.current) setDraft(String(value));
-  }, [value]);
-
-  return (
-    <Input
-      type="number"
-      min={min}
-      step={step}
-      value={draft}
-      className={className}
-      aria-label={rest["aria-label"]}
-      onFocus={() => {
-        isFocused.current = true;
-        onFocus?.();
-      }}
-      onChange={(e) => {
-        setDraft(e.target.value);
-        const parsed = Number.parseInt(e.target.value, 10);
-        if (Number.isFinite(parsed) && parsed > 0) onCommit(parsed);
-      }}
-      onBlur={() => {
-        isFocused.current = false;
-        setDraft(String(value));
-      }}
-    />
-  );
-}
 
 /**
  * UX.md §3's goal-button form, in full. Every field lives directly on

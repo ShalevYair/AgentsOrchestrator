@@ -1,19 +1,23 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import type { Fanout, Plan } from "@ao/shared";
+import type { BudgetLevel, Fanout, Plan } from "@ao/shared";
 import { Card } from "../ui/card.js";
 import { Button } from "../ui/button.js";
 import { formatTokenCount } from "../../lib/cost.js";
 import type { PlanAmendment } from "../../lib/run-state.js";
+import { sumPlanEstimatedTokens } from "../../lib/plan-edit.js";
+import { PlanEditor } from "./PlanEditor.js";
 
 export interface PlanCardProps {
   plan: Plan;
   estimatedTokens: number;
   budgetTotal: number;
+  budgetLevel: BudgetLevel;
   amendment: PlanAmendment | null;
   requiresApproval: boolean;
-  onEdit?: () => void;
-  onRun?: () => void;
+  /** Fired when an edit (P9-T3) is saved — the parent decides what a locally-edited plan means for the run (no real scheduler exists yet to send it to, see docs/TASKS.md's P9-T3 note). */
+  onPlanEdited?: (plan: Plan) => void;
+  onRun?: (plan: Plan) => void;
 }
 
 /**
@@ -71,17 +75,30 @@ function FanoutDescription({
 }
 
 export function PlanCard({
-  plan,
-  estimatedTokens,
+  plan: planProp,
+  estimatedTokens: estimatedTokensProp,
   budgetTotal,
+  budgetLevel,
   amendment,
   requiresApproval,
-  onEdit,
+  onPlanEdited,
   onRun,
 }: PlanCardProps): React.JSX.Element {
   const { t } = useTranslation();
   const [expanded, setExpanded] = React.useState(true);
   const [diffOpen, setDiffOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  // A locally-edited plan overrides the server-driven `plan` prop until the
+  // next real plan.ready/plan.amended event replaces it (effect below) —
+  // there's no backend to persist an edit to yet (see PlanCardProps'
+  // onPlanEdited doc comment), so this is genuinely the only place the
+  // edited plan lives.
+  const [editedPlan, setEditedPlan] = React.useState<Plan | null>(null);
+  React.useEffect(() => {
+    setEditedPlan(null);
+  }, [planProp]);
+  const plan = editedPlan ?? planProp;
+  const estimatedTokens = editedPlan ? sumPlanEstimatedTokens(editedPlan) : estimatedTokensProp;
   const totalAgents = plan.stages.reduce((sum, stage) => sum + stage.fanout.count, 0);
 
   return (
@@ -109,7 +126,25 @@ export function PlanCard({
         </bdi>
       </div>
 
-      {expanded && (
+      {expanded && editing && (
+        <div className="px-4 pb-4">
+          <PlanEditor
+            plan={plan}
+            budgetTotal={budgetTotal}
+            budgetLevel={budgetLevel}
+            onCancel={() => {
+              setEditing(false);
+            }}
+            onSave={(next) => {
+              setEditedPlan(next);
+              setEditing(false);
+              onPlanEdited?.(next);
+            }}
+          />
+        </div>
+      )}
+
+      {expanded && !editing && (
         <div className="flex flex-col gap-3 px-4 pb-4">
           <ol className="flex flex-col gap-2">
             {plan.stages.map((stage, index) => {
@@ -161,10 +196,21 @@ export function PlanCard({
 
           {requiresApproval && (
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={onEdit}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditing(true);
+                }}
+              >
                 <span aria-hidden="true">✏️</span> {t("plan.edit")}
               </Button>
-              <Button size="sm" onClick={onRun}>
+              <Button
+                size="sm"
+                onClick={() => {
+                  onRun?.(plan);
+                }}
+              >
                 <span aria-hidden="true">✅</span> {t("plan.run")}
               </Button>
             </div>
