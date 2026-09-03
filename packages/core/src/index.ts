@@ -14,3 +14,4 @@ export * from "./event-log/index.js";
 export * from "./checkpoint/index.js";
 export * from "./toolsmith/index.js";
 export * from "./outliner/index.js";
+export * from "./assembler/index.js";
