@@ -8,6 +8,7 @@ import { sumThreadTokens } from "../../lib/usage.js";
 import { applyRuntimeEvent, INITIAL_RUN_STATE } from "../../lib/run-state.js";
 import { AlertCircle, ChevronDown } from "../ui/icons.js";
 import { OrchestrationBoard } from "../board/OrchestrationBoard.js";
+import { TaskDrawer } from "../board/TaskDrawer.js";
 import { ChatInput } from "./ChatInput.js";
 import { MessageList } from "./MessageList.js";
 
@@ -37,6 +38,10 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
   // there's a plan) — `runState.plan` gates *presence*; this only gates the
   // manual "נפתח/נסגר" collapse of a board that's already showing.
   const [boardCollapsed, setBoardCollapsed] = React.useState(false);
+  // UX.md §5 level 3 — which task's drawer (if any) is open. Lives here
+  // (not inside OrchestrationBoard) because the drawer needs the owning
+  // Stage from `runState.plan` too, not just the TaskState.
+  const [openTaskId, setOpenTaskId] = React.useState<string | null>(null);
   const socketRef = React.useRef<RunEventSocket | null>(null);
   // "Latest callback" ref so the tokens-changed effect below doesn't need
   // `onTokensChange` itself in its dependency array (a new function
@@ -188,6 +193,7 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
                   stages={runState.stages}
                   tasks={runState.tasks}
                   tasksByStage={runState.tasksByStage}
+                  onSelectTask={setOpenTaskId}
                 />
               </div>
             )}
@@ -207,6 +213,18 @@ export function ChatView({ onTokensChange }: ChatViewProps): React.JSX.Element {
         goalConfig={goalConfig}
         onGoalConfigChange={handleGoalConfigChange}
         goalSaveError={goalSaveError}
+      />
+      <TaskDrawer
+        task={openTaskId ? (runState.tasks[openTaskId] ?? null) : null}
+        stage={
+          openTaskId
+            ? (runState.plan?.stages.find((s) => s.id === runState.tasks[openTaskId]?.stageId) ?? null)
+            : null
+        }
+        open={openTaskId !== null}
+        onOpenChange={(open) => {
+          if (!open) setOpenTaskId(null);
+        }}
       />
     </div>
   );

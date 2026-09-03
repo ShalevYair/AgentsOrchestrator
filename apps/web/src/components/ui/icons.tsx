@@ -136,3 +136,11 @@ export function ChevronDown(props: IconProps): React.JSX.Element {
     </Icon>
   );
 }
+
+export function RefreshCw(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16M3 3v5h5M16 16h5v5" />
+    </Icon>
+  );
+}

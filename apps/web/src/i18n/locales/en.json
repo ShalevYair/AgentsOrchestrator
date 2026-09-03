@@ -149,6 +149,41 @@
       "done": "Done",
       "issue": "Issue",
       "skipped": "Skipped"
+    },
+    "drawer": {
+      "close": "Close",
+      "context": "Context",
+      "contextTokens": "Context tokens",
+      "contextBudget": "Context budget",
+      "cacheContract": "Cache contract",
+      "yes": "Yes",
+      "no": "No",
+      "outputContract": "Output contract",
+      "maxOutputTokens": "up to {{tokens}}",
+      "inputs": "Inputs",
+      "output": "Output",
+      "noOutputYet": "No output yet.",
+      "usage": "Usage",
+      "time": "Time",
+      "promptTokens": "Prompt tokens",
+      "candidatesTokens": "Output tokens",
+      "thoughtsTokens": "Thinking tokens",
+      "cacheHits": "Cache hits",
+      "finishReason": "Finish reason",
+      "violations": "Schema violations",
+      "copyPrompt": "Copy prompt",
+      "copyPromptUnavailable": "The runtime doesn't send the prompt text over the wire yet — nothing to copy.",
+      "rerun": "Rerun",
+      "exportJson": "Export JSON",
+      "envelope": {
+        "evidence": "{{count}} evidence",
+        "chunk": "chunk #{{seq}} · {{count}} chars",
+        "fileEnd": "{{count}} lines · sha256 {{hash}}…",
+        "ok": "ok",
+        "failed": "failed",
+        "truncated": "(truncated)",
+        "criteria": "{{met}}/{{total}} criteria"
+      }
     }
   },
   "onboarding": {

@@ -149,6 +149,41 @@
       "done": "הושלם",
       "issue": "יש בעיה",
       "skipped": "דולג"
+    },
+    "drawer": {
+      "close": "סגור",
+      "context": "הקשר",
+      "contextTokens": "טוקני הקשר",
+      "contextBudget": "תקציב הקשר",
+      "cacheContract": "חוזה מטמון",
+      "yes": "כן",
+      "no": "לא",
+      "outputContract": "חוזה פלט",
+      "maxOutputTokens": "עד {{tokens}}",
+      "inputs": "קלטים",
+      "output": "פלט",
+      "noOutputYet": "עדיין אין פלט.",
+      "usage": "שימוש",
+      "time": "זמן",
+      "promptTokens": "טוקני קלט",
+      "candidatesTokens": "טוקני פלט",
+      "thoughtsTokens": "טוקני חשיבה",
+      "cacheHits": "פגיעות מטמון",
+      "finishReason": "סיבת סיום",
+      "violations": "הפרות סכמה",
+      "copyPrompt": "העתקת הפרומפט",
+      "copyPromptUnavailable": "ה-runtime עדיין לא שולח את טקסט הפרומפט בפרוטוקול — אין מה להעתיק.",
+      "rerun": "הרצה חוזרת",
+      "exportJson": "ייצוא JSON",
+      "envelope": {
+        "evidence": "{{count}} עדויות",
+        "chunk": "מקטע #{{seq}} · {{count}} תווים",
+        "fileEnd": "{{count}} שורות · sha256 {{hash}}…",
+        "ok": "הצליח",
+        "failed": "נכשל",
+        "truncated": "(קוצץ)",
+        "criteria": "{{met}}/{{total}} קריטריונים"
+      }
     }
   },
   "onboarding": {
