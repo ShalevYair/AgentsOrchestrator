@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { printReportTable } from "./report-table.js";
-import type { EvalCaseRunResult } from "./run-case.js";
+import { printReportTable, type JudgedEvalCaseRunResult } from "./report-table.js";
 
-function result(overrides: Partial<EvalCaseRunResult> = {}): EvalCaseRunResult {
+function result(overrides: Partial<JudgedEvalCaseRunResult> = {}): JudgedEvalCaseRunResult {
   return {
     id: "case-a",
     description: "desc",
@@ -17,8 +16,11 @@ function result(overrides: Partial<EvalCaseRunResult> = {}): EvalCaseRunResult {
     cacheHitTokens: 0,
     criteriaMet: 0,
     criteriaUnmet: 0,
+    deliverableText: "",
     planSource: "recipe",
     cancelled: false,
+    judgeScore: 0,
+    judgeTokensSpent: 0,
     ...overrides,
   };
 }

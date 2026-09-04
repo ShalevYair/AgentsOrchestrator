@@ -2031,8 +2031,48 @@
       אפס, criteriaMet/Unmet אמיתי, cacheHitTokens כן-0] + 16 ב-history.test.ts חדש + 3 ב-report-table.test.ts).
       `pnpm typecheck`/`lint`/`format:check`/`build` נקיים על כל 10 חבילות. `vitest run` מהשורש: 1523/1524 —
       הכשל היחיד הוא **אותה** מגבלת-סביבה מ-P10-T6/P11-T1/T2 (`docker-sandbox.test.ts`), לא רגרסיה.
-- [ ] **P11-T4 · שופט איכות** — ציון LLM מול rubric, **בתקציב קבוע ומופרד**.
+- [x] **P11-T4 · שופט איכות** — ציון LLM מול rubric, **בתקציב קבוע ומופרד**.
       *גמור:* עקבי בין הרצות · לא נספר בתקציב המשימה.
+      *כפי שמומש:* אין תשתית judge/rubric קיימת בקוד (`grep -rli judge\|rubric` העלה רק שימוש אגבי במילה
+      "judge" בתוך תגובה ב-`checkpoint/signals.ts`, לא מנגנון) — נבנה מאפס, אבל **תוך reuse מלא** של תשתית
+      אמיתית קיימת: `Ledger`+`runAdmitted` (P4), `GenerateRequest.responseSchema` (אותו דפוס בדיוק כמו
+      `recon.ts`'s `runRecon`), ו-`TaskUnderstanding.acceptanceCriteria` **הקיים כבר בכל EvalCase** — לא
+      הומצא שדה "rubric" נפרד: `rubricFromAcceptanceCriteria` (`apps/evals/src/judge.ts`) הופך כל מחרוזת
+      קריטריון קיימת לקריטריון-משוקלל-שווה, אין כפילות נתונים.
+      **הפרדה מבנית, לא רק מוסכמת**: `judgeDeliverable` יוצר **`Ledger` חדש משלו** (`JUDGE_BUDGET_TOKENS =
+      20,000`, קבוע, בלתי-תלוי ב-`budgetTotal` של המשימה) בתוך הפונקציה עצמה — לא מקבל ledger מבחוץ, כך
+      שאין שום דרך מבנית שההוצאה שלו "תדלוף" ל-Ledger של המשימה. `JudgedEvalCaseRunResult`
+      (`report-table.ts`) עוטף `EvalCaseRunResult` עם `judgeScore`/`judgeTokensSpent` כשדות **נפרדים**, לא
+      מוזגים ל-`tokensSpent` — אומת ישירות: `run-case.test.ts`'s "judging the deliverable afterward never
+      changes the task's own tokensSpent" מריץ משימה אמיתית, שופט אותה בנפרד, ומוודא `tokensSpent` זהה
+      לפני/אחרי. אומת גם ב-`pnpm eval` אמיתי: סה"כ הטוקנים של 12 המשימות (173,945) **זהה בדיוק** לפני ואחרי
+      חיבור השופט — רק שורת "judge tokens (separate budget, not counted above): 7,484" נוספת בנפרד.
+      **תוצר אמיתי לשיפוט, לא מומצא**: `apps/evals/src/deliverable-text.ts`'s `extractDeliverableText` שולף
+      טקסט אמיתי מ-`NdjsonParseResult` שכל Task כבר החזיר בפועל (finding.claim/note.text/section.body/
+      תוכן קובץ מ-`parsed.files`) — לא תוכן מומצא בנפרד לצורך השיפוט.
+      **הכנות המרכזית של המשימה, שתועדה בפירוש**: המסגרת רצה **תמיד** מול `MockLLMProvider` (כלל #6 —
+      אפס LLM/רשת אמיתיים בבדיקות מהסוג הזה), אז אין "שופט LLM אמיתי" שמעריך איכות תוכן אמיתית כאן —
+      התוכן שנוצר על ידי 5 המתכונים הוא טקסט-placeholder סינתטי ("ממצא f1 לבדיקת eval" וכו'), בלי ציר
+      איכות סמנטי אמיתי לשפוט. **לכן**: `mock-judge-provider.ts`'s `createMockJudgeProvider` הוא proxy
+      כן-מוצהר, לא הצגה: `score = min(1, deliverableText.length / 200)` — תלוי **בפועל** באורך התוצר האמיתי
+      (לא hash, לא קבוע), כדי שיהיה ניתן להוכיח בפועל "אותו קלט → אותו ציון" (עקביות) ו"קלט שונה → ציון
+      שונה" (לא חותמת-גומי) בלי להתחזות להערכת-איכות סמנטית מזויפת. הרצת `pnpm eval` אמיתית מראה בפועל
+      התפלגות אמיתית לא-אחידה: `data-extraction-*` (2 מקרים, תוצר JSON קצר) — `0.71`; שאר 10 המקרים
+      (תוצר markdown/files ארוך יותר) — `1.00` (התקרה) — לא כל המקרים מקבלים אותו ציון, מוכיח שהמנגנון
+      באמת מגיב לתוכן.
+      **באג אמיתי שנתפס ע"י בדיקת יחידה, לא סקירה סטטית**: הגרסה הראשונה של `createMockJudgeProvider` חילצה
+      "טקסט התוצר" מתוך הפרומפט המלא לפי סמן-התחלה בלבד (`"תוצר לבדיקה:\n"`) עד סוף המחרוזת — בדיקת "תוצר
+      ריק מקבל ציון 0" נכשלה בפועל עם `0.515` (כי הטקסט שאחרי הסמן כלל גם את המשך הפרומפט — השורה הריקה
+      והוראת ה-JSON הסופית — לא רק את התוצר עצמו). תוקן בקוד עצמו: `DELIVERABLE_START_MARKER`/
+      `DELIVERABLE_END_MARKER` מיוצאים מ-`judge.ts` ומעטפים את התוצר בפרומפט משני הצדדים, וה-mock קורא
+      בדיוק את הטווח שביניהם. נבדק שוב — עובר.
+      19 בדיקות חדשות (8 ב-judge.test.ts + 5 ב-mock-judge-provider.test.ts + 4 ב-deliverable-text.test.ts +
+      2 אינטגרציה ב-run-case.test.ts). `pnpm typecheck`/`lint`/`format:check`/`build` נקיים על כל 10
+      החבילות. `vitest run` מהשורש: 1542/1543 — הכשל היחיד הוא **אותה** מגבלת-סביבה מ-P10-T6/P11-T1/T2/T3
+      (`docker-sandbox.test.ts`), לא רגרסיה.
+      **פער שנותר, מתועד בכנות**: כפי שלעיל — שיפוט תוכן-אמיתי (לא placeholder) ידרוש ספק LLM אמיתי, שאסור
+      בסוג הבדיקה הזה לפי כלל #6; ה-mock כאן מוכיח שהצנרת (rubric→prompt→parse→ציון-משוקלל, תקציב נפרד,
+      עקביות) עובדת נכון, לא שהתוכן הסינתטי "איכותי".
 - [ ] **P11-T5 · נסיגות עלות** — סף שנכשל כשמשימה מתייקרת מעל X%.
       *גמור:* תת-קבוצה זולה רצה ב-CI.
 - [ ] **P11-T6 · סקירת אבטחה** 🪟 — כל [`ARCHITECTURE.md` §11](ARCHITECTURE.md#11-אבטחה-ופרטיות)

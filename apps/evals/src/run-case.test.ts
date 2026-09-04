@@ -1,6 +1,8 @@
 import type { EvalCase } from "@ao/shared";
 import { describe, expect, it } from "vitest";
 import { resolveAgentsDir } from "./agents-dir.js";
+import { judgeDeliverable, rubricFromAcceptanceCriteria } from "./judge.js";
+import { createMockJudgeProvider } from "./mock-judge-provider.js";
 import { resolveRecipesDir } from "./recipes-dir.js";
 import { runEvalCase } from "./run-case.js";
 
@@ -167,5 +169,26 @@ describe("runEvalCase", () => {
   it("P11-T3: cacheHitTokens is honestly 0 — no case's MockLLMProvider response sets cachedTokens", async () => {
     const result = await runEvalCase(baseCase(), { agentsDir, recipesDir });
     expect(result.cacheHitTokens).toBe(0);
+  });
+
+  it("P11-T4: deliverableText is real, non-empty content pulled from the run's own successful tasks", async () => {
+    const result = await runEvalCase(baseCase(), { agentsDir, recipesDir });
+    expect(result.deliverableText.length).toBeGreaterThan(0);
+  });
+
+  it("P11-T4: judging the deliverable afterward never changes the task's own tokensSpent — real budget separation, not just by convention", async () => {
+    const result = await runEvalCase(baseCase(), { agentsDir, recipesDir });
+    const tokensSpentBeforeJudging = result.tokensSpent;
+
+    const rubric = rubricFromAcceptanceCriteria(baseCase().understanding.acceptanceCriteria);
+    const judged = await judgeDeliverable({
+      provider: createMockJudgeProvider(rubric),
+      model: "gemini-flash-lite-latest",
+      rubric,
+      deliverableText: result.deliverableText,
+    });
+
+    expect(result.tokensSpent).toBe(tokensSpentBeforeJudging);
+    expect(judged.judgeTokensSpent).toBeGreaterThan(0);
   });
 });

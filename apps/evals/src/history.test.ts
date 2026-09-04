@@ -54,6 +54,7 @@ function runResult(overrides: Partial<EvalCaseRunResult> = {}): EvalCaseRunResul
     cacheHitTokens: 0,
     criteriaMet: 1,
     criteriaUnmet: 0,
+    deliverableText: "some deliverable",
     planSource: "recipe",
     cancelled: false,
     ...overrides,

@@ -18,6 +18,7 @@ import { listAgentTypes, loadAgent, loadRecipe, resolveOutputSchema } from "@ao/
 import { MockLLMProvider, resolveModelEntry, WORKER_MODEL_ID } from "@ao/providers";
 import type { EvalCase, TaskUnderstanding } from "@ao/shared";
 import { buildCannedResponse, buildEvalShardItems, splitForContinuation } from "./canned-responses.js";
+import { extractDeliverableText } from "./deliverable-text.js";
 
 /**
  * P11-T3 — one Task's real output plus the continuation-protocol metadata
@@ -87,6 +88,8 @@ export interface EvalCaseRunResult {
   criteriaMet: number;
   /** Sum of `doneEnvelope.selfCheck.unmet.length` across every successful task. */
   criteriaUnmet: number;
+  /** P11-T4 — every successful task's real content (`extractDeliverableText`), concatenated in outcome order, for a caller to hand to `judgeDeliverable` afterward. Never judged inside this function itself — that separation is what keeps the judge's own budget out of this result's `tokensSpent`. */
+  deliverableText: string;
   planSource: "recipe" | "planner";
   cancelled: boolean;
 }
@@ -291,6 +294,7 @@ export async function runEvalCase(
   let cacheHitTokens = 0;
   let criteriaMet = 0;
   let criteriaUnmet = 0;
+  const successfulParsedResults: NdjsonParseResult[] = [];
   for (const outcome of allOutcomes) {
     if (outcome.status !== "success") {
       failures.push(`task ${outcome.taskId} did not succeed: status=${outcome.status}`);
@@ -318,6 +322,7 @@ export async function runEvalCase(
         criteriaMet += selfCheck.criteriaMet.length;
         criteriaUnmet += selfCheck.unmet.length;
       }
+      successfulParsedResults.push(value.parsed);
     }
   }
 
@@ -348,6 +353,7 @@ export async function runEvalCase(
     cacheHitTokens,
     criteriaMet,
     criteriaUnmet,
+    deliverableText: extractDeliverableText(successfulParsedResults),
     planSource: source,
     cancelled: schedulerResult.cancelled,
   };

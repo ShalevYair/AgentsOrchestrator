@@ -15,7 +15,8 @@
     "@ao/core": "workspace:*",
     "@ao/platform": "workspace:*",
     "@ao/providers": "workspace:*",
-    "@ao/shared": "workspace:*"
+    "@ao/shared": "workspace:*",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^26.4.0"

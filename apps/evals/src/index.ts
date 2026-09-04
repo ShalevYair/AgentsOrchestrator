@@ -1,5 +1,7 @@
 /* eslint-disable no-console -- this file's whole job is CLI progress/error output, same precedent as packages/providers/src/demo.ts. */
+import { CHEAP_FALLBACK_MODEL_ID } from "@ao/providers";
 import { listEvalCaseIds, loadEvalCase } from "@ao/platform";
+import type { EvalCase } from "@ao/shared";
 import { resolveAgentsDir } from "./agents-dir.js";
 import { parseTagFilters } from "./cli-args.js";
 import { resolveEvalsDir } from "./evals-dir.js";
@@ -10,9 +12,36 @@ import {
   resolveHistoryPath,
   toHistoryEntry,
 } from "./history.js";
+import { judgeDeliverable, rubricFromAcceptanceCriteria } from "./judge.js";
+import { createMockJudgeProvider } from "./mock-judge-provider.js";
 import { resolveRecipesDir } from "./recipes-dir.js";
-import { printReportTable } from "./report-table.js";
+import { printReportTable, type JudgedEvalCaseRunResult } from "./report-table.js";
 import { runEvalCase, type EvalCaseRunResult } from "./run-case.js";
+
+/**
+ * P11-T4 — always runs against whatever `deliverableText` the case
+ * actually produced, even one that failed its own assertions (a task can
+ * blow a cost ceiling and still have written a perfectly real deliverable
+ * — the judge scores what was made, not whether the run "passed"). A case
+ * that threw before producing anything (empty `deliverableText`) skips
+ * the judge call entirely rather than scoring nothing.
+ */
+async function attachJudgeScore(
+  result: EvalCaseRunResult,
+  evalCase: EvalCase,
+): Promise<JudgedEvalCaseRunResult> {
+  if (result.deliverableText.length === 0) {
+    return { ...result, judgeScore: 0, judgeTokensSpent: 0 };
+  }
+  const rubric = rubricFromAcceptanceCriteria(evalCase.understanding.acceptanceCriteria);
+  const judged = await judgeDeliverable({
+    provider: createMockJudgeProvider(rubric),
+    model: CHEAP_FALLBACK_MODEL_ID,
+    rubric,
+    deliverableText: result.deliverableText,
+  });
+  return { ...result, judgeScore: judged.overallScore, judgeTokensSpent: judged.judgeTokensSpent };
+}
 
 async function main(): Promise<void> {
   const evalsDir = resolveEvalsDir({ moduleUrl: import.meta.url });
@@ -38,10 +67,11 @@ async function main(): Promise<void> {
 
   console.log(`running ${String(cases.length)} of ${String(allIds.length)} eval case(s)...\n`);
 
-  const results: EvalCaseRunResult[] = [];
+  const results: JudgedEvalCaseRunResult[] = [];
   for (const evalCase of cases) {
     try {
-      results.push(await runEvalCase(evalCase, { agentsDir, recipesDir }));
+      const result = await runEvalCase(evalCase, { agentsDir, recipesDir });
+      results.push(await attachJudgeScore(result, evalCase));
     } catch (error) {
       results.push({
         id: evalCase.id,
@@ -57,8 +87,11 @@ async function main(): Promise<void> {
         cacheHitTokens: 0,
         criteriaMet: 0,
         criteriaUnmet: 0,
+        deliverableText: "",
         planSource: "planner",
         cancelled: false,
+        judgeScore: 0,
+        judgeTokensSpent: 0,
       });
     }
   }

@@ -2,6 +2,18 @@
 import type { RegressionFinding } from "./history.js";
 import type { EvalCaseRunResult } from "./run-case.js";
 
+/**
+ * P11-T4 — `EvalCaseRunResult` plus the independent judge's score, kept as
+ * a *separate* wrapper type rather than added fields on `EvalCaseRunResult`
+ * itself: the judge's own `Ledger`/budget is deliberately never touched by
+ * `runEvalCase`, and this type split keeps that separation visible in the
+ * type signatures, not just in a comment.
+ */
+export interface JudgedEvalCaseRunResult extends EvalCaseRunResult {
+  judgeScore: number;
+  judgeTokensSpent: number;
+}
+
 interface TableRow {
   case: string;
   tags: string;
@@ -12,10 +24,11 @@ interface TableRow {
   schemaViolations: number;
   continuations: number;
   criteria: string;
+  judgeScore: string;
   source: string;
 }
 
-function toRow(result: EvalCaseRunResult): TableRow {
+function toRow(result: JudgedEvalCaseRunResult): TableRow {
   return {
     case: result.id,
     tags: result.tags.join(","),
@@ -26,6 +39,7 @@ function toRow(result: EvalCaseRunResult): TableRow {
     schemaViolations: result.schemaViolations,
     continuations: result.continuationAttempts,
     criteria: `${String(result.criteriaMet)}/${String(result.criteriaMet + result.criteriaUnmet)}`,
+    judgeScore: result.judgeScore.toFixed(2),
     source: result.planSource,
   };
 }
@@ -36,7 +50,7 @@ function toRow(result: EvalCaseRunResult): TableRow {
  * the plain, dependency-free way to do that for a CLI script.
  */
 export function printReportTable(
-  results: readonly EvalCaseRunResult[],
+  results: readonly JudgedEvalCaseRunResult[],
   regressions: readonly RegressionFinding[] = [],
 ): void {
   const rows = results.map(toRow);
@@ -70,7 +84,8 @@ export function printReportTable(
   const totalCostUsd = results.reduce((sum, r) => sum + r.costUsd, 0);
   const totalMs = results.reduce((sum, r) => sum + r.durationMs, 0);
   const totalCacheHitTokens = results.reduce((sum, r) => sum + r.cacheHitTokens, 0);
+  const totalJudgeTokens = results.reduce((sum, r) => sum + r.judgeTokensSpent, 0);
   console.log(
-    `\ntotals — tokens: ${String(totalTokens)}, cost: $${totalCostUsd.toFixed(4)}, time: ${totalMs.toFixed(0)}ms, cache hits: ${String(totalCacheHitTokens)} tokens`,
+    `\ntotals — tokens: ${String(totalTokens)}, cost: $${totalCostUsd.toFixed(4)}, time: ${totalMs.toFixed(0)}ms, cache hits: ${String(totalCacheHitTokens)} tokens, judge tokens (separate budget, not counted above): ${String(totalJudgeTokens)}`,
   );
 }
