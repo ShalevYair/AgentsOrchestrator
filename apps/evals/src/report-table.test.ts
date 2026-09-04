@@ -19,6 +19,7 @@ function result(overrides: Partial<JudgedEvalCaseRunResult> = {}): JudgedEvalCas
     deliverableText: "",
     planSource: "recipe",
     cancelled: false,
+    stageActualTokens: {},
     judgeScore: 0,
     judgeTokensSpent: 0,
     ...overrides,

@@ -16,7 +16,7 @@ import {
 } from "@ao/core";
 import { listAgentTypes, loadAgent, loadRecipe, resolveOutputSchema } from "@ao/platform";
 import { MockLLMProvider, resolveModelEntry, WORKER_MODEL_ID } from "@ao/providers";
-import type { EvalCase, TaskUnderstanding } from "@ao/shared";
+import type { EvalCase, Plan, TaskUnderstanding } from "@ao/shared";
 import { buildCannedResponse, buildEvalShardItems, splitForContinuation } from "./canned-responses.js";
 import { extractDeliverableText } from "./deliverable-text.js";
 
@@ -92,6 +92,10 @@ export interface EvalCaseRunResult {
   deliverableText: string;
   planSource: "recipe" | "planner";
   cancelled: boolean;
+  /** P11-T10 — the real `Plan` this case executed (its `stages[].tokenBudget` is exactly what `@ao/core`'s `simulatePlan` prices ahead of time), so a caller can compare that pre-run estimate against `stageActualTokens` below without re-deriving the plan itself. Absent only for the "threw before completing" error path (`apps/evals/src/index.ts`'s catch block) — there is no real Plan to report when the run never got that far. */
+  plan?: Plan;
+  /** P11-T10 — real per-stage actual spend, straight from `executionLedger.snapshot().byStage[stageId].spent` (BUDGET.md's own per-stage tracking, P4-T4) — includes every task in the stage plus any continuation attempts settled under the same `stageId`, not a re-derived approximation. */
+  stageActualTokens: Record<string, number>;
 }
 
 export interface RunEvalCaseOptions {
@@ -328,6 +332,10 @@ export async function runEvalCase(
 
   const durationMs = performance.now() - startedAt;
   const report = buildTokenReport(executionLedger);
+  const ledgerSnapshot = executionLedger.snapshot();
+  const stageActualTokens = Object.fromEntries(
+    Object.entries(ledgerSnapshot.byStage).map(([stageId, state]) => [stageId, state.spent]),
+  );
 
   const { maxTokensSpent, maxDurationMs } = evalCase.assertions;
   if (maxTokensSpent !== undefined && report.grandTotalSpent > maxTokensSpent) {
@@ -356,5 +364,7 @@ export async function runEvalCase(
     deliverableText: extractDeliverableText(successfulParsedResults),
     planSource: source,
     cancelled: schedulerResult.cancelled,
+    plan,
+    stageActualTokens,
   };
 }

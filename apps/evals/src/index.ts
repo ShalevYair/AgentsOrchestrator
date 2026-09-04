@@ -91,6 +91,7 @@ async function main(): Promise<void> {
         deliverableText: "",
         planSource: "planner",
         cancelled: false,
+        stageActualTokens: {},
         judgeScore: 0,
         judgeTokensSpent: 0,
       });

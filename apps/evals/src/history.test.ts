@@ -57,6 +57,7 @@ function runResult(overrides: Partial<EvalCaseRunResult> = {}): EvalCaseRunResul
     deliverableText: "some deliverable",
     planSource: "recipe",
     cancelled: false,
+    stageActualTokens: {},
     ...overrides,
   };
 }
