@@ -1652,8 +1652,28 @@
 
 **מטרה:** לשפר את המערכת בלי לגעת בליבה.
 
-- [ ] **P10-T1 · טעינת סוכנים מקבצים** — `agents/<type>/` לפי [`PROTOCOLS.md` §10](PROTOCOLS.md#10-רישום-סוכן).
+- [x] **P10-T1 · טעינת סוכנים מקבצים** — `agents/<type>/` לפי [`PROTOCOLS.md` §10](PROTOCOLS.md#10-רישום-סוכן).
       *גמור:* **הוספת סוג סוכן = הוספת תיקייה. אפס שינויי קוד.**
+      *כפי שמומש:* `packages/platform/src/agent-registry/` (`loader.ts`) — `listAgentTypes`/`loadAgentDefinition`/
+      `loadAgentPromptTemplate`/`loadAgent` הם סריקת-תיקייה+קריאת-קובץ טהורה: `listAgentTypes` מחזיר כל
+      תת-תיקייה תחת `agentsDir` שמכילה `agent.json`, וזה כל מה שנדרש כדי ש"הוספת סוג" תהיה "הוספת תיקייה" —
+      אין שום מקום בקוד שמונה סוגים בפירוש (נבדק ב-`listAgentTypes` picks up a brand-new folder). האימות מול
+      `AgentDefinitionSchema` הקיים (`@ao/shared`, לא שכפול) קורה ב-`loadAgentDefinition`, כולל בדיקה ש-`type`
+      בקובץ תואם את שם התיקייה. `packages/core` נשאר בלי שינוי שורה אחת — הטעינה מהדיסק יושבת ב-`@ao/platform`
+      (לא `@ao/core`, ששומר על "אפס I/O" גם אחרי P10, וגם לא `apps/runtime` ישירות, כדי שתהיה שמישה גם
+      מ-evals/CLI עתידיים) ומייבאת סכמות ישירות מ-`@ao/shared` בלבד — **לא** מ-`@ao/core`, כדי לא להפוך את
+      התלות "platform → core" ולשבור את השכבתיות הקיימת (`core`/`platform` שתיהן תלויות רק ב-`@ao/shared`).
+      נוסף `resolveOutputSchema` (`schema-registry.ts`) שפותר `outputContract.schemaRef` לסכמת Zod אמיתית —
+      גילוי אמיתי מהמחקר: `schemaRef` היה עד כה מחרוזת תיעודית בלבד (בדיקות/UI, אף פעם לא נפתר בפועל); כל
+      סוכן-worker מאומת בפועל מול אותה `NdjsonEnvelopeSchema` יחידה ([`PROTOCOLS.md` §3](PROTOCOLS.md#3-חוזה-פלט-סוכן--ndjson)),
+      אז זו הערך היחיד שנרשם — ערך צר יותר לכל סוג ידרוש קודם תמיכת פרסר אמיתית, אחרת `{{outputSpec}}` יבטיח
+      צורה שהפרסר לא אוכף בפועל (בדיוק הבאג ש-[ADR-006](DECISIONS.md#adr-006) קיים למנוע). חובר ל-composition
+      root: `apps/runtime/src/agents-dir.ts`'s `resolveAgentsDir` — `AO_AGENTS_DIR` (אותה מוסכמת `AO_*` כמו
+      `loadConfig`) או ברירת מחדל שמטפסת מ-`import.meta.url` של הקורא עד שמוצאת `pnpm-workspace.yaml` (שורש
+      המונורפו) ומצרפת `agents/`; הליכה-למעלה ולא היסט קבוע של `..` כי `index.ts` ו-`test-support/*.ts` נמצאים
+      בעומק שונה מהשורש — נבדק בפועל בשני העומקים. `AppContext` מקבל שדה `agentsDir: string` (לא registry
+      טעון-מראש — ראו P10-T2). 20 בדיקות חדשות (`agent-registry`: 15, `agents-dir`: 5), כל 140 בדיקות
+      `@ao/platform`+`@ao/runtime` עוברות (63+77), build+lint+format נקיים.
 - [ ] **P10-T2 · טעינה חמה** — שינוי בפרומפט נכנס לתוקף בלי הפעלה מחדש.
       *גמור:* עריכת `agent.md` משפיעה על הריצה הבאה.
 - [ ] **P10-T3 · 11 הסוכנים** — כתיבה וכיוונון של כל הסוגים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#4-סוגי-סוכנים).

@@ -18,6 +18,14 @@ export interface AppContext {
   /** P9-T11: in-flight runs' `AbortController`s, keyed by runId — how `POST /api/runs/:id/stop` reaches a `runChatTurn` call happening on a different request. */
   runRegistry: RunRegistry;
   /**
+   * The `agents/` directory PROTOCOLS.md §10 describes (`resolveAgentsDir`,
+   * P10-T1). A plain path, not a pre-loaded registry snapshot — every real
+   * read goes through `@ao/platform`'s `loadAgent`/`listAgentTypes` fresh,
+   * per call, so an edited `agent.md` takes effect on the very next call
+   * with nothing here to invalidate (P10-T2's hot reload).
+   */
+  agentsDir: string;
+  /**
    * How `routes/keys.ts` builds the throwaway provider it validates a
    * submitted key against — defaults to a real `GeminiProvider` in
    * `server.ts`. Overridable so tests can validate the route's behavior
