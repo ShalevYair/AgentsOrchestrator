@@ -1,0 +1,77 @@
+name: document-from-sources
+displayName: מסמך ממקורות
+description: >-
+  קורא חומר ממקורות שסופקו (מסמכים, קבצים, קישורים שכבר אוחזרו) וכותב מסמך אחד מבוסס-ראיות.
+objectiveTemplate: "מסמך ממקורות: {{userRequest}}"
+readPolicy:
+  maxRung: R2
+  fullReadAllowlist: []
+  summarizeIf:
+    minRelevance: 0.4
+    maxFiles: 50
+deliverables:
+  - id: sourced-doc
+    kind: markdown
+    target: chat
+    acceptance:
+      - כל טענה במסמך מגובה במקור שסופק
+stages:
+  - id: read
+    name: חילוץ ממקורות
+    goal: קרא את המקורות שסופקו וחלץ ממצאים עובדתיים עם ציטוט מדויק למקור
+    dependsOn: []
+    agentType: reader
+    fanout:
+      mode: shard
+      count: 4
+      maxParallel: 3
+    inputs:
+      - from: artifacts
+        select: all
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 8000
+    contextBudget:
+      maxInputTokens: 30000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.15
+      estimatedOutShare: 0.08
+      hardCapShare: 0.25
+    mergeStrategy: local:dedupe-findings
+    successCriteria:
+      - כל ממצא מצטט מקור קונקרטי
+    onFailure: retry
+    optional: false
+  - id: write
+    name: כתיבת המסמך
+    goal: הרכב מסמך אחד קריא מהממצאים שנאספו, ללא הוספת מידע שלא הופיע במקורות
+    dependsOn: [read]
+    agentType: writer
+    fanout:
+      mode: single
+      count: 1
+      maxParallel: 1
+    inputs:
+      - from: read
+        select: findings
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 12000
+    contextBudget:
+      maxInputTokens: 25000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.1
+      estimatedOutShare: 0.12
+      hardCapShare: 0.25
+    mergeStrategy: local:concat-ordered
+    successCriteria:
+      - כל פסקה במסמך מבוססת על ממצא שנאסף
+    onFailure: retry
+    optional: false
+reserveShare:
+  synthesisTokensShare: 0.1
+  repairTokensShare: 0.1

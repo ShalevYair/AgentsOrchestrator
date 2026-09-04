@@ -1756,8 +1756,38 @@
       21 בדיקות חדשות סה"כ (6 instantiate + 5 plan-with-recipe + 10 recipe-registry), 478 בדיקות
       `@ao/core` + 80 `@ao/platform` עוברות, build+lint+format נקיים. חיבור בפועל ל-`apps/runtime` (composition
       root) נדחה בכוונה ל-P10-T5, יחד עם קבצי המתכונים האמיתיים הראשונים — לא מחווטים מנגנון ריק.
-- [ ] **P10-T5 · ספריית מתכונים** — ניתוח מאגר · סקירת קוד · מסמך ממקורות · מיגרציה · חילוץ נתונים.
+- [x] **P10-T5 · ספריית מתכונים** — ניתוח מאגר · סקירת קוד · מסמך ממקורות · מיגרציה · חילוץ נתונים.
       *גמור:* 5 מתכונים עובדים מקצה לקצה.
+      *כפי שמומש:* `recipes/*.yaml` — 5 קבצים אמיתיים, כל אחד 2–3 שלבים אמיתיים מ-6 סוגי הסוכן שנבנו
+      ב-P10-T3: **ניתוח מאגר** reader→analyst→writer (markdown); **סקירת קוד** reader→critic→writer
+      (markdown, critic בודק בלי לתקן בעצמו); **מסמך ממקורות** reader→writer (markdown, ללא outliner —
+      עקבי עם הפער התיעודי מ-P10-T3: outliner לא מבוסס-רישום); **מיגרציה** reader→coder→critic (files,
+      coder בבעלות בלעדית על קובץ + `local:assemble-files`); **חילוץ נתונים** reader→analyst→coder (data).
+      כל mergeStrategy הוא reducer אמיתי מ-`ReducerIdSchema` הקיים; כל deliverable.kind תואם
+      `DELIVERABLE_KIND_AGENT_TYPES` הקיים ב-`plan/types.ts` (V7 עובר).
+      חובר סוף-סוף ל-`apps/runtime`: `resolveRecipesDir` (זהה בעיצוב ל-`resolveAgentsDir`, לא מופשט
+      למשותף — שני call sites עדיין לא תבנית) + `AppContext.recipesDir`.
+      **"מקצה לקצה" אומת בפועל, לא רק "ה-YAML נטען":** הרמוני `apps/runtime/src/recipe-end-to-end.test.ts`
+      מריץ את השרשרת המלאה האמיתית לכל אחד מ-5 המתכונים — `understanding.suggestedRecipe` (כמו ש-recon
+      היה מפיק) → `planWithRecipe` **האמיתי** (P10-T4, אפס קריאות LLM, נבדק ישירות מול
+      `plannerProvider.calls.generate.length === 0`) → `validatePlan` **האמיתי** (P5-T1) → `runScheduler`
+      **האמיתי** (P5-T4) שמריץ את כל הפאן-אאוט בפועל, כשכל Task טוען את ה-`agent.md` **האמיתי** שלו
+      (P10-T3, דרך `@ao/platform`'s `loadAgent`) ומריץ אותו דרך `buildAgentPrompt`/`buildAgentRequest`/
+      `collectGenerate`/`parseNdjson` **האמיתיים** מול `MockLLMProvider` — לא סימולציה חלקית. כל 5 המתכונים
+      מסתיימים באפס Tasks שנכשלו/נדחו-תקציבית, `schemaViolations: 0`, `done: true` בכל תוצאה.
+      **באג אמיתי שנתפס באימות הזה, לא לפני:** שני ממצאים נפרדים שה-validatePlan/instantiateRecipe הבודדים
+      לא היו חושפים לבד — (1) `hardCapShare` לכל שלב חייב לסכם ל-**≤~0.58** מ-`budget.total`, לא ≤1 כפי
+      ש-V2 בלבד בודק: `runScheduler` מוציא כסף אמיתי מול bucket `"execution"` שהוא רק 58% מהתקציב הכולל
+      (`DEFAULT_BUCKET_PERCENTAGES` הקיים), לא מול ה-budgetTotal הגולמי — תוכנית שעברה V2 (≤100%) יכולה
+      עדיין להיכשל ב-`budget-rejected` באמצע ריצה אמיתית אם סכום ה-hardCap עובר את ה-58%. זו תכונה כללית
+      של Ledger מ-P4/P5, לא באג ב-P10 — אבל בלי ה-harness המלא הזה 5 המתכונים היו "עוברים ולידציה" ונכשלים
+      בשקט בהרצה אמיתית. כל 5 המתכונים כוילו מחדש לסכום ≈0.5 כדי לעבוד בפועל. (2) `planWithRecipe` בלע
+      בשקט כשל ולידציה של מתכון (נפל חזרה ל-planner בלי שום אבחון) — נתפס תוך כדי דיבוג runId לא-תקין
+      בבדיקה עצמה (`run_e2e_test` מפר את `RunIdSchema`'s `run_[A-Za-z0-9]+`, אין קו תחתון מותר). תוקן
+      בקוד עצמו, לא רק בבדיקה: `PlanWithRecipeResult` מקבל `recipeValidationIssues?` אופציונלי — מאוכלס
+      רק כשמתכון הותאם בשם אבל נכשל בולידציה, כדי שנפילה-חזרה עתידית תהיה ניתנת-לאבחון ולא "קופסה שחורה".
+      7 בדיקות חדשות ב-`recipe-end-to-end.test.ts` (1 registry + 5×1 per-recipe e2e) + 2 ב-`recipes-dir.test.ts`,
+      כל 114 בדיקות `@ao/runtime` עוברות, build+lint+format נקיים.
 - [ ] **P10-T6 · reducers כתוספים** — רישום ניתן להרחבה.
       *גמור:* reducer מותאם נרשם ורץ בלי לגעת בליבה.
 - [ ] **P10-T7 · תיעוד הרחבה** — `docs/EXTENDING.md`: סוכן, מתכון, reducer, כלי.

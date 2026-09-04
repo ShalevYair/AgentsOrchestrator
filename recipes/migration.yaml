@@ -1,0 +1,105 @@
+name: migration
+displayName: מיגרציה
+description: >-
+  קורא קבצים בפורמט ישן, כותב גרסה מומרת לכל קובץ, ומוודא שהמיגרציה שלמה מול קריטריונים.
+objectiveTemplate: "מיגרציה: {{userRequest}}"
+readPolicy:
+  maxRung: R3
+  fullReadAllowlist: []
+  summarizeIf:
+    minRelevance: 0.3
+    maxFiles: 40
+deliverables:
+  - id: migrated-files
+    kind: files
+    target: staging
+    acceptance:
+      - כל קובץ מקור מקבל קובץ מומר תואם
+stages:
+  - id: read
+    name: קריאת קבצי מקור
+    goal: קרא את קבצי המקור בפורמט הישן ומצא את כל מה שצריך המרה
+    dependsOn: []
+    agentType: reader
+    fanout:
+      mode: shard
+      count: 3
+      maxParallel: 3
+    inputs:
+      - from: artifacts
+        select: all
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 8000
+    contextBudget:
+      maxInputTokens: 30000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.09
+      estimatedOutShare: 0.05
+      hardCapShare: 0.13
+    mergeStrategy: local:dedupe-findings
+    successCriteria:
+      - כל קובץ מקור מזוהה עם המבנה שלו
+    onFailure: retry
+    optional: false
+  - id: migrate
+    name: כתיבת קבצים מומרים
+    goal: כתוב גרסה מומרת לכל קובץ — בעלות בלעדית על הקובץ שהוקצה
+    dependsOn: [read]
+    agentType: coder
+    fanout:
+      mode: shard
+      count: 3
+      maxParallel: 3
+    inputs:
+      - from: read
+        select: findings
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 16000
+    contextBudget:
+      maxInputTokens: 40000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.1
+      estimatedOutShare: 0.13
+      hardCapShare: 0.26
+    mergeStrategy: local:assemble-files
+    successCriteria:
+      - כל קובץ מומר עובר ולידציה תחבירית
+    onFailure: retry
+    optional: false
+  - id: verify
+    name: אימות מיגרציה
+    goal: בדוק שהמיגרציה שלמה — כל קובץ מקור קיבל מקביל, בלי אובדן פונקציונליות גלוי
+    dependsOn: [migrate]
+    agentType: critic
+    fanout:
+      mode: single
+      count: 1
+      maxParallel: 1
+    inputs:
+      - from: migrate
+        select: files
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 4000
+    contextBudget:
+      maxInputTokens: 15000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.06
+      estimatedOutShare: 0.03
+      hardCapShare: 0.11
+    mergeStrategy: local:concat-ordered
+    successCriteria:
+      - כל קריטריון קבלה מסומן במפורש כעומד/לא עומד
+    onFailure: retry
+    optional: false
+reserveShare:
+  synthesisTokensShare: 0.1
+  repairTokensShare: 0.1

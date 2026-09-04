@@ -1,5 +1,5 @@
 import type { Recipe } from "@ao/shared";
-import { validatePlan } from "../plan/index.js";
+import { validatePlan, type PlanValidationIssue } from "../plan/index.js";
 import { instantiateRecipe } from "../recipes/index.js";
 import { runPlanner, type PlannerResult, type RunPlannerParams } from "./planner.js";
 
@@ -33,6 +33,15 @@ export interface PlanWithRecipeResult extends PlannerResult {
    * wouldn't also have to earn).
    */
   source: "recipe" | "planner";
+  /**
+   * Present only when a recipe was actually matched by name but its
+   * instantiated `Plan` failed `validatePlan` for this run — the specific
+   * reason the fallback below happened, instead of a silent, indistinguishable
+   * "recipe wasn't tried" (a badly-authored recipe, or one authored against
+   * a different budget shape than this run's, should be diagnosable from
+   * this result directly, not just from re-deriving it by hand).
+   */
+  recipeValidationIssues?: PlanValidationIssue[];
 }
 
 /**
@@ -48,6 +57,7 @@ export async function planWithRecipe(params: PlanWithRecipeParams): Promise<Plan
   const { recipeRegistry, runId, userRequest, ...plannerParams } = params;
   const suggestedName = params.understanding.suggestedRecipe;
   const matchedRecipe = suggestedName ? recipeRegistry?.[suggestedName] : undefined;
+  let recipeValidationIssues: PlanValidationIssue[] | undefined;
 
   if (matchedRecipe) {
     const candidate = instantiateRecipe({
@@ -60,11 +70,16 @@ export async function planWithRecipe(params: PlanWithRecipeParams): Promise<Plan
     if (validation.valid && validation.plan) {
       return { plan: validation.plan, attempts: [], source: "recipe" };
     }
+    recipeValidationIssues = validation.issues;
   }
 
   const recipeNames = recipeRegistry ? Object.keys(recipeRegistry).sort() : [];
   const plannerResult = await runPlanner(
     recipeNames.length > 0 ? { ...plannerParams, recipes: recipeNames } : plannerParams,
   );
-  return { ...plannerResult, source: "planner" };
+  return {
+    ...plannerResult,
+    source: "planner",
+    ...(recipeValidationIssues !== undefined ? { recipeValidationIssues } : {}),
+  };
 }

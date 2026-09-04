@@ -26,6 +26,12 @@ export interface AppContext {
    */
   agentsDir: string;
   /**
+   * The `recipes/` directory (`resolveRecipesDir`, P10-T4/T5) — same
+   * "plain path, fresh read every call, nothing cached here" design as
+   * `agentsDir`.
+   */
+  recipesDir: string;
+  /**
    * How `routes/keys.ts` builds the throwaway provider it validates a
    * submitted key against — defaults to a real `GeminiProvider` in
    * `server.ts`. Overridable so tests can validate the route's behavior

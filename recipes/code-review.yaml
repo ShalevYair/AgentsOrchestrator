@@ -1,0 +1,105 @@
+name: code-review
+displayName: סקירת קוד
+description: >-
+  קורא קבצי קוד שהשתנו, בודק אותם מול קריטריוני סקירה, וכותב סיכום סקירה.
+objectiveTemplate: "סקירת קוד: {{userRequest}}"
+readPolicy:
+  maxRung: R3
+  fullReadAllowlist: []
+  summarizeIf:
+    minRelevance: 0.3
+    maxFiles: 40
+deliverables:
+  - id: review-doc
+    kind: markdown
+    target: chat
+    acceptance:
+      - כל בעיה שנמצאה מתועדת עם מיקום מדויק
+stages:
+  - id: read
+    name: קריאת שינויים
+    goal: קרא את קבצי הקוד שהשתנו ומצא ממצאים גולמיים (מבנה, סגנון, סיכונים)
+    dependsOn: []
+    agentType: reader
+    fanout:
+      mode: shard
+      count: 3
+      maxParallel: 3
+    inputs:
+      - from: artifacts
+        select: all
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 8000
+    contextBudget:
+      maxInputTokens: 30000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.13
+      estimatedOutShare: 0.07
+      hardCapShare: 0.22
+    mergeStrategy: local:dedupe-findings
+    successCriteria:
+      - כל ממצא מגובה בקטע קוד אמיתי
+    onFailure: retry
+    optional: false
+  - id: review
+    name: סקירה
+    goal: בדוק את הממצאים מול קריטריוני קבלה — נכונות, בטיחות, עקביות סגנון
+    dependsOn: [read]
+    agentType: critic
+    fanout:
+      mode: single
+      count: 1
+      maxParallel: 1
+    inputs:
+      - from: read
+        select: findings
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 4000
+    contextBudget:
+      maxInputTokens: 15000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.06
+      estimatedOutShare: 0.03
+      hardCapShare: 0.1
+    mergeStrategy: local:concat-ordered
+    successCriteria:
+      - כל קריטריון קבלה מסומן במפורש כעומד/לא עומד
+    onFailure: retry
+    optional: false
+  - id: write
+    name: כתיבת סיכום
+    goal: כתוב סיכום סקירה קריא — מה תקין, מה דורש תיקון, לפי חומרה
+    dependsOn: [review]
+    agentType: writer
+    fanout:
+      mode: single
+      count: 1
+      maxParallel: 1
+    inputs:
+      - from: review
+        select: findings
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 12000
+    contextBudget:
+      maxInputTokens: 20000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.06
+      estimatedOutShare: 0.08
+      hardCapShare: 0.18
+    mergeStrategy: local:concat-ordered
+    successCriteria:
+      - הסיכום מפרט כל בעיה עם מיקום והמלצה
+    onFailure: retry
+    optional: false
+reserveShare:
+  synthesisTokensShare: 0.1
+  repairTokensShare: 0.1

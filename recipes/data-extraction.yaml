@@ -1,0 +1,105 @@
+name: data-extraction
+displayName: חילוץ נתונים
+description: >-
+  קורא חומר גולמי, מחלץ ומבנה נקודות נתונים, וכותב קובץ נתונים מובנה (JSON/CSV) אחד.
+objectiveTemplate: "חילוץ נתונים: {{userRequest}}"
+readPolicy:
+  maxRung: R2
+  fullReadAllowlist: []
+  summarizeIf:
+    minRelevance: 0.4
+    maxFiles: 60
+deliverables:
+  - id: extracted-data
+    kind: data
+    target: staging
+    acceptance:
+      - כל שדה בקובץ הנתונים מבוסס על ראיה מהחומר המקורי
+stages:
+  - id: read
+    name: חילוץ נתונים גולמי
+    goal: קרא את החומר וחלץ נקודות נתונים גולמיות עם ציון מיקום מדויק
+    dependsOn: []
+    agentType: reader
+    fanout:
+      mode: shard
+      count: 4
+      maxParallel: 3
+    inputs:
+      - from: artifacts
+        select: all
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 8000
+    contextBudget:
+      maxInputTokens: 30000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.11
+      estimatedOutShare: 0.06
+      hardCapShare: 0.18
+    mergeStrategy: local:dedupe-findings
+    successCriteria:
+      - כל נקודת נתון מגובה במיקום מדויק במקור
+    onFailure: retry
+    optional: false
+  - id: structure
+    name: מבנה ואימות
+    goal: ארגן את נקודות הנתונים לסכימה עקבית, סמן כפילויות וסתירות
+    dependsOn: [read]
+    agentType: analyst
+    fanout:
+      mode: single
+      count: 1
+      maxParallel: 1
+    inputs:
+      - from: read
+        select: findings
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 12000
+    contextBudget:
+      maxInputTokens: 20000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.07
+      estimatedOutShare: 0.07
+      hardCapShare: 0.14
+    mergeStrategy: local:concat-ordered
+    successCriteria:
+      - אין כפילות בין נקודות הנתונים הסופיות
+    onFailure: retry
+    optional: false
+  - id: export
+    name: ייצוא קובץ נתונים
+    goal: כתוב קובץ נתונים מובנה אחד (JSON) המכיל את כל נקודות הנתונים המאורגנות
+    dependsOn: [structure]
+    agentType: coder
+    fanout:
+      mode: single
+      count: 1
+      maxParallel: 1
+    inputs:
+      - from: structure
+        select: findings
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 16000
+    contextBudget:
+      maxInputTokens: 40000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.07
+      estimatedOutShare: 0.09
+      hardCapShare: 0.18
+    mergeStrategy: local:assemble-files
+    successCriteria:
+      - הקובץ תקין תחבירית וכולל את כל נקודות הנתונים
+    onFailure: retry
+    optional: false
+reserveShare:
+  synthesisTokensShare: 0.1
+  repairTokensShare: 0.1

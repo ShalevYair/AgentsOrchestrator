@@ -3,6 +3,7 @@ import { createSecretRegistry, createLogger } from "@ao/platform";
 import { MockLLMProvider, type KeyStore, type MockLLMProviderOptions } from "@ao/providers";
 import type { LLMProvider } from "@ao/shared";
 import { resolveAgentsDir } from "../agents-dir.js";
+import { resolveRecipesDir } from "../recipes-dir.js";
 import { RunRegistry } from "../chat/run-registry.js";
 import type { AppContext } from "../context.js";
 import { openDatabase, type SqlDriver } from "../db/driver.js";
@@ -51,6 +52,7 @@ export function buildTestContext(
     logger: createLogger({ destination: new Writable({ write: (_chunk, _enc, cb) => cb() }) }),
     secretRegistry: createSecretRegistry(),
     agentsDir: resolveAgentsDir({ moduleUrl: import.meta.url }),
+    recipesDir: resolveRecipesDir({ moduleUrl: import.meta.url }),
     createValidationProvider: () => validationProvider,
   };
 }
