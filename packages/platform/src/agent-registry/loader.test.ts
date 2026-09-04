@@ -167,3 +167,21 @@ describe("loadAgent", () => {
     expect(promptTemplate).toBe("write {{objective}}");
   });
 });
+
+describe("hot reload (P10-T2) — editing agent.md/agent.json takes effect on the very next load, no restart", () => {
+  it("picks up an edited prompt template on the next loadAgent call", () => {
+    writeAgent("writer", {}, "version 1");
+    expect(loadAgent(dir, "writer").promptTemplate).toBe("version 1");
+
+    writeFileSync(join(dir, "writer", "agent.md"), "version 2");
+    expect(loadAgent(dir, "writer").promptTemplate).toBe("version 2");
+  });
+
+  it("picks up an edited agent.json field on the next loadAgentDefinition call", () => {
+    writeAgent("writer", { temperature: 0.1 });
+    expect(loadAgentDefinition(dir, "writer").temperature).toBe(0.1);
+
+    writeAgent("writer", { temperature: 0.9 });
+    expect(loadAgentDefinition(dir, "writer").temperature).toBe(0.9);
+  });
+});
