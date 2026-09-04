@@ -74,6 +74,8 @@ export const api = {
   createThread: (title?: string) =>
     request<Thread>("/api/threads", { method: "POST", body: JSON.stringify({ title }) }),
   listMessages: (threadId: string) => request<ChatMessage[]>(`/api/threads/${threadId}/messages`),
+  /** P9-T12's history-panel delete — 204 on success, 404 for an unknown id (see routes/threads.ts). */
+  deleteThread: (threadId: string) => request<void>(`/api/threads/${threadId}`, { method: "DELETE" }),
   setGoalConfig: (threadId: string, goalConfig: GoalConfig) =>
     request<GoalConfig>(`/api/threads/${threadId}/goal-config`, {
       method: "PUT",

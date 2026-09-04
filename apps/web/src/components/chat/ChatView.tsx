@@ -2,7 +2,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import type { GoalConfig, RuntimeEvent } from "@ao/shared";
 import { DEFAULT_GOAL_CONFIG } from "@ao/core/plan";
-import { api, ApiError, type ChatMessage } from "../../lib/api.js";
+import { api, ApiError, type ChatMessage, type Thread } from "../../lib/api.js";
 import { RunEventSocket, type WsStatus } from "../../lib/ws.js";
 import { applyRuntimeEvent, INITIAL_RUN_STATE } from "../../lib/run-state.js";
 import { projectFinalTokens, type BudgetMeterInfo } from "../../lib/budget-projection.js";
@@ -29,22 +29,41 @@ interface RunError {
 }
 
 export interface ChatViewProps {
+  /**
+   * P9-T12: controlled by App.tsx, which owns the thread list/selection
+   * for the history sidebar. `null` only for the brief window before the
+   * very first thread resolves (App.tsx's own bootstrap) — UX.md §10's
+   * "optimistic" instant mount (App.test.tsx) means this component still
+   * renders its shell immediately rather than waiting, just with the
+   * composer disabled until a real thread exists. Every actual
+   * thread-to-thread switch is a fresh mount (App.tsx keys ChatView by
+   * `thread.id`), so this component only ever needs to load *one*
+   * thread's data, never react to its own prop changing mid-life.
+   */
+  thread: Thread | null;
   onBudgetChange: (info: BudgetMeterInfo) => void;
   /** UX.md §10 "מפתח לא תקין / פג": a provider-scoped runtime error offers a quick jump to Settings, not just an inert message. */
   onOpenSettings: () => void;
+  /** P9-T12: lets App.tsx refresh its thread list (title/order in the sidebar) once a run actually changes the thread — see the `run.finished` case below. */
+  onThreadActivity?: () => void;
 }
 
 /**
- * P2-T4: the whole walking-skeleton chat path. Auto-creates/reuses a
- * single thread (no thread sidebar in P2 — "no orchestration" extends to
- * "no UI for features later phases own"), posts messages, and streams the
- * reply over the WS event bus chunk by chunk (P2-T6) into a live-updating
- * bubble until `run.finished`, at which point the authoritative persisted
- * messages (with real usage) are re-fetched from the runtime.
+ * P2-T4: the whole walking-skeleton chat path. Posts messages for the
+ * given `thread` and streams the reply over the WS event bus chunk by
+ * chunk (P2-T6) into a live-updating bubble until `run.finished`, at
+ * which point the authoritative persisted messages (with real usage) are
+ * re-fetched from the runtime. P9-T12: which thread is *selected* is
+ * App.tsx's concern (the history sidebar); this component only loads and
+ * drives the one thread it's given.
  */
-export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): React.JSX.Element {
+export function ChatView({
+  thread,
+  onBudgetChange,
+  onOpenSettings,
+  onThreadActivity,
+}: ChatViewProps): React.JSX.Element {
   const { t } = useTranslation();
-  const [threadId, setThreadId] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [streamingText, setStreamingText] = React.useState<string | null>(null);
   const [wsStatus, setWsStatus] = React.useState<WsStatus | null>(null);
@@ -60,7 +79,7 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
   // status "stopped"), cleared as soon as a new message is sent (it's a
   // note about the last turn, not a standing banner).
   const [lastRunStopped, setLastRunStopped] = React.useState(false);
-  const [goalConfig, setGoalConfig] = React.useState<GoalConfig>(DEFAULT_GOAL_CONFIG);
+  const [goalConfig, setGoalConfig] = React.useState<GoalConfig>(thread?.goalConfig ?? DEFAULT_GOAL_CONFIG);
   const [goalSaveError, setGoalSaveError] = React.useState<string | null>(null);
   const [runState, dispatchRunEvent] = React.useReducer(applyRuntimeEvent, INITIAL_RUN_STATE);
   // UX.md §1: "בלי ... ריצה פעילה — הלוח מוסתר לגמרי" (no board at all until
@@ -80,24 +99,20 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
   onBudgetChangeRef.current = onBudgetChange;
 
   React.useEffect(() => {
+    if (!thread) return;
     let cancelled = false;
     api
-      .listThreads()
-      .then(async (threads) => {
-        const thread = threads[0] ?? (await api.createThread());
-        if (cancelled) return;
-        setThreadId(thread.id);
-        setGoalConfig(thread.goalConfig);
-        const existing = await api.listMessages(thread.id);
+      .listMessages(thread.id)
+      .then((existing) => {
         if (!cancelled) setMessages(existing);
       })
       .catch(() => {
-        // A brand-new backend with an empty DB is the common case, not an error worth surfacing.
+        // A brand-new thread with no messages yet is the common case, not an error worth surfacing.
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [thread]);
 
   React.useEffect(() => () => socketRef.current?.close(), []);
 
@@ -141,9 +156,9 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
           socketRef.current = null;
           setStreamingText(null);
           setLastRunStopped(event.payload.status === "stopped");
-          if (threadId) {
+          if (thread) {
             api
-              .listMessages(threadId)
+              .listMessages(thread.id)
               .then((refreshed) => {
                 setMessages(refreshed);
               })
@@ -151,39 +166,43 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
                 // Best-effort refresh; the streamed text is still visible until this resolves.
               });
           }
+          // P9-T12: a finished run is the one point where the thread's
+          // `updated_at` actually changes server-side (touchThread, see
+          // run-chat.ts) — that's the sidebar's cue to re-sort/re-fetch.
+          onThreadActivity?.();
           break;
         }
         default:
           break;
       }
     },
-    [threadId],
+    [thread, onThreadActivity],
   );
 
   /**
    * Optimistic update (the dialog reflects the new value immediately) with
    * rollback on failure — same pattern as every other write in this file.
-   * `threadId` is guaranteed non-null here in practice (GoalButton only
+   * `thread` is guaranteed non-null here in practice (GoalButton only
    * renders once a thread exists), but the guard keeps this honest if that
    * ever changes.
    */
   const handleGoalConfigChange = (next: GoalConfig): void => {
-    if (!threadId) return;
+    if (!thread) return;
     const previous = goalConfig;
     setGoalConfig(next);
     setGoalSaveError(null);
-    api.setGoalConfig(threadId, next).catch(() => {
+    api.setGoalConfig(thread.id, next).catch(() => {
       setGoalConfig(previous);
       setGoalSaveError(t("goal.saveFailed"));
     });
   };
 
   const handleSend = (text: string): void => {
-    if (!threadId) return;
+    if (!thread) return;
     setError(null);
     setLastRunStopped(false);
     api
-      .postMessage(threadId, text)
+      .postMessage(thread.id, text)
       .then(({ runId, userMessage }) => {
         setMessages((prev) => [...prev, userMessage]);
         setStreamingText("");
@@ -379,7 +398,7 @@ export function ChatView({ onBudgetChange, onOpenSettings }: ChatViewProps): Rea
       )}
       <ChatInput
         onSend={handleSend}
-        disabled={!threadId}
+        disabled={!thread}
         isStreaming={streamingText !== null}
         onStop={handleStop}
         goalConfig={goalConfig}

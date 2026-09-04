@@ -62,7 +62,7 @@ const USER_MESSAGE: ChatMessage = {
 /** Loads the thread, then sends one message so a RunEventSocket exists to drive events/status through. */
 async function renderReadyChatView(onOpenSettings = vi.fn()): Promise<FakeSocket> {
   const user = userEvent.setup();
-  render(<ChatView onBudgetChange={vi.fn()} onOpenSettings={onOpenSettings} />);
+  render(<ChatView thread={THREAD} onBudgetChange={vi.fn()} onOpenSettings={onOpenSettings} />);
   const textarea = await screen.findByRole("textbox");
   await waitFor(() => {
     expect(textarea).toBeEnabled();
@@ -77,7 +77,6 @@ async function renderReadyChatView(onOpenSettings = vi.fn()): Promise<FakeSocket
 describe("ChatView (UX.md §10 error states + reconnect banner)", () => {
   beforeEach(() => {
     sockets.instances.length = 0;
-    vi.spyOn(api, "listThreads").mockResolvedValue([THREAD]);
     vi.spyOn(api, "listMessages").mockResolvedValue([]);
     vi.spyOn(api, "postMessage").mockResolvedValue({ runId: "run-1", userMessage: USER_MESSAGE });
   });
@@ -197,7 +196,6 @@ describe("ChatView (UX.md §10 error states + reconnect banner)", () => {
 describe("ChatView stop / run control (UX.md §2 + §9, P9-T11)", () => {
   beforeEach(() => {
     sockets.instances.length = 0;
-    vi.spyOn(api, "listThreads").mockResolvedValue([THREAD]);
     vi.spyOn(api, "listMessages").mockResolvedValue([]);
     vi.spyOn(api, "postMessage").mockResolvedValue({ runId: "run-1", userMessage: USER_MESSAGE });
     vi.spyOn(api, "stopRun").mockResolvedValue(undefined);
@@ -308,5 +306,65 @@ describe("ChatView stop / run control (UX.md §2 + §9, P9-T11)", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("ChatView controlled `thread` prop (P9-T12)", () => {
+  beforeEach(() => {
+    sockets.instances.length = 0;
+    vi.spyOn(api, "listMessages").mockResolvedValue([]);
+    vi.spyOn(api, "postMessage").mockResolvedValue({ runId: "run-1", userMessage: USER_MESSAGE });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("mounts its shell immediately even with thread=null (App.tsx's optimistic pre-bootstrap window)", () => {
+    render(<ChatView thread={null} onBudgetChange={vi.fn()} onOpenSettings={vi.fn()} />);
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    // Never called `api.listMessages` for a thread that doesn't exist yet.
+    expect(api.listMessages).not.toHaveBeenCalled();
+  });
+
+  it("enables the composer once a real thread is passed", async () => {
+    render(<ChatView thread={THREAD} onBudgetChange={vi.fn()} onOpenSettings={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByRole("textbox")).toBeEnabled();
+    });
+    expect(api.listMessages).toHaveBeenCalledWith(THREAD.id);
+  });
+
+  it("calls onThreadActivity when a run finishes (the sidebar's cue to re-sort)", async () => {
+    const onThreadActivity = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ChatView
+        thread={THREAD}
+        onBudgetChange={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onThreadActivity={onThreadActivity}
+      />,
+    );
+    const textarea = await screen.findByRole("textbox");
+    await waitFor(() => {
+      expect(textarea).toBeEnabled();
+    });
+    await user.type(textarea, "hello{Enter}");
+    await waitFor(() => {
+      expect(sockets.instances.length).toBe(1);
+    });
+    expect(onThreadActivity).not.toHaveBeenCalled();
+
+    act(() => {
+      lastSocket().handlers.onEvent({
+        type: "run.finished",
+        runId: "run-1",
+        seq: 1,
+        payload: { status: "completed", deliverables: [], ledger: null, gaps: [] },
+      });
+    });
+
+    expect(onThreadActivity).toHaveBeenCalledTimes(1);
   });
 });

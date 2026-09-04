@@ -12,7 +12,19 @@
     "heading": "שיחות",
     "newChat": "+ שיחה חדשה",
     "untitled": "שיחה חדשה",
-    "loading": "טוען שיחות..."
+    "loading": "טוען שיחות...",
+    "empty": "אין שיחות עדיין",
+    "noResults": "לא נמצאו שיחות תואמות",
+    "searchPlaceholder": "חיפוש בשיחות",
+    "collapse": "כווץ את רשימת השיחות",
+    "expand": "הרחב את רשימת השיחות",
+    "groupToday": "היום",
+    "groupYesterday": "אתמול",
+    "groupOlder": "ישן יותר",
+    "export": "ייצוא \"{{title}}\" כ-JSON",
+    "exportError": "ייצוא השיחה נכשל. נסו שוב.",
+    "delete": "מחיקת \"{{title}}\"",
+    "deleteConfirm": "למחוק את השיחה \"{{title}}\"? הפעולה אינה הפיכה."
   },
   "chat": {
     "placeholder": "כתוב הודעה... (Enter לשליחה, Shift+Enter לשורה חדשה)",

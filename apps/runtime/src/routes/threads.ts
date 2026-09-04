@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { AppContext } from "../context.js";
 import {
   createThread,
+  deleteThread,
   getThread,
   listThreads,
   updateThreadGoalConfig,
@@ -41,6 +42,16 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: AppContext): voi
     const title = trimmed && trimmed.length > 0 ? trimmed : "New chat";
     const thread = createThread(ctx.driver, title);
     reply.code(201).send(thread);
+  });
+
+  app.delete("/api/threads/:id", (request: FastifyRequest<{ Params: ThreadParams }>, reply) => {
+    try {
+      requireThread(ctx, request.params.id);
+      deleteThread(ctx.driver, request.params.id);
+      reply.code(204).send();
+    } catch (error) {
+      sendAppError(reply, error);
+    }
   });
 
   app.put(

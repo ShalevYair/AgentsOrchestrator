@@ -161,6 +161,53 @@ describe("threads + messages", () => {
   });
 });
 
+describe("DELETE /api/threads/:id (P9-T12)", () => {
+  it("deletes a thread and its messages", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: { title: "Gone soon" } });
+    const thread = create.json<ThreadDto>();
+    await app.inject({
+      method: "POST",
+      url: `/api/threads/${thread.id}/messages`,
+      payload: { content: "hi there" },
+    });
+
+    const del = await app.inject({ method: "DELETE", url: `/api/threads/${thread.id}` });
+    expect(del.statusCode).toBe(204);
+    expect(del.body).toBe("");
+
+    const list = await app.inject({ method: "GET", url: "/api/threads" });
+    expect(list.json<ThreadDto[]>()).toEqual([]);
+
+    const messages = await app.inject({ method: "GET", url: `/api/threads/${thread.id}/messages` });
+    expect(messages.statusCode).toBe(404);
+  });
+
+  it("404s for an unknown thread instead of silently no-oping", async () => {
+    const res = await app.inject({ method: "DELETE", url: "/api/threads/thr_missing" });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("deleting one thread leaves other threads and their messages untouched", async () => {
+    const keep = (
+      await app.inject({ method: "POST", url: "/api/threads", payload: { title: "Keep" } })
+    ).json<ThreadDto>();
+    const doomed = (
+      await app.inject({ method: "POST", url: "/api/threads", payload: { title: "Doomed" } })
+    ).json<ThreadDto>();
+    await app.inject({
+      method: "POST",
+      url: `/api/threads/${keep.id}/messages`,
+      payload: { content: "stay" },
+    });
+
+    await app.inject({ method: "DELETE", url: `/api/threads/${doomed.id}` });
+
+    const list = await app.inject({ method: "GET", url: "/api/threads" });
+    expect(list.json<ThreadDto[]>().map((t) => t.id)).toEqual([keep.id]);
+  });
+});
+
 describe("POST /api/runs/:id/stop (P9-T11)", () => {
   // `run-chat.test.ts` already proves *what happens* once a run is
   // actually aborted (partial text kept, ledger released, "stopped"

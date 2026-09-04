@@ -87,3 +87,24 @@ export function touchThread(
 export function updateThreadGoalConfig(driver: SqlDriver, id: string, goalConfig: GoalConfig): void {
   driver.run("UPDATE threads SET goal_config_json = ? WHERE id = ?", [JSON.stringify(goalConfig), id]);
 }
+
+/**
+ * P9-T12's "מחיקה" — `driver.ts` runs with `PRAGMA foreign_keys = ON`, so
+ * dependents have to go first, in reference order (events → runs →
+ * messages → the thread itself), in one real transaction: a thread's
+ * messages, its runs, and those runs' events all disappear together, not
+ * a partial delete some later query could still see.
+ */
+export function deleteThread(driver: SqlDriver, id: string): void {
+  driver.exec("BEGIN TRANSACTION;");
+  try {
+    driver.run("DELETE FROM events WHERE run_id IN (SELECT id FROM runs WHERE thread_id = ?)", [id]);
+    driver.run("DELETE FROM runs WHERE thread_id = ?", [id]);
+    driver.run("DELETE FROM messages WHERE thread_id = ?", [id]);
+    driver.run("DELETE FROM threads WHERE id = ?", [id]);
+    driver.exec("COMMIT;");
+  } catch (error) {
+    driver.exec("ROLLBACK;");
+    throw error;
+  }
+}

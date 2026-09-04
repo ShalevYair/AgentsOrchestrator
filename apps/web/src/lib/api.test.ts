@@ -47,6 +47,16 @@ describe("lib/api.ts request() headers (P9-T11 regression)", () => {
     expect(init?.headers).toBeUndefined();
   });
 
+  it("a bodyless call (deleteThread, P9-T12) sends no content-type header", async () => {
+    mockFetchOnce({ ok: true, status: 204 });
+    await api.deleteThread("thr_abc123");
+
+    const [url, init] = vi.mocked(fetch).mock.calls[0]!;
+    expect(url).toBe("/api/threads/thr_abc123");
+    expect(init?.method).toBe("DELETE");
+    expect(init?.headers).toBeUndefined();
+  });
+
   it("a call with a real JSON body still sends content-type: application/json", async () => {
     mockFetchOnce({
       ok: true,

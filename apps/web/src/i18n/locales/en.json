@@ -12,7 +12,19 @@
     "heading": "Chats",
     "newChat": "+ New chat",
     "untitled": "New chat",
-    "loading": "Loading chats..."
+    "loading": "Loading chats...",
+    "empty": "No chats yet",
+    "noResults": "No matching chats",
+    "searchPlaceholder": "Search chats",
+    "collapse": "Collapse the chat list",
+    "expand": "Expand the chat list",
+    "groupToday": "Today",
+    "groupYesterday": "Yesterday",
+    "groupOlder": "Older",
+    "export": "Export \"{{title}}\" as JSON",
+    "exportError": "Exporting the chat failed. Try again.",
+    "delete": "Delete \"{{title}}\"",
+    "deleteConfirm": "Delete the chat \"{{title}}\"? This cannot be undone."
   },
   "chat": {
     "placeholder": "Type a message... (Enter to send, Shift+Enter for a new line)",

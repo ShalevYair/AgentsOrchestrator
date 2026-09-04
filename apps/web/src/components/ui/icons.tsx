@@ -160,3 +160,31 @@ export function Square(props: IconProps): React.JSX.Element {
     </Icon>
   );
 }
+
+export function Trash(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </Icon>
+  );
+}
+
+export function Search(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </Icon>
+  );
+}
+
+export function Plus(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
+    </Icon>
+  );
+}
