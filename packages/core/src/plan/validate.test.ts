@@ -10,6 +10,7 @@ import {
   validateV6,
   validateV7,
   validateV8,
+  validateV9,
   type PlanValidationContext,
 } from "./validate.js";
 
@@ -257,6 +258,38 @@ describe("V8 — readPolicy.maxRung within budget-level ceiling", () => {
     const plan = buildValidPlan();
     plan.readPolicy.maxRung = "R5";
     expect(validateV8(plan, "deep")).toHaveLength(0);
+  });
+});
+
+describe("V9 — mergeStrategy exists in the reducer registry (P10-T6)", () => {
+  it("flags a stage whose mergeStrategy isn't in knownReducerIds", () => {
+    const plan = buildValidPlan();
+    plan.stages[0]!.mergeStrategy = "custom:not-registered-anywhere";
+    const issues = validateV9(plan, new Set(["local:concat-ordered"]));
+    expect(issues).toHaveLength(1);
+    expect(issues[0]!.message).toContain("custom:not-registered-anywhere");
+  });
+
+  it("passes when every mergeStrategy is known, built-in or custom alike", () => {
+    const plan = buildValidPlan();
+    plan.stages[0]!.mergeStrategy = "custom:my-reducer";
+    const issues = validateV9(plan, new Set(["custom:my-reducer", "local:concat-ordered"]));
+    expect(issues).toHaveLength(0);
+  });
+
+  it("validatePlan skips V9 entirely when the caller doesn't supply knownReducerIds — no regression for existing callers", () => {
+    const plan = buildValidPlan();
+    plan.stages[0]!.mergeStrategy = "custom:whatever";
+    const result = validatePlan(plan, buildContext());
+    expect(result.valid).toBe(true);
+  });
+
+  it("validatePlan runs V9 and rejects an unknown mergeStrategy when the caller opts in via knownReducerIds", () => {
+    const plan = buildValidPlan();
+    plan.stages[0]!.mergeStrategy = "custom:whatever";
+    const result = validatePlan(plan, buildContext({ knownReducerIds: new Set(["local:concat-ordered"]) }));
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((i) => i.code === "V9")).toBe(true);
   });
 });
 

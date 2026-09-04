@@ -7,7 +7,7 @@ import {
   rungIndex,
 } from "./types.js";
 
-export type PlanValidationCode = "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8";
+export type PlanValidationCode = "V1" | "V2" | "V3" | "V4" | "V5" | "V6" | "V7" | "V8" | "V9";
 
 export interface PlanValidationIssue {
   code: PlanValidationCode;
@@ -35,6 +35,17 @@ export interface PlanValidationContext {
   globalMaxParallel?: number;
   /** Optional ceiling on a single stage's fanout.count, independent of maxParallel. Undefined = no ceiling. */
   globalMaxFanoutCount?: number;
+  /**
+   * The reducer registry's known ids (P10-T6's `createReducerRegistry`,
+   * packages/core/reducers/registry.ts) — V9. The exact same split V3
+   * already draws for `agentType`/`knownAgentTypes`: `Stage.mergeStrategy`
+   * is just a non-empty string at the schema level (`ReducerIdSchema`,
+   * `@ao/shared`) so a custom reducer can register under any id without
+   * touching that schema; this is what actually catches an unknown one at
+   * plan-validation time. Undefined = skip the check (existing callers
+   * that don't yet pass a registry aren't broken by V9's addition).
+   */
+  knownReducerIds?: ReadonlySet<string>;
 }
 
 /** V4's safety margin (PROTOCOLS.md §1: "מרווח ביטחון 10%") — a stage's maxOutputTokens must leave this much headroom under the model's real ceiling. */
@@ -309,9 +320,27 @@ export function validateV8(plan: Plan, budgetLevel: BudgetLevel): PlanValidation
   return [];
 }
 
+/** V9 (P10-T6) — every `Stage.mergeStrategy` must exist in the reducer registry, when the caller supplies one to check against (omitted context = skipped, same convention as `globalMaxParallel`/`globalMaxFanoutCount`). */
+export function validateV9(plan: Plan, knownReducerIds: ReadonlySet<string>): PlanValidationIssue[] {
+  const issues: PlanValidationIssue[] = [];
+  for (const stage of plan.stages) {
+    if (!knownReducerIds.has(stage.mergeStrategy)) {
+      issues.push(
+        issue(
+          "V9",
+          `stage "${stage.id}" references unknown mergeStrategy "${stage.mergeStrategy}"`,
+          `/stages/${stage.id}/mergeStrategy`,
+        ),
+      );
+    }
+  }
+  return issues;
+}
+
 /**
- * P5-T1 — runs all 8 validations from PROTOCOLS.md §1. Schema failure (V1's
- * zod half) short-circuits everything else, since none of V2-V8 can safely
+ * P5-T1 — runs all 8 validations from PROTOCOLS.md §1, plus P10-T6's V9
+ * when the caller opts in (`context.knownReducerIds`). Schema failure (V1's
+ * zod half) short-circuits everything else, since none of V2-V9 can safely
  * inspect a document that didn't even parse. Every other validator always
  * runs and contributes its own issues, so a single invalid plan can surface
  * more than one problem at once instead of forcing a fix-one-rerun loop.
@@ -337,6 +366,7 @@ export function validatePlan(input: unknown, context: PlanValidationContext): Pl
     ...validateV6(plan, context),
     ...validateV7(plan),
     ...validateV8(plan, context.budgetLevel),
+    ...(context.knownReducerIds ? validateV9(plan, context.knownReducerIds) : []),
   ];
 
   return issues.length === 0 ? { valid: true, issues: [], plan } : { valid: false, issues };

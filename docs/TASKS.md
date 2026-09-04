@@ -1788,8 +1788,43 @@
       רק כשמתכון הותאם בשם אבל נכשל בולידציה, כדי שנפילה-חזרה עתידית תהיה ניתנת-לאבחון ולא "קופסה שחורה".
       7 בדיקות חדשות ב-`recipe-end-to-end.test.ts` (1 registry + 5×1 per-recipe e2e) + 2 ב-`recipes-dir.test.ts`,
       כל 114 בדיקות `@ao/runtime` עוברות, build+lint+format נקיים.
-- [ ] **P10-T6 · reducers כתוספים** — רישום ניתן להרחבה.
+- [x] **P10-T6 · reducers כתוספים** — רישום ניתן להרחבה.
       *גמור:* reducer מותאם נרשם ורץ בלי לגעת בליבה.
+      *כפי שמומש:* גילוי אמיתי מהמחקר: `Stage.mergeStrategy` **אף פעם לא נצרך בפועל** בקוד production —
+      `mergeStrategy` מוגדר בסכמה ומופיע בכל Stage, אבל אין (היה) שום מקום ב-`packages/core` שממפה
+      `ReducerId` לפונקציית reducer בפועל; `m2-scenario.test.ts` (P5) עשה dispatch ידני ב-if/else בתוך
+      הבדיקה עצמה. `LOCAL_REDUCERS` הקיים (`local-reducers.ts`) הוא map קשיח ל-4 (לא 6 — `local:reduce-tree`
+      ו-`llm:synthesize` צריכים ארגומנט נוסף מהקורא, לא מתאימים לצורה השטוחה, בדיוק כפי שההערה הקיימת שם
+      כבר אמרה), ולא נצרך כרישום-הרצה אמיתי בשום מקום. חסימה אמיתית שנייה: `ReducerIdSchema`
+      (`packages/shared`) היה `z.enum([...6...])` **סגור** — ההפך הגמור מ"ניתן להרחבה". תוקן במפורש:
+      `ReducerIdSchema` נפתח ל-`z.string().min(1)` — **אותו טיפול בדיוק** ש-`Stage.agentType` כבר מקבל
+      (מחרוזת פתוחה, לא enum). `BUILTIN_REDUCER_IDS` נשאר קבוע מיוצא נפרד לתיעוד/כלים. שינוי טיפוס אמיתי
+      (מ-union בן 6 ערכים ל-`string`) — נבדק שאין switch/case ממצה שנשען עליו (grep), ואומת עם typecheck
+      מלא על **כל** ה-monorepo (8 חבילות) שלא נשבר כלום.
+      **מנגנון הרישום** (`packages/core/src/reducers/registry.ts`) — `createReducerRegistry()`: מפה
+      mutable id→function, מאותחלת עם `LOCAL_REDUCERS` (4 built-ins), עם `register`/`resolve`/`has`/`list`.
+      זו הדרך היחידה שהגיונית להרחיב reducers בכלל: בניגוד לסוכן (agent.md כטקסט) או מתכון (YAML), reducer
+      הוא **קוד הרצה בפועל** (`Reducer<I,O>`), לא מסמך — אין פורמט קובץ שיכול "לטעון" קוד ריצה גנרית, אז
+      "רישום ניתן להרחבה" אומר בדיוק מה שהוא אומר: מפה שקוד חיצוני קורא לה `.register()` בזמן ריצה.
+      נוסף V9 חדש ל-`validatePlan` (`plan/validate.ts`) — **אותו פיצול בדיוק** כמו V3 ל-`agentType`/
+      `knownAgentTypes`: schema פתוח + context אופציונלי (`knownReducerIds?`) שכשמסופק תופס mergeStrategy
+      לא-רשום. אופציונלי כדי לא לשבור אף קורא קיים (נבדק: כן).
+      **הוכחה בפועל, לא רק תיאורטית, כפי שנדרש ("נרשם **ורץ**"):** `apps/runtime/src/reducer-plugin.test.ts` —
+      reducer מותאם (`pickLongest`) שאף פעם לא היה קיים בתוך `packages/core`, נכתב ישירות ב-`apps/runtime`
+      (חבילה אחרת לגמרי): נרשם, נפתר, **ורץ בפועל** על `TaskResult[]` אמיתיים ומחזיר את הערך הנכון. נוסף
+      מבחן שלילי: אותה תוכנית בדיוק (מתכון `repo-analysis` אמיתי מ-P10-T5, מוחלף `mergeStrategy` בזמן ריצה)
+      עוברת V9 כשה-reducer רשום, **ונכשלת ב-V9** כשהוא לא — מוכיח שהבדיקה אמיתית, לא חותמת גומי.
+      `packages/core` נשאר בלי שינוי לצורך *הוספת* reducer עתידי — השינוי היחיד ל-core כאן הוא בניית
+      המנגנון עצמו (V9 + הרישום), אותו דפוס בדיוק כמו ש-P10-T1/T4 בנו מנגנון פעם אחת בלי לדרוש שינוי חוזר
+      בהמשך.
+      **בדיקת רגרסיה מלאה על כל ה-monorepo** בעקבות שינוי הסכמה: `typecheck` נקי בכל 8 החבילות/אפליקציות;
+      `vitest run` מהשורש — 1443/1444 עוברות, הכשל היחיד (`docker-sandbox.test.ts`'s live-daemon probe
+      ב-`@ao/tools`) הוא מגבלת סביבה קיימת-מראש (אין דימון Docker בקונטיינר המרוחק הזה) שלא נגעתי בה כלל
+      השבוע — לא רגרסיה. תוך כדי הרגרסיה נתפס ותוקן גם test אמיתי קיים שהניח את ההתנהגות הישנה
+      (`plan.test.ts`'s "rejects an unknown reducer id" — הוחלף בזוג בדיקות שמשקפות את ההתנהגות החדשה
+      במפורש). 14 בדיקות חדשות (7 registry + 4 V9 + 3 reducer-plugin), + 2 בדיקות `reducer.test.ts` עודכנו
+      + 1 ב-`plan.test.ts` הוחלפה בשתיים — `@ao/shared`: 120, `@ao/core`: 489, `@ao/runtime`: 117,
+      build+lint+format נקיים.
 - [ ] **P10-T7 · תיעוד הרחבה** — `docs/EXTENDING.md`: סוכן, מתכון, reducer, כלי.
       *גמור:* מפתח חיצוני מוסיף סוכן לפי המדריך בלבד.
 
