@@ -1718,8 +1718,44 @@
       placeholder שלא נפתר ועם `{{outputSpec}}` אמיתי בפלט — ועוד בדיקה הפוכה שמוודאת שלחמשת ה-hardcoded
       אין תיקייה תחת `agents/` (הפער מתועד, לא מוסתר). 32 בדיקות חדשות, כל 106 בדיקות `@ao/runtime` עוברות,
       build+lint+format נקיים.
-- [ ] **P10-T4 · מתכונים** — תבניות תוכנית ב-YAML, נבחרות ע"י ה-planner.
+- [x] **P10-T4 · מתכונים** — תבניות תוכנית ב-YAML, נבחרות ע"י ה-planner.
       *גמור:* מתכון תואם חוסך את **רוב** עלות התכנון.
+      *כפי שמומש:* גילוי אמיתי מהמחקר, אותה תבנית בדיוק כמו P9: תשתית חלקית כבר קיימת אבל אף פעם לא
+      מחוברת בפועל. `TaskUnderstanding.suggestedRecipe` (`packages/shared/src/schemas/understanding.ts`)
+      כבר קיים — ה-`recon` כבר **מציע** שם מתכון. `runPlanner` (`planner.ts`) כבר מקבל `recipes?: string[]`
+      ומזכיר אותם בפרומפט. אבל אף אחד מהשניים לא היה מחובר לתוכן מתכון אמיתי — `suggestedRecipe` הוא שם
+      בלבד שאף פעם לא נבדק מול רישום אמיתי, ו-`recipes` הוא רשימת שמות חשופה ל-LLM בלי תוכן — התוכנית
+      עדיין נבנתה **תמיד** מאפס דרך קריאת LLM יקרה (`responseSchema: PlanSchema`, `thinkingLevel: "high"`).
+      זה בדיוק הפער שנסגר כאן, לא הומצא מאפס.
+      **סכמה** (`packages/shared/src/schemas/recipe.ts`): `RecipeSchema` — כמעט `Plan` שלם, פחות מה שלא
+      ניתן לדעת לפני ריצה קונקרטית: `tokenBudget`/`reserve` הם **שברים** מ-`budget.total` (`tokenBudgetShare`/
+      `reserveShare`), לא מספרים מוחלטים — כך מתכון אחד עובד בכל רמת תקציב; `objectiveTemplate` עם placeholder
+      יחיד `{{userRequest}}`. שאר השדות (agentType/fanout/DAG/mergeStrategy/successCriteria) קונקרטיים
+      וסטטיים בתוך המתכון עצמו — reuse מלא של `FanoutSchema`/`StageInputSchema`/`StageContextBudgetSchema`/
+      `DeliverableSchema`/`ReadPolicySchema`/`ReducerIdSchema`/`OutputContractSchema` הקיימים מ-`plan.ts`,
+      לא שכפול.
+      **מילוי** (`packages/core/src/recipes/instantiate.ts`) — `instantiateRecipe`: פונקציה טהורה **בלי
+      גישה ל-LLMProvider בכלל** (לא רק "לא קוראת לו" — אין לה פרמטר כזה, מוכח מבנית בבדיקה), ממירה
+      שברי-תקציב למספרים מוחלטים (`Math.floor(share × budgetTotal)`), ממלאת `{{userRequest}}`, מחתימה
+      `runId` אמיתי. אינה טוענת "תמיד תקין" — הקורא עדיין מריץ את התוצאה דרך `validatePlan` **האמיתי**
+      הקיים (P5-T1, לא ולידטור מקביל חדש). נבדק גם מול validatePlan בפועל בתקציב draft (500K) וגם בתקציב
+      deep גדול פי 8 — עובר בשתיהן, מוכיח שהסקיילינג-לפי-שבר עובד לא רק "במקרה אחד".
+      **בחירה** (`packages/core/src/planner/plan-with-recipe.ts`) — `planWithRecipe`: זה "נבחרות ע"י
+      ה-planner" הלכה למעשה — עוטף את `runPlanner` הקיים בלי לגעת בו: `understanding.suggestedRecipe`
+      מול `recipeRegistry` (Record שכבר נטען בזיכרון ע"י הקורא, `@ao/platform`, בלי I/O כאן) → אם יש
+      התאמה, `instantiateRecipe` ואז `validatePlan`; אם תקין — `source: "recipe"`, **אפס** קריאות LLM
+      (נבדק ישירות מול `MockLLMProvider.calls.generate.length === 0`). אם אין התאמה / השם לא רשום / התוצאה
+      לא תקינה (לדוגמה agentType שלא ברישום הריצה) — נופל בחזרה ל-`runPlanner` האמיתי, כולל שמות המתכונים
+      הזמינים בפרומפט (מ-`recipeRegistry` הקיים, לא כפילות קלט). 5 בדיקות שמכסות את כל הענפים, כולל בדיקה
+      שתפסה בפועל bug בפיקסצ'ר של הבדיקה עצמה (agentType לא תואם בתוכנית ה-fallback) לפני שתוקן.
+      **טעינה מקבצים** (`packages/platform/src/recipe-registry/`) — `listRecipeNames`/`loadRecipe`: אותה
+      תבנית בדיוק כמו סוכנים (P10-T1/T2) — `recipes/<name>.yaml`, קריאה טרייה מהדיסק בכל קריאה (חם
+      מובנה-בעיצוב, לא watcher), `NotFoundError`/`ConfigError` עקביים. נוספה תלות אמיתית `yaml@2.9.0`
+      (כבר הייתה קיימת כתלות טרנזיטיבית ב-lockfile — לא גרסה חדשה שהומצאה) ל-`packages/platform`. 10 בדיקות,
+      כולל הוכחת hot-reload תואמת ל-P10-T2.
+      21 בדיקות חדשות סה"כ (6 instantiate + 5 plan-with-recipe + 10 recipe-registry), 478 בדיקות
+      `@ao/core` + 80 `@ao/platform` עוברות, build+lint+format נקיים. חיבור בפועל ל-`apps/runtime` (composition
+      root) נדחה בכוונה ל-P10-T5, יחד עם קבצי המתכונים האמיתיים הראשונים — לא מחווטים מנגנון ריק.
 - [ ] **P10-T5 · ספריית מתכונים** — ניתוח מאגר · סקירת קוד · מסמך ממקורות · מיגרציה · חילוץ נתונים.
       *גמור:* 5 מתכונים עובדים מקצה לקצה.
 - [ ] **P10-T6 · reducers כתוספים** — רישום ניתן להרחבה.

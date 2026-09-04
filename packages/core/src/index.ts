@@ -17,3 +17,4 @@ export * from "./outliner/index.js";
 export * from "./assembler/index.js";
 export * from "./validation/index.js";
 export * from "./artifacts/index.js";
+export * from "./recipes/index.js";

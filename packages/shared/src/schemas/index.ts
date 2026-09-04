@@ -10,6 +10,7 @@ export * from "./blackboard.js";
 export * from "./outline-spec.js";
 export * from "./seam-stitch.js";
 export * from "./agent-registry.js";
+export * from "./recipe.js";
 export * from "./events.js";
 export * from "./json-schema.js";
 export * from "./model-info.js";
