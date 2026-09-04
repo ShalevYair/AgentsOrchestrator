@@ -1,0 +1,12 @@
+{
+  "type": "analyst",
+  "displayName": "אנליסט",
+  "tier": "worker",
+  "thinkingLevel": "medium",
+  "outputContract": { "schemaRef": "NdjsonEnvelope", "format": "ndjson", "maxOutputTokens": 12000 },
+  "contextBudget": { "default": 20000, "max": 40000 },
+  "supportsFanout": ["shard", "ensemble", "single"],
+  "requiredInputs": ["findings"],
+  "promptFile": "agent.md",
+  "temperature": 0.3
+}

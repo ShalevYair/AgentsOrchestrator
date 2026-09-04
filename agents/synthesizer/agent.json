@@ -1,0 +1,12 @@
+{
+  "type": "synthesizer",
+  "displayName": "מסנתז",
+  "tier": "synth",
+  "thinkingLevel": "high",
+  "outputContract": { "schemaRef": "NdjsonEnvelope", "format": "ndjson", "maxOutputTokens": 16000 },
+  "contextBudget": { "default": 40000, "max": 80000 },
+  "supportsFanout": ["single"],
+  "requiredInputs": ["sections", "findings"],
+  "promptFile": "agent.md",
+  "temperature": 0.3
+}

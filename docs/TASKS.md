@@ -1687,8 +1687,37 @@
       block — כותב `agent.md`/`agent.json`, טוען, **עורך את הקובץ בפועל על הדיסק** (`writeFileSync` בלי לגעת
       במטמון כלשהו כי אין), טוען שוב באותו תהליך (לא restart), ומוודא שהתוכן השני מוחזר. זו בדיוק ה"עריכה
       משפיעה על הריצה הבאה בלי הפעלה מחדש" — לא הנחה, אלא הרצה בפועל של השינוי בין שתי קריאות.
-- [ ] **P10-T3 · 11 הסוכנים** — כתיבה וכיוונון של כל הסוגים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#4-סוגי-סוכנים).
+- [x] **P10-T3 · 11 הסוכנים** — כתיבה וכיוונון של כל הסוגים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#4-סוגי-סוכנים).
       *גמור:* לכל סוכן בדיקת חוזה שמאמתת התאמה לסכמה.
+      *כפי שמומש:* גילוי אמיתי מהמחקר ששינה את התוכנית: מ-11 הסוגים בטבלת ARCHITECTURE.md §4, **רק 6**
+      תואמים בפועל למנגנון `agents/<type>/` שנבנה ב-P10-T1 — `reader`/`analyst`/`coder`/`writer`/`critic`/
+      `synthesizer`, כל הפלט שלהם NDJSON חופשי-צורה דרך `agent-runner` הגנרי. חמשת האחרים —
+      `recon`/`planner`/`checkpoint`/`outliner`/`toolsmith` — **כבר ממומשים במלואם** בקוד עם prompt-builder
+      מקודד-קשיח (`buildReconPrompt`/`buildPlannerPrompt`/`buildCheckpointPrompt`/`buildOutlinerPrompt`/
+      `buildToolsmithPrompt`, כולם מ-P5–P8) ו-`responseSchema` של Gemini לאובייקט JSON יחיד — לא NDJSON.
+      זו לא בחירת מימוש אלא אילוץ סכמה אמיתי: `OutputContractSchema` (`packages/shared/src/schemas/common.ts`)
+      נועל `format` ל-`z.literal("ndjson")` בלבד, אז חמשת אלה **לא יכולים** לעבור אימות `AgentDefinitionSchema`
+      מבלי לשנות את הסכמה עצמה — וזה היה משכפל/מסכן קוד עובד ובדוק במקום לעשות reuse עליו (הנחיה מפורשת).
+      גם `seam-stitch.ts` (התפירה בפועל מאחורי `llm:synthesize`) התברר כמקודד-קשיח באותו אופן, מפורשות
+      "worker-tier" למרות שהטבלה קושרת synthesis ל-tier `synth` — הוכחה נוספת ש-5 אלה שייכים למשפחה שונה
+      לגמרי, לא רק "טרם חוברו". התיעוד הזה, לא בניית agent.json מזויף שלא מניע כלום בפועל, הוא הדרך הכנה
+      להתמודד עם הפער (הנחיה #2). ל-6 הסוגים האמיתיים: `agents/<type>/agent.json`+`agent.md` מלאים —
+      `contextBudget`/`tier`/`thinkingLevel`/`maxOutputTokens` לפי הטבלה (reader: 8K/worker/low,
+      analyst: 12K/worker/medium — עובד **רק** מעל ממצאים, נאסר עליו לבקש artifacts גולמיים; coder:
+      16K/worker/medium — בעלות בלעדית על קובץ, `file_begin`/`file_chunk`/`file_end` עם `sha256` אמיתי;
+      writer: 12K/worker/medium — סעיף יחיד; critic: 4K/cheap/low — בודק בלבד, לעולם לא כותב/מתקן בעצמו;
+      synthesizer: 16K/synth/high — הרכבה בלבד, אסור להמציא עובדה שלא בחומר שסופק, עקבי עם ADR-002).
+      כל שישה ה-`agent.md` כתובים בעברית, משתמשים בכל 6 המשתנים מ-PROTOCOLS.md §10 ומסתיימים תמיד בהוראה
+      לשורת `done` יחידה (PROTOCOLS.md §3 כלל 3). נוסף `findWorkspaceRoot` (`packages/platform/src/paths/`) —
+      חילוץ מ-`apps/runtime/src/agents-dir.ts` שהיה מכיל את אותה הליכה-למעלה כפי שנכתבה ב-P10-T1, כי
+      `packages/platform`'s בדיקת החוזה גם היא צריכה לאתר את `agents/` האמיתי; עכשיו קוד אחד משותף לשניהם.
+      בדיקת החוזה עצמה — `apps/runtime/src/agent-contract.test.ts` (ב-composition root, לא ב-`@ao/platform`,
+      כי היא באמת בודקת אינטגרציה: קובץ אמיתי → `@ao/platform`'s `loadAgent` → `@ao/core`'s `buildAgentPrompt`
+      האמיתי, לא סימולציה) — לכל אחד מ-6 הסוגים: האם נטען ומאומת, האם תואם את טבלת הארכיטקטורה (תופס דריפט
+      תיעוד⟷קוד), האם `schemaRef` נפתר לסכמה אמיתית, והאם `agent.md` עובר `buildAgentPrompt` האמיתי בלי
+      placeholder שלא נפתר ועם `{{outputSpec}}` אמיתי בפלט — ועוד בדיקה הפוכה שמוודאת שלחמשת ה-hardcoded
+      אין תיקייה תחת `agents/` (הפער מתועד, לא מוסתר). 32 בדיקות חדשות, כל 106 בדיקות `@ao/runtime` עוברות,
+      build+lint+format נקיים.
 - [ ] **P10-T4 · מתכונים** — תבניות תוכנית ב-YAML, נבחרות ע"י ה-planner.
       *גמור:* מתכון תואם חוסך את **רוב** עלות התכנון.
 - [ ] **P10-T5 · ספריית מתכונים** — ניתוח מאגר · סקירת קוד · מסמך ממקורות · מיגרציה · חילוץ נתונים.

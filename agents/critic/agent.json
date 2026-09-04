@@ -1,0 +1,12 @@
+{
+  "type": "critic",
+  "displayName": "מבקר",
+  "tier": "cheap",
+  "thinkingLevel": "low",
+  "outputContract": { "schemaRef": "NdjsonEnvelope", "format": "ndjson", "maxOutputTokens": 4000 },
+  "contextBudget": { "default": 15000, "max": 30000 },
+  "supportsFanout": ["single"],
+  "requiredInputs": ["deliverable", "successCriteria"],
+  "promptFile": "agent.md",
+  "temperature": 0
+}

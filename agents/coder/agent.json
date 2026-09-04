@@ -1,0 +1,12 @@
+{
+  "type": "coder",
+  "displayName": "קודר",
+  "tier": "worker",
+  "thinkingLevel": "medium",
+  "outputContract": { "schemaRef": "NdjsonEnvelope", "format": "ndjson", "maxOutputTokens": 16000 },
+  "contextBudget": { "default": 40000, "max": 80000 },
+  "supportsFanout": ["shard", "pipeline", "single"],
+  "requiredInputs": ["artifacts", "outline"],
+  "promptFile": "agent.md",
+  "temperature": 0.1
+}
