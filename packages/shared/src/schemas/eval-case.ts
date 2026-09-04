@@ -40,6 +40,19 @@ export const EvalAssertionsSchema = z.strictObject({
 });
 export type EvalAssertions = z.infer<typeof EvalAssertionsSchema>;
 
+/**
+ * P11-T2 — how much synthetic input the harness feeds a `shard`-mode
+ * stage (more/fewer shard items; see `@ao/evals`'s `buildEvalShardItems`).
+ * Only two values, matching P11-T2's own "two scales" wording exactly
+ * (קלט גדול / large input); `understanding.deliverableShape.estimatedSize`
+ * already covers the analogous *output*-size scale (large deliverable),
+ * reused as-is rather than duplicated here. Optional and defaults to
+ * `"small"` in the runner — every P11-T1 fixture predates this field and
+ * still validates unchanged.
+ */
+export const InputScaleSchema = z.enum(["small", "large"]);
+export type InputScale = z.infer<typeof InputScaleSchema>;
+
 export const EvalCaseSchema = z.strictObject({
   /** Must match the `<id>.yaml` filename it's loaded from — same convention `RecipeSchema.name` already uses (`@ao/platform`'s `loadRecipe`). */
   id: z.string().min(1),
@@ -53,5 +66,6 @@ export const EvalCaseSchema = z.strictObject({
   budgetLevel: BudgetLevelSchema,
   understanding: EvalUnderstandingInputSchema,
   assertions: EvalAssertionsSchema,
+  inputScale: InputScaleSchema.optional(),
 });
 export type EvalCase = z.infer<typeof EvalCaseSchema>;

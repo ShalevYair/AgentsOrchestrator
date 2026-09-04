@@ -16,7 +16,39 @@ import {
 import { listAgentTypes, loadAgent, loadRecipe, resolveOutputSchema } from "@ao/platform";
 import { MockLLMProvider, resolveModelEntry, WORKER_MODEL_ID } from "@ao/providers";
 import type { EvalCase, TaskUnderstanding } from "@ao/shared";
-import { CANNED_RESPONSES_BY_AGENT_TYPE, EVAL_SHARD_ITEMS } from "./canned-responses.js";
+import { buildCannedResponse, buildEvalShardItems } from "./canned-responses.js";
+
+/** `inputScale: "large"` feeds far more shard items to `shard`-mode stages than a `"small"`/omitted case — enough to make `MockLLMProvider`'s length-based prompt-token estimate genuinely differ between the two, not just differ in label. */
+const SHARD_ITEM_COUNT_BY_INPUT_SCALE: Record<"small" | "large", number> = { small: 4, large: 200 };
+
+/**
+ * `inputScale: "large"` also inflates the synthetic `evidence` prompt
+ * variable every stage receives (not only `shard`-mode ones) — a real
+ * large input means every downstream stage sees more upstream context,
+ * not only the first reader stage. Repeat count for the filler text
+ * below; `small`/omitted stays at T1's original single line.
+ */
+const EVIDENCE_REPEAT_BY_INPUT_SCALE: Record<"small" | "large", number> = { small: 1, large: 40 };
+
+function buildSyntheticEvidence(inputScale: "small" | "large"): string {
+  return "עדות סינתטית ל-eval. ".repeat(EVIDENCE_REPEAT_BY_INPUT_SCALE[inputScale]).trim();
+}
+
+/** `understanding.deliverableShape.estimatedSize` already covers the output-size axis (reused as-is, not duplicated) — this maps it to how many findings/sections the canned response repeats, or how many lines the canned file contains, so a "large"/"xlarge" case's run genuinely spends more output tokens than a "small" one's. */
+function outputScaleFor(
+  estimatedSize: EvalCase["understanding"]["deliverableShape"]["estimatedSize"],
+): number {
+  switch (estimatedSize) {
+    case "small":
+      return 1;
+    case "medium":
+      return 2;
+    case "large":
+      return 5;
+    case "xlarge":
+      return 9;
+  }
+}
 
 export interface EvalCaseRunResult {
   id: string;
@@ -72,6 +104,10 @@ export async function runEvalCase(
   const knownAgentTypes = new Set(listAgentTypes(options.agentsDir));
   const failures: string[] = [];
   const startedAt = performance.now();
+  const inputScale = evalCase.inputScale ?? "small";
+  const shardItemCount = SHARD_ITEM_COUNT_BY_INPUT_SCALE[inputScale];
+  const syntheticEvidence = buildSyntheticEvidence(inputScale);
+  const outputScale = outputScaleFor(evalCase.understanding.deliverableShape.estimatedSize);
 
   const understanding: TaskUnderstanding = {
     ...evalCase.understanding,
@@ -135,12 +171,12 @@ export async function runEvalCase(
       objective: plan.objective,
       shard: task.shard ? JSON.stringify(task.shard.items.map((i) => i.path ?? i.id)) : "(ריצה יחידה)",
       contract: stage.goal,
-      evidence: "עדות סינתטית ל-eval",
+      evidence: syntheticEvidence,
       successCriteria: stage.successCriteria,
       outputSchema,
     });
     const request = buildAgentRequest(definition, prompt, { model });
-    const cannedText = CANNED_RESPONSES_BY_AGENT_TYPE[task.agentType];
+    const cannedText = buildCannedResponse(task.agentType, outputScale);
     if (!cannedText) throw new Error(`no canned eval response for agentType "${task.agentType}"`);
     const taskProvider = new MockLLMProvider({ responses: [{ text: cannedText }] });
     const collected = await collectGenerate(taskProvider, request);
@@ -157,7 +193,7 @@ export async function runEvalCase(
       if (!stage) return 1;
       return Math.max(1, Math.ceil(stage.tokenBudget.hardCap / stage.fanout.count));
     },
-    buildShardItems: () => EVAL_SHARD_ITEMS,
+    buildShardItems: () => buildEvalShardItems(shardItemCount),
   });
 
   if (schedulerResult.cancelled) {

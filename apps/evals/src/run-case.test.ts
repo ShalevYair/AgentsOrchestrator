@@ -92,4 +92,42 @@ describe("runEvalCase", () => {
     expect(a.tokensSpent).toBe(b.tokensSpent);
     expect(a.costUsd).toBe(b.costUsd);
   });
+
+  it("P11-T2: inputScale 'large' genuinely spends more tokens than an otherwise-identical 'small'/omitted case, not just a different label", async () => {
+    const small = await runEvalCase(baseCase({ budgetTotal: 3_000_000 }), { agentsDir, recipesDir });
+    const large = await runEvalCase(baseCase({ budgetTotal: 3_000_000, inputScale: "large" }), {
+      agentsDir,
+      recipesDir,
+    });
+
+    expect(small.pass).toBe(true);
+    expect(large.pass).toBe(true);
+    expect(large.tokensSpent).toBeGreaterThan(small.tokensSpent);
+  });
+
+  it("P11-T2: a larger deliverableShape.estimatedSize genuinely spends more tokens than a smaller one, not just a different label", async () => {
+    const small = await runEvalCase(
+      baseCase({
+        understanding: {
+          ...baseCase().understanding,
+          deliverableShape: { kind: "markdown", estimatedSize: "small", structure: "atomic" },
+        },
+      }),
+      { agentsDir, recipesDir },
+    );
+    const xlarge = await runEvalCase(
+      baseCase({
+        budgetTotal: 3_000_000,
+        understanding: {
+          ...baseCase().understanding,
+          deliverableShape: { kind: "markdown", estimatedSize: "xlarge", structure: "sectioned" },
+        },
+      }),
+      { agentsDir, recipesDir },
+    );
+
+    expect(small.pass).toBe(true);
+    expect(xlarge.pass).toBe(true);
+    expect(xlarge.tokensSpent).toBeGreaterThan(small.tokensSpent);
+  });
 });

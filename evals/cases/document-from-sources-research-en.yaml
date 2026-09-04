@@ -1,0 +1,25 @@
+id: document-from-sources-research-en
+description: >-
+  P11-T2 golden task — research synthesis document (English, docs/
+  analysis): same recipe as the other document-from-sources cases, but
+  intent: research instead of create — a distinct real TaskUnderstanding
+  shape (recon's actual intent vocabulary), at medium output size.
+tags: [medium, docs, analysis, en]
+recipeName: document-from-sources
+userRequest: "Research the provided sources and produce a synthesis document of what they say about the topic"
+budgetTotal: 1000000
+budgetLevel: standard
+understanding:
+  intent: research
+  deliverableShape:
+    kind: markdown
+    estimatedSize: medium
+    structure: sectioned
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "synthesis reflects every provided source"
+  ambiguities: []
+  riskFlags: []
+assertions:
+  maxTokensSpent: 18000
+  maxDurationMs: 5000

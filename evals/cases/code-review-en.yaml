@@ -1,10 +1,8 @@
 id: code-review-en
 description: >-
-  P11-T1 smoke fixture — runs the "code-review" recipe end to end
-  through the real planWithRecipe -> validatePlan -> runScheduler chain
-  against MockLLMProvider. Proves the harness works for an English-language
-  request; not one of P11-T2's required 12 golden tasks (those are not
-  written yet).
+  P11-T2 golden task — small code review (English, code/analysis): runs
+  the "code-review" recipe end to end through the real planWithRecipe ->
+  validatePlan -> runScheduler chain against MockLLMProvider.
 tags: [small, code, analysis, en]
 recipeName: code-review
 userRequest: "Review the changed files in this branch against our review checklist and summarize findings"
@@ -22,5 +20,5 @@ understanding:
   ambiguities: []
   riskFlags: []
 assertions:
-  maxTokensSpent: 50000
+  maxTokensSpent: 18000
   maxDurationMs: 5000

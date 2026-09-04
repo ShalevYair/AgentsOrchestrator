@@ -48,4 +48,18 @@ describe("EvalCaseSchema", () => {
   it("rejects an empty tags entry", () => {
     expect(() => EvalCaseSchema.parse({ ...EXAMPLE_CASE, tags: [""] })).toThrow();
   });
+
+  it("parses without inputScale (P11-T1 fixtures predate the field and still validate)", () => {
+    expect("inputScale" in EXAMPLE_CASE).toBe(false);
+    expect(() => EvalCaseSchema.parse(EXAMPLE_CASE)).not.toThrow();
+  });
+
+  it("accepts inputScale: large", () => {
+    const parsed = EvalCaseSchema.parse({ ...EXAMPLE_CASE, inputScale: "large" });
+    expect(parsed.inputScale).toBe("large");
+  });
+
+  it("rejects an unknown inputScale", () => {
+    expect(() => EvalCaseSchema.parse({ ...EXAMPLE_CASE, inputScale: "huge" })).toThrow();
+  });
 });

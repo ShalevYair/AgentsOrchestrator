@@ -1929,8 +1929,56 @@
       שה-cost report מציג מגיעים מ-`MODEL_REGISTRY` הסטטי (`packages/providers/src/models.ts`) שכבר מסומן
       שם עצמו כ"best-effort"/לא-מאומת עבור חלק מהערכים — לא מקור חדש של נתון לא-מאומת, reuse של אותו אחד
       שכבר קיים ומתועד ב-`run-chat.ts`.
-- [ ] **P11-T2 · משימות זהב** — לפחות 12: קטנות/גדולות, קוד/מסמכים, ניתוח/יצירה, עברית/אנגלית.
+- [x] **P11-T2 · משימות זהב** — לפחות 12: קטנות/גדולות, קוד/מסמכים, ניתוח/יצירה, עברית/אנגלית.
       *גמור:* מכסות את שני הסולמות (קלט גדול, פלט גדול).
+      *כפי שמומש:* סוגר את פער (1) שתועד ב-P11-T1 ("3 ה-fixtures הנוכחיים רחוקים מאוד מ-12 משימות זהב") —
+      12 קבצי `evals/cases/*.yaml` בפועל (3 ה-fixtures מ-P11-T1 קודמו למשימות זהב אמיתיות — הוסרה מהן הערת
+      "אינו אחד מ-12", לא הוחלפו), פרושים על 5 המתכונים הקיימים (`repo-analysis`/`code-review`/
+      `document-from-sources`/`migration`/`data-extraction`), 6 בעברית ו-6 באנגלית, 6 מתויגים `code`
+      (repo-analysis×2, code-review×2, migration×2), 3 `docs` (document-from-sources×3), 3 `data`
+      (data-extraction×3), 8 `analysis` ו-4 `creation` (ומגוון ערכי `intent` אמיתיים מ-6 האפשרויות של
+      `TaskUnderstandingSchema`: analyze/create/modify/research).
+      **גילוי אמיתי שחייב שינוי במנגנון עצמו, לא רק בקבצי fixture:** הרצה ראשונה של `pnpm eval` עם
+      fixtures מתויגים `large-input`/`large-output` חשפה ש-`inputScale`/`understanding.deliverableShape.
+      estimatedSize` (P11-T1) לא היו משפיעים בפועל על הריצה — `CANNED_RESPONSES_BY_AGENT_TYPE`/
+      `EVAL_SHARD_ITEMS` היו קבועים-בקוד לכל המקרים, כך ש-tag "large" היה **תווית בלבד**, בניגוד מפורש
+      לכלל #2 (לא ממציאים/מקשטים נתונים). זה בדיוק תבנית "בדיקה שטחית לא הייתה תופסת" מהברירה — נתפס כי
+      בדקתי בפועל (`pnpm eval`, לא רק ולידציה סטטית) שההפרש בין `small` ל-`large` היה זניח (כמה עשרות
+      טוקנים מתוך ~13,000). **תוקן בקוד עצמו** (`apps/evals/src/canned-responses.ts`,
+      `apps/evals/src/run-case.ts`): `buildCannedResponse(agentType, scale)`/`buildEvalShardItems(count)`
+      החליפו את הקבועים — `scale` נגזר מ-`understanding.deliverableShape.estimatedSize` (small=1/medium=2/
+      large=5/xlarge=9, ממופה מהשדה הקיים עצמו, לא הומצא שדה מקביל), ו-`count` נגזר משדה חדש
+      `EvalCase.inputScale` (`InputScaleSchema`, `packages/shared/src/schemas/eval-case.ts`) — `small`
+      (ברירת מחדל, 4 פריטים) / `large` (200 פריטים). נוסף גם `buildSyntheticEvidence` — טקסט "עדות" חוזר
+      שגדל עם `inputScale`, כדי שקנה-המידה ישפיע על **כל** שלב (לא רק שלבי `shard`), כי קלט גדול אמיתי
+      מזרים יותר הקשר גם לשלבים מאוחרים יותר. אומת בפועל אחרי התיקון: `code-review-large-input-he`
+      (13,675 טוקנים) מול `code-review-en` (11,452, אותו scale פלט) — פער אמיתי של כ-19%; דומה עבור
+      `repo-analysis-large-input-en` מול `repo-analysis-small-he`. `EvalCaseSchema` הורחב ב-`inputScale`
+      אופציונלי (לא חובה) כדי ששלושת ה-fixtures מ-P11-T1 ימשיכו להיטען בלי שינוי.
+      **בדיקות חדשות שמוכיחות את הקנה-מידה, לא רק מניחות אותו:** `run-case.test.ts` — שני מבחנים חדשים
+      שמריצים את אותו case פעמיים (unchanged מול `inputScale: "large"`, ואז מול `estimatedSize: "xlarge"`)
+      ומוודאים `tokensSpent` גדול ממש (`toBeGreaterThan`), לא רק "לא זהה". `canned-responses.test.ts` חדש
+      (14 בדיקות) — לכל אחד מ-5 סוגי הסוכן: NDJSON תקין ב-scale 1, עדיין תקין (`schemaViolations: 0`,
+      `done: true`) ב-scale 9 עם פלט ארוך ממש יותר, ותמיד מסתיים ב-`done`; פלוס בדיקות על
+      `buildEvalShardItems` (מספר פריטים מדויק, ids/paths ייחודיים, clamp ל-1 כש-count<1).
+      **אימות עם pnpm eval אמיתי** (לא רק unit tests): כל 12 המשימות — `PASS`, `schemaViolations: 0`,
+      `source: recipe` (אפס קריאות LLM לתכנון) — סה"כ 163,759 טוקנים, $0.1671, 141ms. `assertions.
+      maxTokensSpent` בכל אחד מ-12 הקבצים נקבע **מהמספרים האמיתיים שנצפו בהרצה**, לא ניחוש — תקרה של פי
+      ~1.51–1.58 מהערך שנצפה בפועל (למשל `code-review-en`: נצפה 11,452, נקבע 18,000; היחס המדויק לכל
+      אחד מ-12 הקבצים חושב בפועל, לא הוערך), כך שזה שומר-רגרסיה
+      אמיתי (כפי ש-P11-T5 ידרוש) ולא מספר שרירותי.
+      **מגוון scale אמיתי, לא רק תוויות:** `inputScale: large` ב-2 מקרים (repo-analysis, code-review);
+      `estimatedSize: xlarge` ב-2 (document-from-sources, migration), `large` ב-1 (data-extraction) —
+      כיסוי אמיתי של שני הסולמות שהגדרת-הגמור דורשת, לא רק תגיות.
+      19 בדיקות חדשות (14 canned-responses + 3 eval-case inputScale + 2 run-case scale-proof). `pnpm
+      typecheck`/`lint`/`format:check`/`build` נקיים על כל 10 חבילות. `vitest run` מהשורש: 1497/1498 —
+      הכשל היחיד הוא **אותה** מגבלת-סביבה מ-P10-T6/P11-T1 (`docker-sandbox.test.ts`, אין דימון Docker
+      בקונטיינר), לא רגרסיה.
+      **פערים שנותרו, מתועדים בכנות:** (1) כל 12 המקרים עדיין עוברים רק דרך נתיב ה-recipe נטול-LLM
+      (המשך מכוון של הפער שתועד ב-P11-T1). (2) שופט איכות/rubric (P11-T4) עדיין לא קיים — האסרציות כאן
+      מכניות בלבד (schema/success/תקציב/זמן), לא איכות תוכן. (3) קטגוריית `data` (3 מקרים) נוספה כדומיין
+      שלישי מעבר לשני הדומיינים שהמשימה דרשה במפורש ("קוד/מסמכים") — לא תחליף להם, שניהם מכוסים במלואם
+      בנפרד (6 code, 3 docs).
 - [ ] **P11-T3 · מדדים** — טוקנים, זמן, פגיעות מטמון, הפרות סכמה, עמידה בקריטריונים, הידרדרויות, המשכות.
       *גמור:* נשמרים לאורך זמן · נסיגה מזוהה אוטומטית.
 - [ ] **P11-T4 · שופט איכות** — ציון LLM מול rubric, **בתקציב קבוע ומופרד**.

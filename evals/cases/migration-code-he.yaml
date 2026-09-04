@@ -1,0 +1,24 @@
+id: migration-code-he
+description: >-
+  P11-T2 golden task — מיגרציית קוד קטנה (עברית, קוד/יצירה): מתכון
+  "מיגרציה" (reader->coder->critic), עם שלב coder אמיתי שכותב קובץ
+  file_begin/chunk/end מלא ושלב critic שבודק בלי לתקן בעצמו.
+tags: [small, code, creation, he]
+recipeName: migration
+userRequest: "המר את הקבצים בפורמט הישן לפורמט החדש ווודא שהמיגרציה שלמה"
+budgetTotal: 1000000
+budgetLevel: standard
+understanding:
+  intent: modify
+  deliverableShape:
+    kind: files
+    estimatedSize: medium
+    structure: multi-file
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "כל קובץ הומר במלואו לפורמט החדש"
+  ambiguities: []
+  riskFlags: []
+assertions:
+  maxTokensSpent: 24000
+  maxDurationMs: 5000

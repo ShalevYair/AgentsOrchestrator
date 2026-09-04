@@ -1,0 +1,25 @@
+id: code-review-large-input-he
+description: >-
+  P11-T2 golden task — סקירת קוד על קלט גדול (עברית, קוד/ניתוח): אותו מתכון
+  "code-review" כמו code-review-en, אבל inputScale: large מזין את שלב ה-
+  reader עם 40 פריטי shard סינתטיים במקום 4 — מכסה את סולם "קלט גדול".
+tags: [large-input, code, analysis, he]
+recipeName: code-review
+userRequest: "סקור את הקבצים שהשתנו ב-branch הזה מול רשימת הבדיקה שלנו וסכם ממצאים"
+budgetTotal: 3000000
+budgetLevel: deep
+inputScale: large
+understanding:
+  intent: analyze
+  deliverableShape:
+    kind: markdown
+    estimatedSize: medium
+    structure: sectioned
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "סיכום הסקירה מכסה כל קובץ שהשתנה"
+  ambiguities: []
+  riskFlags: ["large-input"]
+assertions:
+  maxTokensSpent: 21000
+  maxDurationMs: 5000
