@@ -20,6 +20,7 @@
     "@ao/shared": "workspace:*",
     "jsonc-parser": "^3.3.1",
     "pino": "^10.3.1",
+    "yaml": "2.9.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {

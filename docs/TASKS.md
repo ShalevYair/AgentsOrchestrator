@@ -1652,20 +1652,202 @@
 
 **מטרה:** לשפר את המערכת בלי לגעת בליבה.
 
-- [ ] **P10-T1 · טעינת סוכנים מקבצים** — `agents/<type>/` לפי [`PROTOCOLS.md` §10](PROTOCOLS.md#10-רישום-סוכן).
+- [x] **P10-T1 · טעינת סוכנים מקבצים** — `agents/<type>/` לפי [`PROTOCOLS.md` §10](PROTOCOLS.md#10-רישום-סוכן).
       *גמור:* **הוספת סוג סוכן = הוספת תיקייה. אפס שינויי קוד.**
-- [ ] **P10-T2 · טעינה חמה** — שינוי בפרומפט נכנס לתוקף בלי הפעלה מחדש.
+      *כפי שמומש:* `packages/platform/src/agent-registry/` (`loader.ts`) — `listAgentTypes`/`loadAgentDefinition`/
+      `loadAgentPromptTemplate`/`loadAgent` הם סריקת-תיקייה+קריאת-קובץ טהורה: `listAgentTypes` מחזיר כל
+      תת-תיקייה תחת `agentsDir` שמכילה `agent.json`, וזה כל מה שנדרש כדי ש"הוספת סוג" תהיה "הוספת תיקייה" —
+      אין שום מקום בקוד שמונה סוגים בפירוש (נבדק ב-`listAgentTypes` picks up a brand-new folder). האימות מול
+      `AgentDefinitionSchema` הקיים (`@ao/shared`, לא שכפול) קורה ב-`loadAgentDefinition`, כולל בדיקה ש-`type`
+      בקובץ תואם את שם התיקייה. `packages/core` נשאר בלי שינוי שורה אחת — הטעינה מהדיסק יושבת ב-`@ao/platform`
+      (לא `@ao/core`, ששומר על "אפס I/O" גם אחרי P10, וגם לא `apps/runtime` ישירות, כדי שתהיה שמישה גם
+      מ-evals/CLI עתידיים) ומייבאת סכמות ישירות מ-`@ao/shared` בלבד — **לא** מ-`@ao/core`, כדי לא להפוך את
+      התלות "platform → core" ולשבור את השכבתיות הקיימת (`core`/`platform` שתיהן תלויות רק ב-`@ao/shared`).
+      נוסף `resolveOutputSchema` (`schema-registry.ts`) שפותר `outputContract.schemaRef` לסכמת Zod אמיתית —
+      גילוי אמיתי מהמחקר: `schemaRef` היה עד כה מחרוזת תיעודית בלבד (בדיקות/UI, אף פעם לא נפתר בפועל); כל
+      סוכן-worker מאומת בפועל מול אותה `NdjsonEnvelopeSchema` יחידה ([`PROTOCOLS.md` §3](PROTOCOLS.md#3-חוזה-פלט-סוכן--ndjson)),
+      אז זו הערך היחיד שנרשם — ערך צר יותר לכל סוג ידרוש קודם תמיכת פרסר אמיתית, אחרת `{{outputSpec}}` יבטיח
+      צורה שהפרסר לא אוכף בפועל (בדיוק הבאג ש-[ADR-006](DECISIONS.md#adr-006) קיים למנוע). חובר ל-composition
+      root: `apps/runtime/src/agents-dir.ts`'s `resolveAgentsDir` — `AO_AGENTS_DIR` (אותה מוסכמת `AO_*` כמו
+      `loadConfig`) או ברירת מחדל שמטפסת מ-`import.meta.url` של הקורא עד שמוצאת `pnpm-workspace.yaml` (שורש
+      המונורפו) ומצרפת `agents/`; הליכה-למעלה ולא היסט קבוע של `..` כי `index.ts` ו-`test-support/*.ts` נמצאים
+      בעומק שונה מהשורש — נבדק בפועל בשני העומקים. `AppContext` מקבל שדה `agentsDir: string` (לא registry
+      טעון-מראש — ראו P10-T2). 20 בדיקות חדשות (`agent-registry`: 15, `agents-dir`: 5), כל 140 בדיקות
+      `@ao/platform`+`@ao/runtime` עוברות (63+77), build+lint+format נקיים.
+- [x] **P10-T2 · טעינה חמה** — שינוי בפרומפט נכנס לתוקף בלי הפעלה מחדש.
       *גמור:* עריכת `agent.md` משפיעה על הריצה הבאה.
-- [ ] **P10-T3 · 11 הסוכנים** — כתיבה וכיוונון של כל הסוגים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#4-סוגי-סוכנים).
+      *כפי שמומש:* "חם" **מובנה בעיצוב**, לא מנגנון invalidation נפרד: אף פונקציה ב-`agent-registry/loader.ts`
+      לא שומרת תוצאה בזיכרון בין קריאות — כל קריאה ל-`loadAgentDefinition`/`loadAgentPromptTemplate` קוראת
+      מהדיסק מחדש, אז אין מה "לפסול" כשקובץ משתנה. הוחלט **לא** להשתמש ב-`fs.watch`/file-watcher: זה מנגנון
+      עתיר-מצב ועתיר-תקלות חוצה-פלטפורמות (רגיש במיוחד תחת Docker/רשת, ולא אמין בעקביות ב-Windows —
+      P12-T1/T2 כבר מטרידים את עצמם בדיוק בזה) — ותצפית ריקה: קריאת שני קבצים קטנים מקומיים על כל קריאת
+      סוכן היא זולה (תת-מילישנייה), כך שאין סיבה אמיתית לשלם על מטמון+invalidation. `AppContext.agentsDir`
+      (P10-T1) הוא מחרוזת נתיב בלבד, לא צילום-מצב טעון-מראש — אין בשום מקום ב-composition root עותק מוזחל
+      של הרישום ש"לטעון חמה" צריך לעקוף. *כפי שמומש בבדיקה אמיתית:* `loader.test.ts`'s "hot reload" describe
+      block — כותב `agent.md`/`agent.json`, טוען, **עורך את הקובץ בפועל על הדיסק** (`writeFileSync` בלי לגעת
+      במטמון כלשהו כי אין), טוען שוב באותו תהליך (לא restart), ומוודא שהתוכן השני מוחזר. זו בדיוק ה"עריכה
+      משפיעה על הריצה הבאה בלי הפעלה מחדש" — לא הנחה, אלא הרצה בפועל של השינוי בין שתי קריאות.
+- [x] **P10-T3 · 11 הסוכנים** — כתיבה וכיוונון של כל הסוגים מ-[`ARCHITECTURE.md` §4](ARCHITECTURE.md#4-סוגי-סוכנים).
       *גמור:* לכל סוכן בדיקת חוזה שמאמתת התאמה לסכמה.
-- [ ] **P10-T4 · מתכונים** — תבניות תוכנית ב-YAML, נבחרות ע"י ה-planner.
+      *כפי שמומש:* גילוי אמיתי מהמחקר ששינה את התוכנית: מ-11 הסוגים בטבלת ARCHITECTURE.md §4, **רק 6**
+      תואמים בפועל למנגנון `agents/<type>/` שנבנה ב-P10-T1 — `reader`/`analyst`/`coder`/`writer`/`critic`/
+      `synthesizer`, כל הפלט שלהם NDJSON חופשי-צורה דרך `agent-runner` הגנרי. חמשת האחרים —
+      `recon`/`planner`/`checkpoint`/`outliner`/`toolsmith` — **כבר ממומשים במלואם** בקוד עם prompt-builder
+      מקודד-קשיח (`buildReconPrompt`/`buildPlannerPrompt`/`buildCheckpointPrompt`/`buildOutlinerPrompt`/
+      `buildToolsmithPrompt`, כולם מ-P5–P8) ו-`responseSchema` של Gemini לאובייקט JSON יחיד — לא NDJSON.
+      זו לא בחירת מימוש אלא אילוץ סכמה אמיתי: `OutputContractSchema` (`packages/shared/src/schemas/common.ts`)
+      נועל `format` ל-`z.literal("ndjson")` בלבד, אז חמשת אלה **לא יכולים** לעבור אימות `AgentDefinitionSchema`
+      מבלי לשנות את הסכמה עצמה — וזה היה משכפל/מסכן קוד עובד ובדוק במקום לעשות reuse עליו (הנחיה מפורשת).
+      גם `seam-stitch.ts` (התפירה בפועל מאחורי `llm:synthesize`) התברר כמקודד-קשיח באותו אופן, מפורשות
+      "worker-tier" למרות שהטבלה קושרת synthesis ל-tier `synth` — הוכחה נוספת ש-5 אלה שייכים למשפחה שונה
+      לגמרי, לא רק "טרם חוברו". התיעוד הזה, לא בניית agent.json מזויף שלא מניע כלום בפועל, הוא הדרך הכנה
+      להתמודד עם הפער (הנחיה #2). ל-6 הסוגים האמיתיים: `agents/<type>/agent.json`+`agent.md` מלאים —
+      `contextBudget`/`tier`/`thinkingLevel`/`maxOutputTokens` לפי הטבלה (reader: 8K/worker/low,
+      analyst: 12K/worker/medium — עובד **רק** מעל ממצאים, נאסר עליו לבקש artifacts גולמיים; coder:
+      16K/worker/medium — בעלות בלעדית על קובץ, `file_begin`/`file_chunk`/`file_end` עם `sha256` אמיתי;
+      writer: 12K/worker/medium — סעיף יחיד; critic: 4K/cheap/low — בודק בלבד, לעולם לא כותב/מתקן בעצמו;
+      synthesizer: 16K/synth/high — הרכבה בלבד, אסור להמציא עובדה שלא בחומר שסופק, עקבי עם ADR-002).
+      כל שישה ה-`agent.md` כתובים בעברית, משתמשים בכל 6 המשתנים מ-PROTOCOLS.md §10 ומסתיימים תמיד בהוראה
+      לשורת `done` יחידה (PROTOCOLS.md §3 כלל 3). נוסף `findWorkspaceRoot` (`packages/platform/src/paths/`) —
+      חילוץ מ-`apps/runtime/src/agents-dir.ts` שהיה מכיל את אותה הליכה-למעלה כפי שנכתבה ב-P10-T1, כי
+      `packages/platform`'s בדיקת החוזה גם היא צריכה לאתר את `agents/` האמיתי; עכשיו קוד אחד משותף לשניהם.
+      בדיקת החוזה עצמה — `apps/runtime/src/agent-contract.test.ts` (ב-composition root, לא ב-`@ao/platform`,
+      כי היא באמת בודקת אינטגרציה: קובץ אמיתי → `@ao/platform`'s `loadAgent` → `@ao/core`'s `buildAgentPrompt`
+      האמיתי, לא סימולציה) — לכל אחד מ-6 הסוגים: האם נטען ומאומת, האם תואם את טבלת הארכיטקטורה (תופס דריפט
+      תיעוד⟷קוד), האם `schemaRef` נפתר לסכמה אמיתית, והאם `agent.md` עובר `buildAgentPrompt` האמיתי בלי
+      placeholder שלא נפתר ועם `{{outputSpec}}` אמיתי בפלט — ועוד בדיקה הפוכה שמוודאת שלחמשת ה-hardcoded
+      אין תיקייה תחת `agents/` (הפער מתועד, לא מוסתר). 32 בדיקות חדשות, כל 106 בדיקות `@ao/runtime` עוברות,
+      build+lint+format נקיים.
+- [x] **P10-T4 · מתכונים** — תבניות תוכנית ב-YAML, נבחרות ע"י ה-planner.
       *גמור:* מתכון תואם חוסך את **רוב** עלות התכנון.
-- [ ] **P10-T5 · ספריית מתכונים** — ניתוח מאגר · סקירת קוד · מסמך ממקורות · מיגרציה · חילוץ נתונים.
+      *כפי שמומש:* גילוי אמיתי מהמחקר, אותה תבנית בדיוק כמו P9: תשתית חלקית כבר קיימת אבל אף פעם לא
+      מחוברת בפועל. `TaskUnderstanding.suggestedRecipe` (`packages/shared/src/schemas/understanding.ts`)
+      כבר קיים — ה-`recon` כבר **מציע** שם מתכון. `runPlanner` (`planner.ts`) כבר מקבל `recipes?: string[]`
+      ומזכיר אותם בפרומפט. אבל אף אחד מהשניים לא היה מחובר לתוכן מתכון אמיתי — `suggestedRecipe` הוא שם
+      בלבד שאף פעם לא נבדק מול רישום אמיתי, ו-`recipes` הוא רשימת שמות חשופה ל-LLM בלי תוכן — התוכנית
+      עדיין נבנתה **תמיד** מאפס דרך קריאת LLM יקרה (`responseSchema: PlanSchema`, `thinkingLevel: "high"`).
+      זה בדיוק הפער שנסגר כאן, לא הומצא מאפס.
+      **סכמה** (`packages/shared/src/schemas/recipe.ts`): `RecipeSchema` — כמעט `Plan` שלם, פחות מה שלא
+      ניתן לדעת לפני ריצה קונקרטית: `tokenBudget`/`reserve` הם **שברים** מ-`budget.total` (`tokenBudgetShare`/
+      `reserveShare`), לא מספרים מוחלטים — כך מתכון אחד עובד בכל רמת תקציב; `objectiveTemplate` עם placeholder
+      יחיד `{{userRequest}}`. שאר השדות (agentType/fanout/DAG/mergeStrategy/successCriteria) קונקרטיים
+      וסטטיים בתוך המתכון עצמו — reuse מלא של `FanoutSchema`/`StageInputSchema`/`StageContextBudgetSchema`/
+      `DeliverableSchema`/`ReadPolicySchema`/`ReducerIdSchema`/`OutputContractSchema` הקיימים מ-`plan.ts`,
+      לא שכפול.
+      **מילוי** (`packages/core/src/recipes/instantiate.ts`) — `instantiateRecipe`: פונקציה טהורה **בלי
+      גישה ל-LLMProvider בכלל** (לא רק "לא קוראת לו" — אין לה פרמטר כזה, מוכח מבנית בבדיקה), ממירה
+      שברי-תקציב למספרים מוחלטים (`Math.floor(share × budgetTotal)`), ממלאת `{{userRequest}}`, מחתימה
+      `runId` אמיתי. אינה טוענת "תמיד תקין" — הקורא עדיין מריץ את התוצאה דרך `validatePlan` **האמיתי**
+      הקיים (P5-T1, לא ולידטור מקביל חדש). נבדק גם מול validatePlan בפועל בתקציב draft (500K) וגם בתקציב
+      deep גדול פי 8 — עובר בשתיהן, מוכיח שהסקיילינג-לפי-שבר עובד לא רק "במקרה אחד".
+      **בחירה** (`packages/core/src/planner/plan-with-recipe.ts`) — `planWithRecipe`: זה "נבחרות ע"י
+      ה-planner" הלכה למעשה — עוטף את `runPlanner` הקיים בלי לגעת בו: `understanding.suggestedRecipe`
+      מול `recipeRegistry` (Record שכבר נטען בזיכרון ע"י הקורא, `@ao/platform`, בלי I/O כאן) → אם יש
+      התאמה, `instantiateRecipe` ואז `validatePlan`; אם תקין — `source: "recipe"`, **אפס** קריאות LLM
+      (נבדק ישירות מול `MockLLMProvider.calls.generate.length === 0`). אם אין התאמה / השם לא רשום / התוצאה
+      לא תקינה (לדוגמה agentType שלא ברישום הריצה) — נופל בחזרה ל-`runPlanner` האמיתי, כולל שמות המתכונים
+      הזמינים בפרומפט (מ-`recipeRegistry` הקיים, לא כפילות קלט). 5 בדיקות שמכסות את כל הענפים, כולל בדיקה
+      שתפסה בפועל bug בפיקסצ'ר של הבדיקה עצמה (agentType לא תואם בתוכנית ה-fallback) לפני שתוקן.
+      **טעינה מקבצים** (`packages/platform/src/recipe-registry/`) — `listRecipeNames`/`loadRecipe`: אותה
+      תבנית בדיוק כמו סוכנים (P10-T1/T2) — `recipes/<name>.yaml`, קריאה טרייה מהדיסק בכל קריאה (חם
+      מובנה-בעיצוב, לא watcher), `NotFoundError`/`ConfigError` עקביים. נוספה תלות אמיתית `yaml@2.9.0`
+      (כבר הייתה קיימת כתלות טרנזיטיבית ב-lockfile — לא גרסה חדשה שהומצאה) ל-`packages/platform`. 10 בדיקות,
+      כולל הוכחת hot-reload תואמת ל-P10-T2.
+      21 בדיקות חדשות סה"כ (6 instantiate + 5 plan-with-recipe + 10 recipe-registry), 478 בדיקות
+      `@ao/core` + 80 `@ao/platform` עוברות, build+lint+format נקיים. חיבור בפועל ל-`apps/runtime` (composition
+      root) נדחה בכוונה ל-P10-T5, יחד עם קבצי המתכונים האמיתיים הראשונים — לא מחווטים מנגנון ריק.
+- [x] **P10-T5 · ספריית מתכונים** — ניתוח מאגר · סקירת קוד · מסמך ממקורות · מיגרציה · חילוץ נתונים.
       *גמור:* 5 מתכונים עובדים מקצה לקצה.
-- [ ] **P10-T6 · reducers כתוספים** — רישום ניתן להרחבה.
+      *כפי שמומש:* `recipes/*.yaml` — 5 קבצים אמיתיים, כל אחד 2–3 שלבים אמיתיים מ-6 סוגי הסוכן שנבנו
+      ב-P10-T3: **ניתוח מאגר** reader→analyst→writer (markdown); **סקירת קוד** reader→critic→writer
+      (markdown, critic בודק בלי לתקן בעצמו); **מסמך ממקורות** reader→writer (markdown, ללא outliner —
+      עקבי עם הפער התיעודי מ-P10-T3: outliner לא מבוסס-רישום); **מיגרציה** reader→coder→critic (files,
+      coder בבעלות בלעדית על קובץ + `local:assemble-files`); **חילוץ נתונים** reader→analyst→coder (data).
+      כל mergeStrategy הוא reducer אמיתי מ-`ReducerIdSchema` הקיים; כל deliverable.kind תואם
+      `DELIVERABLE_KIND_AGENT_TYPES` הקיים ב-`plan/types.ts` (V7 עובר).
+      חובר סוף-סוף ל-`apps/runtime`: `resolveRecipesDir` (זהה בעיצוב ל-`resolveAgentsDir`, לא מופשט
+      למשותף — שני call sites עדיין לא תבנית) + `AppContext.recipesDir`.
+      **"מקצה לקצה" אומת בפועל, לא רק "ה-YAML נטען":** הרמוני `apps/runtime/src/recipe-end-to-end.test.ts`
+      מריץ את השרשרת המלאה האמיתית לכל אחד מ-5 המתכונים — `understanding.suggestedRecipe` (כמו ש-recon
+      היה מפיק) → `planWithRecipe` **האמיתי** (P10-T4, אפס קריאות LLM, נבדק ישירות מול
+      `plannerProvider.calls.generate.length === 0`) → `validatePlan` **האמיתי** (P5-T1) → `runScheduler`
+      **האמיתי** (P5-T4) שמריץ את כל הפאן-אאוט בפועל, כשכל Task טוען את ה-`agent.md` **האמיתי** שלו
+      (P10-T3, דרך `@ao/platform`'s `loadAgent`) ומריץ אותו דרך `buildAgentPrompt`/`buildAgentRequest`/
+      `collectGenerate`/`parseNdjson` **האמיתיים** מול `MockLLMProvider` — לא סימולציה חלקית. כל 5 המתכונים
+      מסתיימים באפס Tasks שנכשלו/נדחו-תקציבית, `schemaViolations: 0`, `done: true` בכל תוצאה.
+      **באג אמיתי שנתפס באימות הזה, לא לפני:** שני ממצאים נפרדים שה-validatePlan/instantiateRecipe הבודדים
+      לא היו חושפים לבד — (1) `hardCapShare` לכל שלב חייב לסכם ל-**≤~0.58** מ-`budget.total`, לא ≤1 כפי
+      ש-V2 בלבד בודק: `runScheduler` מוציא כסף אמיתי מול bucket `"execution"` שהוא רק 58% מהתקציב הכולל
+      (`DEFAULT_BUCKET_PERCENTAGES` הקיים), לא מול ה-budgetTotal הגולמי — תוכנית שעברה V2 (≤100%) יכולה
+      עדיין להיכשל ב-`budget-rejected` באמצע ריצה אמיתית אם סכום ה-hardCap עובר את ה-58%. זו תכונה כללית
+      של Ledger מ-P4/P5, לא באג ב-P10 — אבל בלי ה-harness המלא הזה 5 המתכונים היו "עוברים ולידציה" ונכשלים
+      בשקט בהרצה אמיתית. כל 5 המתכונים כוילו מחדש לסכום ≈0.5 כדי לעבוד בפועל. (2) `planWithRecipe` בלע
+      בשקט כשל ולידציה של מתכון (נפל חזרה ל-planner בלי שום אבחון) — נתפס תוך כדי דיבוג runId לא-תקין
+      בבדיקה עצמה (`run_e2e_test` מפר את `RunIdSchema`'s `run_[A-Za-z0-9]+`, אין קו תחתון מותר). תוקן
+      בקוד עצמו, לא רק בבדיקה: `PlanWithRecipeResult` מקבל `recipeValidationIssues?` אופציונלי — מאוכלס
+      רק כשמתכון הותאם בשם אבל נכשל בולידציה, כדי שנפילה-חזרה עתידית תהיה ניתנת-לאבחון ולא "קופסה שחורה".
+      7 בדיקות חדשות ב-`recipe-end-to-end.test.ts` (1 registry + 5×1 per-recipe e2e) + 2 ב-`recipes-dir.test.ts`,
+      כל 114 בדיקות `@ao/runtime` עוברות, build+lint+format נקיים.
+- [x] **P10-T6 · reducers כתוספים** — רישום ניתן להרחבה.
       *גמור:* reducer מותאם נרשם ורץ בלי לגעת בליבה.
-- [ ] **P10-T7 · תיעוד הרחבה** — `docs/EXTENDING.md`: סוכן, מתכון, reducer, כלי.
+      *כפי שמומש:* גילוי אמיתי מהמחקר: `Stage.mergeStrategy` **אף פעם לא נצרך בפועל** בקוד production —
+      `mergeStrategy` מוגדר בסכמה ומופיע בכל Stage, אבל אין (היה) שום מקום ב-`packages/core` שממפה
+      `ReducerId` לפונקציית reducer בפועל; `m2-scenario.test.ts` (P5) עשה dispatch ידני ב-if/else בתוך
+      הבדיקה עצמה. `LOCAL_REDUCERS` הקיים (`local-reducers.ts`) הוא map קשיח ל-4 (לא 6 — `local:reduce-tree`
+      ו-`llm:synthesize` צריכים ארגומנט נוסף מהקורא, לא מתאימים לצורה השטוחה, בדיוק כפי שההערה הקיימת שם
+      כבר אמרה), ולא נצרך כרישום-הרצה אמיתי בשום מקום. חסימה אמיתית שנייה: `ReducerIdSchema`
+      (`packages/shared`) היה `z.enum([...6...])` **סגור** — ההפך הגמור מ"ניתן להרחבה". תוקן במפורש:
+      `ReducerIdSchema` נפתח ל-`z.string().min(1)` — **אותו טיפול בדיוק** ש-`Stage.agentType` כבר מקבל
+      (מחרוזת פתוחה, לא enum). `BUILTIN_REDUCER_IDS` נשאר קבוע מיוצא נפרד לתיעוד/כלים. שינוי טיפוס אמיתי
+      (מ-union בן 6 ערכים ל-`string`) — נבדק שאין switch/case ממצה שנשען עליו (grep), ואומת עם typecheck
+      מלא על **כל** ה-monorepo (8 חבילות) שלא נשבר כלום.
+      **מנגנון הרישום** (`packages/core/src/reducers/registry.ts`) — `createReducerRegistry()`: מפה
+      mutable id→function, מאותחלת עם `LOCAL_REDUCERS` (4 built-ins), עם `register`/`resolve`/`has`/`list`.
+      זו הדרך היחידה שהגיונית להרחיב reducers בכלל: בניגוד לסוכן (agent.md כטקסט) או מתכון (YAML), reducer
+      הוא **קוד הרצה בפועל** (`Reducer<I,O>`), לא מסמך — אין פורמט קובץ שיכול "לטעון" קוד ריצה גנרית, אז
+      "רישום ניתן להרחבה" אומר בדיוק מה שהוא אומר: מפה שקוד חיצוני קורא לה `.register()` בזמן ריצה.
+      נוסף V9 חדש ל-`validatePlan` (`plan/validate.ts`) — **אותו פיצול בדיוק** כמו V3 ל-`agentType`/
+      `knownAgentTypes`: schema פתוח + context אופציונלי (`knownReducerIds?`) שכשמסופק תופס mergeStrategy
+      לא-רשום. אופציונלי כדי לא לשבור אף קורא קיים (נבדק: כן).
+      **הוכחה בפועל, לא רק תיאורטית, כפי שנדרש ("נרשם **ורץ**"):** `apps/runtime/src/reducer-plugin.test.ts` —
+      reducer מותאם (`pickLongest`) שאף פעם לא היה קיים בתוך `packages/core`, נכתב ישירות ב-`apps/runtime`
+      (חבילה אחרת לגמרי): נרשם, נפתר, **ורץ בפועל** על `TaskResult[]` אמיתיים ומחזיר את הערך הנכון. נוסף
+      מבחן שלילי: אותה תוכנית בדיוק (מתכון `repo-analysis` אמיתי מ-P10-T5, מוחלף `mergeStrategy` בזמן ריצה)
+      עוברת V9 כשה-reducer רשום, **ונכשלת ב-V9** כשהוא לא — מוכיח שהבדיקה אמיתית, לא חותמת גומי.
+      `packages/core` נשאר בלי שינוי לצורך *הוספת* reducer עתידי — השינוי היחיד ל-core כאן הוא בניית
+      המנגנון עצמו (V9 + הרישום), אותו דפוס בדיוק כמו ש-P10-T1/T4 בנו מנגנון פעם אחת בלי לדרוש שינוי חוזר
+      בהמשך.
+      **בדיקת רגרסיה מלאה על כל ה-monorepo** בעקבות שינוי הסכמה: `typecheck` נקי בכל 8 החבילות/אפליקציות;
+      `vitest run` מהשורש — 1443/1444 עוברות, הכשל היחיד (`docker-sandbox.test.ts`'s live-daemon probe
+      ב-`@ao/tools`) הוא מגבלת סביבה קיימת-מראש (אין דימון Docker בקונטיינר המרוחק הזה) שלא נגעתי בה כלל
+      השבוע — לא רגרסיה. תוך כדי הרגרסיה נתפס ותוקן גם test אמיתי קיים שהניח את ההתנהגות הישנה
+      (`plan.test.ts`'s "rejects an unknown reducer id" — הוחלף בזוג בדיקות שמשקפות את ההתנהגות החדשה
+      במפורש). 14 בדיקות חדשות (7 registry + 4 V9 + 3 reducer-plugin), + 2 בדיקות `reducer.test.ts` עודכנו
+      + 1 ב-`plan.test.ts` הוחלפה בשתיים — `@ao/shared`: 120, `@ao/core`: 489, `@ao/runtime`: 117,
+      build+lint+format נקיים.
+- [x] **P10-T7 · תיעוד הרחבה** — `docs/EXTENDING.md`: סוכן, מתכון, reducer, כלי.
       *גמור:* מפתח חיצוני מוסיף סוכן לפי המדריך בלבד.
+      *כפי שמומש:* `docs/EXTENDING.md` — 4 סעיפים (סוכן/מתכון/reducer/כלי), כל אחד עם דוגמה מלאה ופקודת
+      אימות אמיתית שכבר קיימת (`npx vitest run agent-contract` / `recipe-end-to-end` / `reducer-plugin`).
+      נוסף ל-README.md's מפת המסמכים.
+      **הגמור בפועל נבדק, לא הונח:** הרצתי את סעיף 1 (הוספת סוכן) על עצמי כמו "מפתח חיצוני" — יצרתי תיקיית
+      `agents/toy-verifier/` בדיוק לפי הדוגמה במדריך, והרצתי את פקודת האימות המתועדת. זה **גילה באג אמיתי**:
+      `agent-contract.test.ts` (P10-T3) בדק "בדיוק 6 סוגים, לא יותר" — תיקייה חדשה שברה את הבדיקה במקום
+      "להיבדק אוטומטית" כפי שהמדריך הבטיח, וגרוע מזה: הסוג החדש לא קיבל בכלל את בדיקות-החוזה שלו, כי
+      ה-`describe.each` רץ על מפה קשיחה (`EXPECTED`) ולא על מה שבאמת רשום בדיסק. שני הבאגים תוקנו בפועל
+      (לא רק בתיעוד): `agent-contract.test.ts` שוכתב לגזור את רשימת הסוגים דינמית מ-`listAgentTypes` בזמן
+      טעינת המודול — כל תיקייה אמיתית מקבלת עכשיו את 4 בדיקות-החוזה הגנריות אוטומטית; רק בדיקת "תואם את
+      טבלת ARCHITECTURE.md" נשארה מוגבלת לרשימה המתועדת (`DOCUMENTED`), כי אין טבלה לבדוק נגדה סוג לא-
+      מתועד. הרצתי שוב עם `toy-verifier` נוכח — 36/36 עברו, כולל 4 הבדיקות האוטומטיות שלו — **ואז מחקתי
+      את תיקיית הבדיקה הזמנית** (חוזרים ל-32/32) לפני commit, בדיוק לפי כלל ה-harness-זמני. אותו תיקון
+      בדיוק הוחל מנע-מראש על `recipe-end-to-end.test.ts` (P10-T5): `RECIPE_NAMES` הוחלף מרשימה קשיחה
+      לגזירה דינמית מ-`listRecipeNames`, כדי שמתכון חדש לא ידרוש עריכת קובץ הבדיקה (כל עוד סוגי הסוכנים
+      שהוא משתמש בהם כבר מכוסים ב-`RESPONSES_BY_AGENT_TYPE`; אחרת — כשל ברור עם הוראה מדויקת מה להוסיף,
+      לא דילוג בשקט). עדכנתי את סעיף 2 במדריך לשקף את זה במדויק.
+      **הפער האמיתי היחיד שתועד בכנות, לא נבנה סביבו:** הוספת כלי מוכן-מראש לספריית `packages/tools/src/
+      library/` עדיין דורשת עריכת `packages/tools` (union סגור + switch שהקומפיילר בודק) — P10 לא כלל
+      בניית הרחבה-בלי-קוד לזה (לא היה אחד משבעת המשימות); תועד כשולחן פתוח, לא הוסתר ולא "תוקן" ללא סמכות.
+      כל 117 בדיקות `@ao/runtime` עוברות (32+6 מתוכן דינמיות עכשיו), build+lint+format נקיים.
 
 > **הגדרת גמור לשלב:** הוספת סוג סוכן חדש ומתכון חדש — בלי לשנות שורת קוד ב-`packages/core`.
 

@@ -6,6 +6,7 @@ export {
   type PathLengthCheck,
 } from "./jail.js";
 export { expandHome } from "./home.js";
+export { findWorkspaceRoot } from "./workspace-root.js";
 export {
   MINIMUM_PYTHON_VERSION,
   candidatesForPlatform,

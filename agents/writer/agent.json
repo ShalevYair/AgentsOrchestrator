@@ -1,0 +1,12 @@
+{
+  "type": "writer",
+  "displayName": "כותב",
+  "tier": "worker",
+  "thinkingLevel": "medium",
+  "outputContract": { "schemaRef": "NdjsonEnvelope", "format": "ndjson", "maxOutputTokens": 12000 },
+  "contextBudget": { "default": 25000, "max": 50000 },
+  "supportsFanout": ["shard", "pipeline", "single"],
+  "requiredInputs": ["outline", "findings"],
+  "promptFile": "agent.md",
+  "temperature": 0.4
+}

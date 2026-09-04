@@ -64,9 +64,15 @@ describe("PlanSchema", () => {
     expect(() => PlanSchema.parse(bad)).toThrow();
   });
 
-  it("rejects an unknown reducer id in mergeStrategy", () => {
+  it("accepts a custom (non-built-in) mergeStrategy — P10-T6 opened ReducerIdSchema up; unknown-id rejection is validatePlan's V9, not schema shape", () => {
+    const custom = structuredClone(EXAMPLE_PLAN);
+    custom.stages[0]!.mergeStrategy = "custom:my-team-reducer";
+    expect(() => PlanSchema.parse(custom)).not.toThrow();
+  });
+
+  it("still rejects an empty mergeStrategy string", () => {
     const bad = structuredClone(EXAMPLE_PLAN);
-    (bad.stages[0] as unknown as { mergeStrategy: string }).mergeStrategy = "llm:vibes";
+    (bad.stages[0] as unknown as { mergeStrategy: string }).mergeStrategy = "";
     expect(() => PlanSchema.parse(bad as unknown)).toThrow();
   });
 

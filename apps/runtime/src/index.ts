@@ -1,5 +1,7 @@
 import { createLogger, createSecretRegistry, loadConfig } from "@ao/platform";
 import { createKeyStore, GeminiProvider } from "@ao/providers";
+import { resolveAgentsDir } from "./agents-dir.js";
+import { resolveRecipesDir } from "./recipes-dir.js";
 import { RunRegistry } from "./chat/run-registry.js";
 import { openDb } from "./db/index.js";
 import { EventHub } from "./ws/hub.js";
@@ -35,6 +37,10 @@ async function main(): Promise<void> {
     },
   });
 
+  const agentsDir = resolveAgentsDir({ moduleUrl: import.meta.url });
+  const recipesDir = resolveRecipesDir({ moduleUrl: import.meta.url });
+  logger.info({ agentsDir, recipesDir }, "resolved agents/recipes directories");
+
   const ctx: AppContext = {
     driver,
     hub,
@@ -45,6 +51,8 @@ async function main(): Promise<void> {
     keyStore,
     logger,
     secretRegistry,
+    agentsDir,
+    recipesDir,
     createValidationProvider: (apiKey) => new GeminiProvider({ apiKey }),
   };
 

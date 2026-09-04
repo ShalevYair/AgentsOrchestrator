@@ -1,0 +1,12 @@
+{
+  "type": "reader",
+  "displayName": "קורא",
+  "tier": "worker",
+  "thinkingLevel": "low",
+  "outputContract": { "schemaRef": "NdjsonEnvelope", "format": "ndjson", "maxOutputTokens": 8000 },
+  "contextBudget": { "default": 30000, "max": 60000 },
+  "supportsFanout": ["shard", "single"],
+  "requiredInputs": ["artifacts"],
+  "promptFile": "agent.md",
+  "temperature": 0.2
+}

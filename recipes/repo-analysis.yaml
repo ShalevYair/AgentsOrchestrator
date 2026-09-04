@@ -1,0 +1,105 @@
+name: repo-analysis
+displayName: ניתוח מאגר
+description: >-
+  קורא את קבצי המאגר, מזקק תובנות מעל הממצאים, וכותב מסמך ארכיטקטורה/ניתוח אחד.
+objectiveTemplate: "ניתוח מאגר: {{userRequest}}"
+readPolicy:
+  maxRung: R2
+  fullReadAllowlist: []
+  summarizeIf:
+    minRelevance: 0.4
+    maxFiles: 60
+deliverables:
+  - id: analysis-doc
+    kind: markdown
+    target: chat
+    acceptance:
+      - מסמך מכסה את מבנה המאגר והתלויות המרכזיות
+stages:
+  - id: read
+    name: קריאת קבצים
+    goal: קרא את קבצי המאגר ומצא מבנה, תלויות ודפוסים מרכזיים
+    dependsOn: []
+    agentType: reader
+    fanout:
+      mode: shard
+      count: 4
+      maxParallel: 3
+    inputs:
+      - from: artifacts
+        select: all
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 8000
+    contextBudget:
+      maxInputTokens: 30000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.11
+      estimatedOutShare: 0.06
+      hardCapShare: 0.18
+    mergeStrategy: local:dedupe-findings
+    successCriteria:
+      - כל ממצא מגובה בראיה אמיתית מהקוד
+    onFailure: retry
+    optional: false
+  - id: analyze
+    name: ניתוח
+    goal: הסק תובנות מעל הממצאים — ארכיטקטורה, תלויות, סיכונים
+    dependsOn: [read]
+    agentType: analyst
+    fanout:
+      mode: single
+      count: 1
+      maxParallel: 1
+    inputs:
+      - from: read
+        select: findings
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 12000
+    contextBudget:
+      maxInputTokens: 20000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.07
+      estimatedOutShare: 0.07
+      hardCapShare: 0.14
+    mergeStrategy: local:concat-ordered
+    successCriteria:
+      - כל מסקנה מגובה בממצא תומך
+    onFailure: retry
+    optional: false
+  - id: write
+    name: כתיבת מסמך
+    goal: כתוב מסמך ארכיטקטורה/ניתוח אחד המבוסס על התובנות
+    dependsOn: [analyze]
+    agentType: writer
+    fanout:
+      mode: single
+      count: 1
+      maxParallel: 1
+    inputs:
+      - from: analyze
+        select: findings
+    outputContract:
+      schemaRef: NdjsonEnvelope
+      format: ndjson
+      maxOutputTokens: 12000
+    contextBudget:
+      maxInputTokens: 25000
+      cacheContract: false
+    tokenBudgetShare:
+      estimatedInShare: 0.07
+      estimatedOutShare: 0.09
+      hardCapShare: 0.18
+    mergeStrategy: local:concat-ordered
+    successCriteria:
+      - המסמך מכסה את כל התובנות המרכזיות
+    onFailure: retry
+    optional: false
+reserveShare:
+  synthesisTokensShare: 0.1
+  repairTokensShare: 0.1
