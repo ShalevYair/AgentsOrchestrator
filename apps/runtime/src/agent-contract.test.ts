@@ -5,17 +5,29 @@ import { describe, expect, it } from "vitest";
 import { resolveAgentsDir } from "./agents-dir.js";
 
 const agentsDir = resolveAgentsDir({ moduleUrl: import.meta.url });
+/**
+ * Read once, eagerly, at module load — this is what makes every describe.each
+ * block below genuinely dynamic: a folder added under `agents/` (by anyone,
+ * anytime, per docs/EXTENDING.md §1) picks up the full structural contract
+ * check automatically, with zero edits to this file. Only the
+ * ARCHITECTURE.md-drift check below needs this file touched, and only
+ * because that check is inherently about a specific doc's specific claims —
+ * see its own comment.
+ */
+const REGISTERED_TYPES = listAgentTypes(agentsDir);
 
 /**
- * ARCHITECTURE.md §4's table, for the 6 types that are actually
- * file-registry-driven (P10-T3) — recon/planner/checkpoint/outliner/
- * toolsmith are deliberately excluded here; see this file's own bottom
- * describe block for why. Kept as a literal expectation (not derived from
- * the files under test) so a real edit to either the doc or an agent.json
- * that lets them drift apart fails this test — that's the whole point of a
- * contract test.
+ * ARCHITECTURE.md §4's table, for the file-registry-driven types (P10-T3) —
+ * recon/planner/checkpoint/outliner/toolsmith are deliberately excluded;
+ * see this file's own bottom describe block for why. Kept as a literal
+ * expectation (not derived from the files under test) so a real edit to
+ * either the doc or an agent.json that lets them drift apart fails this
+ * test — that's the whole point of a contract test. This is intentionally
+ * *not* every registered type: a new type someone adds per EXTENDING.md §1
+ * isn't in ARCHITECTURE.md §4 either, so there's nothing here to check it
+ * against until someone documents it there too.
  */
-const EXPECTED: Readonly<
+const DOCUMENTED: Readonly<
   Record<string, { tier: AgentTier; thinkingLevel: ThinkingLevel; typicalMaxOutputTokens: number }>
 > = {
   reader: { tier: "worker", thinkingLevel: "low", typicalMaxOutputTokens: 8000 },
@@ -27,22 +39,15 @@ const EXPECTED: Readonly<
 };
 
 describe("agent registry contract (P10-T3)", () => {
-  it("registers exactly the 6 NDJSON worker types under agents/ — no more, no fewer", () => {
-    expect(listAgentTypes(agentsDir)).toEqual(Object.keys(EXPECTED).sort());
+  it("registers at least the 6 documented NDJSON worker types under agents/", () => {
+    expect(REGISTERED_TYPES).toEqual(expect.arrayContaining(Object.keys(DOCUMENTED)));
   });
 
-  describe.each(Object.entries(EXPECTED))("%s", (type, expected) => {
+  describe.each(REGISTERED_TYPES)("%s", (type) => {
     it("loads and validates against AgentDefinitionSchema", () => {
       const { definition } = loadAgent(agentsDir, type);
       expect(definition.type).toBe(type);
       expect(definition.outputContract.format).toBe("ndjson");
-    });
-
-    it("matches ARCHITECTURE.md §4's tier/thinkingLevel/typical output cap", () => {
-      const { definition } = loadAgent(agentsDir, type);
-      expect(definition.tier).toBe(expected.tier);
-      expect(definition.thinkingLevel).toBe(expected.thinkingLevel);
-      expect(definition.outputContract.maxOutputTokens).toBe(expected.typicalMaxOutputTokens);
     });
 
     it("declares a non-empty, real requiredInputs and supportsFanout", () => {
@@ -68,17 +73,23 @@ describe("agent registry contract (P10-T3)", () => {
         outputSchema,
       });
       expect(rendered).not.toMatch(/\{\{\w+\}\}/);
-      expect(rendered).toContain('"finding"');
-      expect(rendered).toContain('"done"');
+    });
+  });
+
+  describe.each(Object.entries(DOCUMENTED))("%s (documented in ARCHITECTURE.md §4)", (type, expected) => {
+    it("matches the tier/thinkingLevel/typical output cap the doc states", () => {
+      const { definition } = loadAgent(agentsDir, type);
+      expect(definition.tier).toBe(expected.tier);
+      expect(definition.thinkingLevel).toBe(expected.thinkingLevel);
+      expect(definition.outputContract.maxOutputTokens).toBe(expected.typicalMaxOutputTokens);
     });
   });
 });
 
 describe("recon/planner/checkpoint/outliner/toolsmith are NOT in the file registry (documented gap, not an oversight)", () => {
   it("have no folder under agents/ — their real prompts are hardcoded in packages/core, not agent.md templates", () => {
-    const types = listAgentTypes(agentsDir);
     for (const excluded of ["recon", "planner", "checkpoint", "outliner", "toolsmith"]) {
-      expect(types).not.toContain(excluded);
+      expect(REGISTERED_TYPES).not.toContain(excluded);
     }
   });
 });

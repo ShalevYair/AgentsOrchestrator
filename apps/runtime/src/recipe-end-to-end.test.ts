@@ -23,7 +23,20 @@ import { resolveRecipesDir } from "./recipes-dir.js";
 const agentsDir = resolveAgentsDir({ moduleUrl: import.meta.url });
 const recipesDir = resolveRecipesDir({ moduleUrl: import.meta.url });
 
-const RECIPE_NAMES = [
+/**
+ * Read once, eagerly, at module load — same "genuinely dynamic, not a
+ * hardcoded snapshot" design as `agent-contract.test.ts`'s `REGISTERED_TYPES`
+ * (P10-T7 caught the same gap here: a hardcoded name list would silently
+ * skip a new recipe added per docs/EXTENDING.md §2 instead of exercising it).
+ * A new recipe that only uses agent types already covered by
+ * `RESPONSES_BY_AGENT_TYPE` below gets the full real end-to-end run with
+ * zero edits to this file; one that introduces a new agent type combination
+ * fails loudly with a clear "no canned response for agentType" error rather
+ * than silently not being tested — see that constant's own comment.
+ */
+const RECIPE_NAMES = listRecipeNames(recipesDir);
+/** The 5 recipes TASKS.md P10-T5 names explicitly — checked as a floor, not an exact match, so a new recipe doesn't need this file touched. */
+const DOCUMENTED_RECIPE_NAMES = [
   "repo-analysis",
   "code-review",
   "document-from-sources",
@@ -75,7 +88,11 @@ function doneLine(): string {
  * envelope kinds each real `agent.md` (P10-T3) actually instructs that
  * type to emit (reader/analyst/critic -> finding+note, writer -> section,
  * coder -> file_begin/chunk/end), always ending in `done` per PROTOCOLS.md
- * §3 rule 3.
+ * §3 rule 3. `synthesizer` has no entry — none of the current recipes use
+ * it. A new recipe that does (or that otherwise introduces a new agentType
+ * this map doesn't cover) fails loudly with a clear "no canned end-to-end
+ * response for agentType" error rather than being silently skipped; add one
+ * line here and it runs for real, same as every type already listed.
  */
 const RESPONSES_BY_AGENT_TYPE: Readonly<Record<string, string>> = {
   reader: [findingLine("f1"), findingLine("f2"), doneLine()].join("\n"),
@@ -191,8 +208,8 @@ async function runRecipeEndToEnd(recipeName: string): Promise<{
 }
 
 describe("recipe library (P10-T5)", () => {
-  it("registers exactly the 5 named recipes under recipes/", () => {
-    expect(listRecipeNames(recipesDir)).toEqual([...RECIPE_NAMES].sort());
+  it("registers at least the 5 documented recipes under recipes/", () => {
+    expect(RECIPE_NAMES).toEqual(expect.arrayContaining(DOCUMENTED_RECIPE_NAMES));
   });
 
   describe.each(RECIPE_NAMES)("%s", (recipeName) => {
