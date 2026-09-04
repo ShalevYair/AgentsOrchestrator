@@ -3,8 +3,6 @@
     "title": "AgentsOrchestrator"
   },
   "header": {
-    "tokensUsed": "{{count}} טוקנים",
-    "tokensUsed_zero": "0 טוקנים",
     "settingsButton": "הגדרות",
     "themeToggle": "החלף ערכת נושא",
     "themeLight": "מצב בהיר",
@@ -14,12 +12,24 @@
     "heading": "שיחות",
     "newChat": "+ שיחה חדשה",
     "untitled": "שיחה חדשה",
-    "loading": "טוען שיחות..."
+    "loading": "טוען שיחות...",
+    "empty": "אין שיחות עדיין",
+    "noResults": "לא נמצאו שיחות תואמות",
+    "searchPlaceholder": "חיפוש בשיחות",
+    "collapse": "כווץ את רשימת השיחות",
+    "expand": "הרחב את רשימת השיחות",
+    "groupToday": "היום",
+    "groupYesterday": "אתמול",
+    "groupOlder": "ישן יותר",
+    "export": "ייצוא \"{{title}}\" כ-JSON",
+    "exportError": "ייצוא השיחה נכשל. נסו שוב.",
+    "delete": "מחיקת \"{{title}}\"",
+    "deleteConfirm": "למחוק את השיחה \"{{title}}\"? הפעולה אינה הפיכה."
   },
   "chat": {
     "placeholder": "כתוב הודעה... (Enter לשליחה, Shift+Enter לשורה חדשה)",
     "send": "שלח",
-    "sending": "שולח...",
+    "stop": "עצור",
     "emptyTitle": "איך אפשר לעזור היום?",
     "emptyBody": "כתבו הודעה כדי להתחיל שיחה עם המודל.",
     "you": "אתה",
@@ -30,7 +40,20 @@
     "turnFailed": "התשובה נכשלה: {{message}}",
     "copy": "העתק",
     "copied": "הועתק!",
-    "copyCode": "העתק קוד"
+    "copyCode": "העתק קוד",
+    "attachFiles": "צירוף קבצים",
+    "attachmentSection": "--- קובץ מצורף: {{name}} ---\n{{content}}",
+    "attachmentUnsupportedSection": "--- קובץ מצורף (התוכן לא נשלח): {{name}} ---",
+    "openSettingsFromError": "מעבר להגדרות",
+    "budgetErrorHint": "אפשר להעלות את התקציב או לשנות רמה בכפתור המטרה שליד תיבת הכתיבה.",
+    "stoppedNotice": "הריצה נעצרה. התשובה למעלה חלקית."
+  },
+  "attachment": {
+    "tokens": "~{{tokens}} טוקנים",
+    "tooLarge": "גדול מדי להערכה",
+    "notEstimated": "לא זמין לסוג קובץ זה",
+    "readError": "לא ניתן היה לקרוא את הקובץ",
+    "remove": "הסר את {{name}}"
   },
   "settings": {
     "title": "הגדרות",
@@ -76,6 +99,139 @@
       "zip": "ארכיון",
       "text": "טקסט"
     }
+  },
+  "goal": {
+    "title": "מטרה",
+    "budgetSection": "תקציב טוקנים",
+    "levels": {
+      "draft": "טיוטה",
+      "standard": "סטנדרט",
+      "deep": "עומק",
+      "custom": "מותאם"
+    },
+    "levelHint": {
+      "draft": "שאלה ממוקדת, קובץ בודד, סקירה מהירה",
+      "standard": "ברירת מחדל — מסמך, ניתוח, פיצ'ר בפרויקט",
+      "deep": "פרויקט שלם, מחקר רחב, ריפקטור חוצה־קבצים",
+      "custom": "שליטה ידנית"
+    },
+    "derivedLimits": "עד {{rung}} · {{ensemble}} · מקסימום {{maxParallel}} מקביליים",
+    "ensembleAllowed": "ensemble מותר",
+    "ensembleBlocked": "ensemble/debate חסומים",
+    "customBudgetLabel": "תקציב מותאם אישית (טוקנים)",
+    "effortSection": "רמת מאמץ",
+    "effort": {
+      "low": "מהיר",
+      "medium": "מאוזן",
+      "high": "יסודי"
+    },
+    "overrunSection": "בחריגה מהתקציב",
+    "overrun": {
+      "degrade": "הורד דרגה אוטומטית",
+      "ask": "שאל אותי",
+      "hard-stop": "עצור"
+    },
+    "advanced": "מתקדם",
+    "maxParallelLabel": "מקס' סוכנים במקביל",
+    "allowScripts": "הרצת סקריפטים מקומיים",
+    "allowFolderWrite": "כתיבה לתיקייה המחוברת",
+    "requirePlanApproval": "הצג תוכנית לאישור לפני הרצה",
+    "close": "סגור",
+    "saveFailed": "שמירת הגדרות המטרה נכשלה. נסו שוב.",
+    "triggerLabel": "מטרה: {{level}}, {{tokens}} טוקנים, בערך {{cost}}"
+  },
+  "plan": {
+    "title": "תוכנית ריצה",
+    "summary": "{{stageCount}} שלבים · {{agentCount}} סוכנים",
+    "estimate": "צפי {{estimate}} / {{budget}}",
+    "amendedBanner": "v{{version}}: {{reason}}",
+    "fanoutBy": "לפי",
+    "parallelSuffix": "במקביל",
+    "showDiff": "דיף",
+    "hideDiff": "הסתר דיף",
+    "edit": "ערוך",
+    "run": "הרץ",
+    "agentCountLabel": "מספר סוכנים",
+    "maxParallelLabel": "מקביליות",
+    "removeStage": "הסר שלב",
+    "maxRungLabel": "דרגת קריאה מרבית",
+    "save": "שמור",
+    "cancel": "בטל",
+    "validationErrors": "יש לתקן לפני ההרצה:"
+  },
+  "board": {
+    "title": "לוח תזמור",
+    "empty": "אין ריצה פעילה",
+    "collapse": "כווץ את לוח התזמור",
+    "expand": "הרחב את לוח התזמור",
+    "stageProgress": "{{done}}/{{total}}",
+    "tokensActual": "{{actual}} / {{estimate}}",
+    "status": {
+      "pending": "ממתין",
+      "running": "פועל",
+      "done": "הושלם",
+      "issue": "יש בעיה",
+      "skipped": "דולג"
+    },
+    "drawer": {
+      "close": "סגור",
+      "context": "הקשר",
+      "contextTokens": "טוקני הקשר",
+      "contextBudget": "תקציב הקשר",
+      "cacheContract": "חוזה מטמון",
+      "yes": "כן",
+      "no": "לא",
+      "outputContract": "חוזה פלט",
+      "maxOutputTokens": "עד {{tokens}}",
+      "inputs": "קלטים",
+      "output": "פלט",
+      "noOutputYet": "עדיין אין פלט.",
+      "usage": "שימוש",
+      "time": "זמן",
+      "promptTokens": "טוקני קלט",
+      "candidatesTokens": "טוקני פלט",
+      "thoughtsTokens": "טוקני חשיבה",
+      "cacheHits": "פגיעות מטמון",
+      "finishReason": "סיבת סיום",
+      "violations": "הפרות סכמה",
+      "copyPrompt": "העתקת הפרומפט",
+      "copyPromptUnavailable": "ה-runtime עדיין לא שולח את טקסט הפרומפט בפרוטוקול — אין מה להעתיק.",
+      "rerun": "הרצה חוזרת",
+      "exportJson": "ייצוא JSON",
+      "envelope": {
+        "evidence": "{{count}} עדויות",
+        "chunk": "מקטע #{{seq}} · {{count}} תווים",
+        "fileEnd": "{{count}} שורות · sha256 {{hash}}…",
+        "ok": "הצליח",
+        "failed": "נכשל",
+        "truncated": "(קוצץ)",
+        "criteria": "{{met}}/{{total}} קריטריונים"
+      }
+    }
+  },
+  "budgetMeter": {
+    "triggerLabel": "תקציב: נוצלו {{spent}} מתוך {{total}} טוקנים",
+    "spent": "נוצל",
+    "committed": "משוריין",
+    "remaining": "נותר",
+    "projection": "צפי סופי",
+    "noProjection": "עדיין אין מספיק נתונים לצפי.",
+    "byStage": "לפי שלב",
+    "warningNote": "מתקרב לתקציב.",
+    "dangerNote": "קרוב מאוד לתקציב.",
+    "toast": {
+      "degraded": "נשאבו {{amount}} טוקנים מהרזרבה כדי להמשיך.",
+      "degradedClamped": "נשאבו {{amount}} טוקנים מהרזרבה (כמעט ריקה) כדי להמשיך.",
+      "dismiss": "סגור התראה"
+    }
+  },
+  "egress": {
+    "triggerLabel": "מה יצא מהמחשב: {{bytes}} ב-{{count}} קריאות",
+    "sent": "יצא: {{bytes}}",
+    "title": "מה יצא מהמחשב",
+    "summary": "סה\"כ {{bytes}} ב-{{count}} קריאות ל-Gemini.",
+    "redactionCount": "{{count}} סודות זוהו והוחלפו לפני שיצאו מהמחשב",
+    "calls": "קריאות"
   },
   "onboarding": {
     "title": "ברוכים הבאים ל-AgentsOrchestrator",

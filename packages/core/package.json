@@ -9,6 +9,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./plan": {
+      "types": "./dist/plan/index.d.ts",
+      "default": "./dist/plan/index.js"
+    },
+    "./checkpoint": {
+      "types": "./dist/checkpoint/browser.d.ts",
+      "default": "./dist/checkpoint/browser.js"
     }
   },
   "scripts": {

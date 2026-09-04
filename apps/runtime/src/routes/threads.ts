@@ -1,7 +1,14 @@
-import { NotFoundError, SchemaValidationError } from "@ao/shared";
+import { GoalConfigSchema, NotFoundError, SchemaValidationError } from "@ao/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { AppContext } from "../context.js";
-import { createThread, getThread, listThreads } from "../db/threads.repo.js";
+import {
+  createThread,
+  deleteThread,
+  getThread,
+  listThreads,
+  updateThreadGoalConfig,
+  type Thread,
+} from "../db/threads.repo.js";
 import { insertMessage, listMessages } from "../db/messages.repo.js";
 import { genRunId } from "../db/ids.js";
 import { runChatTurn } from "../chat/run-chat.js";
@@ -19,10 +26,12 @@ interface ThreadParams {
   id: string;
 }
 
-function requireThread(ctx: AppContext, id: string): void {
-  if (!getThread(ctx.driver, id)) {
+function requireThread(ctx: AppContext, id: string): Thread {
+  const thread = getThread(ctx.driver, id);
+  if (!thread) {
     throw new NotFoundError(`thread ${id} not found`);
   }
+  return thread;
 }
 
 export function registerThreadRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -34,6 +43,33 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: AppContext): voi
     const thread = createThread(ctx.driver, title);
     reply.code(201).send(thread);
   });
+
+  app.delete("/api/threads/:id", (request: FastifyRequest<{ Params: ThreadParams }>, reply) => {
+    try {
+      requireThread(ctx, request.params.id);
+      deleteThread(ctx.driver, request.params.id);
+      reply.code(204).send();
+    } catch (error) {
+      sendAppError(reply, error);
+    }
+  });
+
+  app.put(
+    "/api/threads/:id/goal-config",
+    (request: FastifyRequest<{ Params: ThreadParams; Body: unknown }>, reply) => {
+      try {
+        requireThread(ctx, request.params.id);
+        const parsed = GoalConfigSchema.safeParse(request.body);
+        if (!parsed.success) {
+          throw new SchemaValidationError(`invalid goal config: ${parsed.error.message}`);
+        }
+        updateThreadGoalConfig(ctx.driver, request.params.id, parsed.data);
+        reply.code(200).send(parsed.data);
+      } catch (error) {
+        sendAppError(reply, error);
+      }
+    },
+  );
 
   app.get("/api/threads/:id/messages", (request: FastifyRequest<{ Params: ThreadParams }>, reply) => {
     try {
@@ -49,7 +85,7 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: AppContext): voi
     (request: FastifyRequest<{ Params: ThreadParams; Body: PostMessageBody }>, reply) => {
       try {
         const threadId = request.params.id;
-        requireThread(ctx, threadId);
+        const thread = requireThread(ctx, threadId);
         const content = request.body?.content?.trim();
         if (!content) {
           throw new SchemaValidationError("message content must be a non-empty string");
@@ -67,9 +103,11 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: AppContext): voi
           driver: ctx.driver,
           hub: ctx.hub,
           provider: ctx.provider,
+          runRegistry: ctx.runRegistry,
           model: ctx.model,
           threadId,
           runId,
+          goalConfig: thread.goalConfig,
         }).catch((error: unknown) => {
           ctx.logger.error({ err: error, runId, threadId }, "chat turn failed");
         });

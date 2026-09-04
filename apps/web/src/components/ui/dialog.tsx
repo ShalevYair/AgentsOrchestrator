@@ -36,6 +36,41 @@ export function DialogContent({
   );
 }
 
+/**
+ * UX.md §5 level 3 calls this a "מגירה" (drawer), not a dialog — same
+ * Radix root (focus trap, Escape-to-close, portal) as `DialogContent`,
+ * but anchored to the inline-end edge and full height instead of centered,
+ * so the board (and its status) stays visible behind the overlay rather
+ * than being replaced by a centered modal.
+ */
+export function DrawerContent({
+  className,
+  children,
+  closeLabel,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof RadixDialog.Content> & { closeLabel: string }): React.JSX.Element {
+  return (
+    <RadixDialog.Portal>
+      <RadixDialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+      <RadixDialog.Content
+        className={cn(
+          "fixed inset-y-0 end-0 z-50 flex w-full max-w-md flex-col border-neutral-200 bg-white shadow-lg [border-inline-start-width:1px] dark:border-neutral-800 dark:bg-neutral-900",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        <RadixDialog.Close
+          className="absolute end-4 top-4 rounded-md p-1 text-neutral-500 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 dark:hover:bg-neutral-800"
+          aria-label={closeLabel}
+        >
+          <X />
+        </RadixDialog.Close>
+      </RadixDialog.Content>
+    </RadixDialog.Portal>
+  );
+}
+
 export function DialogHeader({
   className,
   ...props

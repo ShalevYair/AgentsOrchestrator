@@ -161,6 +161,163 @@ describe("threads + messages", () => {
   });
 });
 
+describe("DELETE /api/threads/:id (P9-T12)", () => {
+  it("deletes a thread and its messages", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: { title: "Gone soon" } });
+    const thread = create.json<ThreadDto>();
+    await app.inject({
+      method: "POST",
+      url: `/api/threads/${thread.id}/messages`,
+      payload: { content: "hi there" },
+    });
+
+    const del = await app.inject({ method: "DELETE", url: `/api/threads/${thread.id}` });
+    expect(del.statusCode).toBe(204);
+    expect(del.body).toBe("");
+
+    const list = await app.inject({ method: "GET", url: "/api/threads" });
+    expect(list.json<ThreadDto[]>()).toEqual([]);
+
+    const messages = await app.inject({ method: "GET", url: `/api/threads/${thread.id}/messages` });
+    expect(messages.statusCode).toBe(404);
+  });
+
+  it("404s for an unknown thread instead of silently no-oping", async () => {
+    const res = await app.inject({ method: "DELETE", url: "/api/threads/thr_missing" });
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("deleting one thread leaves other threads and their messages untouched", async () => {
+    const keep = (
+      await app.inject({ method: "POST", url: "/api/threads", payload: { title: "Keep" } })
+    ).json<ThreadDto>();
+    const doomed = (
+      await app.inject({ method: "POST", url: "/api/threads", payload: { title: "Doomed" } })
+    ).json<ThreadDto>();
+    await app.inject({
+      method: "POST",
+      url: `/api/threads/${keep.id}/messages`,
+      payload: { content: "stay" },
+    });
+
+    await app.inject({ method: "DELETE", url: `/api/threads/${doomed.id}` });
+
+    const list = await app.inject({ method: "GET", url: "/api/threads" });
+    expect(list.json<ThreadDto[]>().map((t) => t.id)).toEqual([keep.id]);
+  });
+});
+
+describe("POST /api/runs/:id/stop (P9-T11)", () => {
+  // `run-chat.test.ts` already proves *what happens* once a run is
+  // actually aborted (partial text kept, ledger released, "stopped"
+  // status) via a deterministic in-process call — MockLLMProvider's
+  // chunks arrive synchronously with no real gap between them, so racing
+  // a real HTTP stop request against a real in-flight stream here would
+  // be timing-dependent, not a meaningful extra proof. What's untested
+  // elsewhere, and what these prove, is the HTTP route itself: it reaches
+  // the exact same `ctx.runRegistry` the chat path uses, and it's always
+  // a safe no-op — never an error — for a run that isn't (or no longer
+  // is) live.
+  it("aborts a real controller registered under ctx.runRegistry, and returns 204", async () => {
+    const controller = ctx.runRegistry.register("run_stoptest01");
+
+    const res = await app.inject({ method: "POST", url: "/api/runs/run_stoptest01/stop" });
+
+    expect(res.statusCode).toBe(204);
+    expect(controller.signal.aborted).toBe(true);
+  });
+
+  it("is a harmless 204 no-op for a runId that was never registered", async () => {
+    const res = await app.inject({ method: "POST", url: "/api/runs/run_neverexisted/stop" });
+    expect(res.statusCode).toBe(204);
+  });
+
+  it("is a harmless 204 no-op for a run that already finished on its own", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<ThreadDto>();
+    const post = await app.inject({
+      method: "POST",
+      url: `/api/threads/${thread.id}/messages`,
+      payload: { content: "hi there" },
+    });
+    const { runId } = post.json<{ runId: string }>();
+
+    await waitFor(async () => {
+      const res = await app.inject({ method: "GET", url: `/api/runs/${runId}/events` });
+      const body = res.json<EventDto[]>();
+      return body.some((e) => e.type === "run.finished") ? true : undefined;
+    });
+
+    const stop = await app.inject({ method: "POST", url: `/api/runs/${runId}/stop` });
+    expect(stop.statusCode).toBe(204);
+
+    // Nothing about the already-completed run changed.
+    const messages = await app.inject({ method: "GET", url: `/api/threads/${thread.id}/messages` });
+    expect(messages.json<MessageDto[]>()).toHaveLength(2);
+  });
+});
+
+describe("goal config", () => {
+  it("a new thread starts with the standard-level default", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<{ goalConfig: { level: string; budgetTotal: number } }>();
+    expect(thread.goalConfig).toMatchObject({ level: "standard", budgetTotal: 2_500_000 });
+  });
+
+  it("PUT persists a customized config, reflected by a subsequent GET of the thread list", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<ThreadDto>();
+
+    const customized = {
+      level: "deep",
+      budgetTotal: 5_000_000,
+      effort: "high",
+      overrunPolicy: "hard-stop",
+      maxParallel: 12,
+      allowScripts: true,
+      allowFolderWrite: true,
+      requirePlanApproval: true,
+    };
+    const put = await app.inject({
+      method: "PUT",
+      url: `/api/threads/${thread.id}/goal-config`,
+      payload: customized,
+    });
+    expect(put.statusCode).toBe(200);
+    expect(put.json()).toEqual(customized);
+
+    const list = await app.inject({ method: "GET", url: "/api/threads" });
+    const [found] = list.json<{ id: string; goalConfig: unknown }[]>();
+    expect(found?.goalConfig).toEqual(customized);
+  });
+
+  it("rejects a malformed config and leaves the stored one untouched", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<ThreadDto>();
+
+    const put = await app.inject({
+      method: "PUT",
+      url: `/api/threads/${thread.id}/goal-config`,
+      payload: { level: "not-a-real-level" },
+    });
+    expect(put.statusCode).toBe(400);
+
+    const list = await app.inject({ method: "GET", url: "/api/threads" });
+    const [found] = list.json<{ goalConfig: { level: string } }[]>();
+    expect(found?.goalConfig.level).toBe("standard");
+  });
+
+  it("404s for an unknown thread", async () => {
+    const res = await app.inject({
+      method: "PUT",
+      url: "/api/threads/thr_missing/goal-config",
+      payload: {},
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});
+
 describe("keys", () => {
   it("reports no key stored by default, then set/status/delete round-trips", async () => {
     const status0 = await app.inject({ method: "GET", url: "/api/keys/status" });

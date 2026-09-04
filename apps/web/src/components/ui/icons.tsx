@@ -128,3 +128,63 @@ export function ImageIcon(props: IconProps): React.JSX.Element {
     </Icon>
   );
 }
+
+export function ChevronDown(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function RefreshCw(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16M3 3v5h5M16 16h5v5" />
+    </Icon>
+  );
+}
+
+export function Paperclip(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </Icon>
+  );
+}
+
+export function Square(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+    </Icon>
+  );
+}
+
+export function Trash(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </Icon>
+  );
+}
+
+export function Search(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </Icon>
+  );
+}
+
+export function Plus(props: IconProps): React.JSX.Element {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+      <path d="M12 5v14" />
+    </Icon>
+  );
+}

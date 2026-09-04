@@ -297,6 +297,7 @@ WebSocket, JSON, כל אירוע נושא `runId` ו-`seq` עולה (מאפשר 
 | `task.delta` | `{ taskId, envelope }` — מעטפת NDJSON מפורסרת, לסטרימינג |
 | `task.finished` | `{ taskId, usage, finishReason, violations }` |
 | `ledger.updated` | `{ spent, committed, remaining, projection, byStage }` |
+| `budget.degraded` | `{ stageId, agentType, amount, clamped }` — נוסף ב-P9-T6: נורה מ-`Ledger.drawFromReserve` (§5 דרגה 8) בפועל, לטוסטים לא-חוסמים ב-UX.md §1/§8 |
 | `checkpoint.decision` | `CheckpointDecision` |
 | `tool.executed` | `{ toolId, script, exitCode, durationMs, outputSize }` |
 | `egress.recorded` | `{ callId, bytes, artifactRefs, redactions }` |

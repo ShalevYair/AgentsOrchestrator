@@ -1,7 +1,7 @@
 import type { SqlDriver } from "./driver.js";
 import { genRunId } from "./ids.js";
 
-export type RunStatus = "running" | "completed" | "failed";
+export type RunStatus = "running" | "completed" | "failed" | "stopped";
 
 export interface Run {
   id: string;
@@ -38,7 +38,7 @@ export function createRun(driver: SqlDriver, threadId: string, id: string = genR
   return run;
 }
 
-export function finishRun(driver: SqlDriver, id: string, status: "completed" | "failed"): void {
+export function finishRun(driver: SqlDriver, id: string, status: "completed" | "failed" | "stopped"): void {
   driver.run("UPDATE runs SET status = ?, finished_at = ? WHERE id = ?", [
     status,
     new Date().toISOString(),

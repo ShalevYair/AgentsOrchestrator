@@ -3,8 +3,6 @@
     "title": "AgentsOrchestrator"
   },
   "header": {
-    "tokensUsed": "{{count}} tokens",
-    "tokensUsed_zero": "0 tokens",
     "settingsButton": "Settings",
     "themeToggle": "Toggle theme",
     "themeLight": "Light mode",
@@ -14,12 +12,24 @@
     "heading": "Chats",
     "newChat": "+ New chat",
     "untitled": "New chat",
-    "loading": "Loading chats..."
+    "loading": "Loading chats...",
+    "empty": "No chats yet",
+    "noResults": "No matching chats",
+    "searchPlaceholder": "Search chats",
+    "collapse": "Collapse the chat list",
+    "expand": "Expand the chat list",
+    "groupToday": "Today",
+    "groupYesterday": "Yesterday",
+    "groupOlder": "Older",
+    "export": "Export \"{{title}}\" as JSON",
+    "exportError": "Exporting the chat failed. Try again.",
+    "delete": "Delete \"{{title}}\"",
+    "deleteConfirm": "Delete the chat \"{{title}}\"? This cannot be undone."
   },
   "chat": {
     "placeholder": "Type a message... (Enter to send, Shift+Enter for a new line)",
     "send": "Send",
-    "sending": "Sending...",
+    "stop": "Stop",
     "emptyTitle": "How can I help today?",
     "emptyBody": "Write a message to start a conversation with the model.",
     "you": "You",
@@ -30,7 +40,20 @@
     "turnFailed": "The reply failed: {{message}}",
     "copy": "Copy",
     "copied": "Copied!",
-    "copyCode": "Copy code"
+    "copyCode": "Copy code",
+    "attachFiles": "Attach files",
+    "attachmentSection": "--- Attached file: {{name}} ---\n{{content}}",
+    "attachmentUnsupportedSection": "--- Attached file (content not sent): {{name}} ---",
+    "openSettingsFromError": "Go to settings",
+    "budgetErrorHint": "You can raise the budget or change the level from the goal button next to the input box.",
+    "stoppedNotice": "The run was stopped. The answer above is partial."
+  },
+  "attachment": {
+    "tokens": "~{{tokens}} tokens",
+    "tooLarge": "Too large to estimate",
+    "notEstimated": "Not available for this file type",
+    "readError": "Couldn't read this file",
+    "remove": "Remove {{name}}"
   },
   "settings": {
     "title": "Settings",
@@ -76,6 +99,140 @@
       "zip": "Archive",
       "text": "Text"
     }
+  },
+  "goal": {
+    "title": "Goal",
+    "budgetSection": "Token budget",
+    "levels": {
+      "draft": "Draft",
+      "standard": "Standard",
+      "deep": "Deep",
+      "custom": "Custom"
+    },
+    "levelHint": {
+      "draft": "A focused question, a single file, a quick review",
+      "standard": "Default — a document, an analysis, a feature in a project",
+      "deep": "A whole project, broad research, a cross-file refactor",
+      "custom": "You're in control"
+    },
+    "derivedLimits": "Up to {{rung}} · {{ensemble}} · up to {{maxParallel}} in parallel",
+    "ensembleAllowed": "ensemble allowed",
+    "ensembleBlocked": "ensemble/debate blocked",
+    "customBudgetLabel": "Custom budget (tokens)",
+    "effortSection": "Effort level",
+    "effort": {
+      "low": "Fast",
+      "medium": "Balanced",
+      "high": "Thorough"
+    },
+    "overrunSection": "On budget overrun",
+    "overrun": {
+      "degrade": "Degrade automatically",
+      "ask": "Ask me",
+      "hard-stop": "Stop"
+    },
+    "advanced": "Advanced",
+    "maxParallelLabel": "Max parallel agents",
+    "allowScripts": "Run local scripts",
+    "allowFolderWrite": "Write to the connected folder",
+    "requirePlanApproval": "Show the plan for approval before running",
+    "close": "Close",
+    "saveFailed": "Couldn't save the goal settings. Try again.",
+    "triggerLabel": "Goal: {{level}}, {{tokens}} tokens, about {{cost}}"
+  },
+  "plan": {
+    "title": "Run plan",
+    "summary": "{{stageCount}} stages · {{agentCount}} agents",
+    "estimate": "Est. {{estimate}} / {{budget}}",
+    "amendedBanner": "v{{version}}: {{reason}}",
+    "fanoutBy": "by",
+    "parallelSuffix": "in parallel",
+    "showDiff": "Diff",
+    "hideDiff": "Hide diff",
+    "edit": "Edit",
+    "run": "Run",
+    "agentCountLabel": "Agent count",
+    "maxParallelLabel": "Parallelism",
+    "removeStage": "Remove stage",
+    "maxRungLabel": "Max read rung",
+    "save": "Save",
+    "cancel": "Cancel",
+    "validationErrors": "Fix before running:"
+  },
+  "board": {
+    "title": "Orchestration board",
+    "empty": "No active run",
+    "collapse": "Collapse the orchestration board",
+    "expand": "Expand the orchestration board",
+    "stageProgress": "{{done}}/{{total}}",
+    "tokensActual": "{{actual}} / {{estimate}}",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "done": "Done",
+      "issue": "Issue",
+      "skipped": "Skipped"
+    },
+    "drawer": {
+      "close": "Close",
+      "context": "Context",
+      "contextTokens": "Context tokens",
+      "contextBudget": "Context budget",
+      "cacheContract": "Cache contract",
+      "yes": "Yes",
+      "no": "No",
+      "outputContract": "Output contract",
+      "maxOutputTokens": "up to {{tokens}}",
+      "inputs": "Inputs",
+      "output": "Output",
+      "noOutputYet": "No output yet.",
+      "usage": "Usage",
+      "time": "Time",
+      "promptTokens": "Prompt tokens",
+      "candidatesTokens": "Output tokens",
+      "thoughtsTokens": "Thinking tokens",
+      "cacheHits": "Cache hits",
+      "finishReason": "Finish reason",
+      "violations": "Schema violations",
+      "copyPrompt": "Copy prompt",
+      "copyPromptUnavailable": "The runtime doesn't send the prompt text over the wire yet — nothing to copy.",
+      "rerun": "Rerun",
+      "exportJson": "Export JSON",
+      "envelope": {
+        "evidence": "{{count}} evidence",
+        "chunk": "chunk #{{seq}} · {{count}} chars",
+        "fileEnd": "{{count}} lines · sha256 {{hash}}…",
+        "ok": "ok",
+        "failed": "failed",
+        "truncated": "(truncated)",
+        "criteria": "{{met}}/{{total}} criteria"
+      }
+    }
+  },
+  "budgetMeter": {
+    "triggerLabel": "Budget: {{spent}} of {{total}} tokens used",
+    "spent": "Spent",
+    "committed": "Committed",
+    "remaining": "Remaining",
+    "projection": "Projected total",
+    "noProjection": "Not enough data yet for a projection.",
+    "byStage": "By stage",
+    "warningNote": "Approaching the budget.",
+    "dangerNote": "Very close to the budget.",
+    "toast": {
+      "degraded": "{{amount}} tokens drawn from the reserve to keep this going.",
+      "degradedClamped": "{{amount}} tokens drawn from the reserve (already low) to keep this going.",
+      "dismiss": "Dismiss"
+    }
+  },
+  "egress": {
+    "triggerLabel": "What left the machine: {{bytes}} in {{count}} calls",
+    "sent": "Sent: {{bytes}}",
+    "title": "What left the machine",
+    "summary": "{{bytes}} total in {{count}} calls to Gemini.",
+    "redactionCount": "{{count}} secret redacted before it left the machine",
+    "redactionCount_other": "{{count}} secrets redacted before they left the machine",
+    "calls": "Calls"
   },
   "onboarding": {
     "title": "Welcome to AgentsOrchestrator",

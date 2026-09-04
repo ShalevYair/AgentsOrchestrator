@@ -20,5 +20,10 @@
     "tailwind.config.ts",
     "postcss.config.js"
   ],
-  "references": [{ "path": "../../packages/shared" }]
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/providers" },
+    { "path": "../../packages/ingest" }
+  ]
 }

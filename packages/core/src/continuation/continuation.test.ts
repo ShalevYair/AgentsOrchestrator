@@ -181,6 +181,7 @@ describe("runWithContinuation", () => {
       countTokens: () => Promise.resolve(0),
       cacheCreate: () => Promise.reject(new Error("not used")),
       models: () => Promise.resolve([]),
+      getEgressRedactions: () => [],
       generate: () => {
         throw new Error("provider exploded");
       },

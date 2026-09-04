@@ -4,6 +4,7 @@ import type { AppContext } from "./context.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerKeyRoutes } from "./routes/keys.js";
+import { registerRunRoutes } from "./routes/runs.js";
 import { registerThreadRoutes } from "./routes/threads.js";
 import { registerWsRoutes } from "./routes/ws.js";
 
@@ -23,6 +24,7 @@ export async function buildServer(ctx: AppContext): Promise<FastifyInstance> {
   registerHealthRoutes(app, ctx);
   registerThreadRoutes(app, ctx);
   registerEventRoutes(app, ctx);
+  registerRunRoutes(app, ctx);
   registerKeyRoutes(app, ctx);
   registerWsRoutes(app, ctx);
 
