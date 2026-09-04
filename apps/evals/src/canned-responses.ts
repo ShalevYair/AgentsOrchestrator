@@ -96,6 +96,27 @@ export function buildCannedResponse(agentType: string, scale: number): string | 
 }
 
 /**
+ * P11-T3 — splits a full canned response's NDJSON lines into an
+ * `initialText`/`continuationText` pair, always keeping the `done` line
+ * (guaranteed last by `buildCannedResponse`) in the second half. Lets an
+ * xlarge-output golden task realistically simulate a response that got
+ * cut off mid-stream (`finishReason: "max_tokens"`) and needed
+ * `@ao/core`'s real `runWithContinuation` (PROTOCOLS.md §5) to finish it
+ * — the exact scenario a genuinely large output would hit against a real
+ * model's output cap, not something artificial to this mock.
+ */
+export function splitForContinuation(fullText: string): { initialText: string; continuationText: string } {
+  const lines = fullText.split("\n").filter((line) => line.length > 0);
+  const splitIndex = Math.min(Math.max(1, Math.ceil(lines.length / 2)), lines.length - 1);
+  const initialLines = lines.slice(0, splitIndex);
+  const continuationLines = lines.slice(splitIndex);
+  return {
+    initialText: `${initialLines.join("\n")}\n`,
+    continuationText: continuationLines.join("\n"),
+  };
+}
+
+/**
  * Synthetic shard items every `shard`-mode stage in a golden task fans
  * out over — content doesn't matter for the mechanical assertions this
  * harness checks (P11-T2's content/quality grading is a separate, later

@@ -1979,8 +1979,58 @@
       מכניות בלבד (schema/success/תקציב/זמן), לא איכות תוכן. (3) קטגוריית `data` (3 מקרים) נוספה כדומיין
       שלישי מעבר לשני הדומיינים שהמשימה דרשה במפורש ("קוד/מסמכים") — לא תחליף להם, שניהם מכוסים במלואם
       בנפרד (6 code, 3 docs).
-- [ ] **P11-T3 · מדדים** — טוקנים, זמן, פגיעות מטמון, הפרות סכמה, עמידה בקריטריונים, הידרדרויות, המשכות.
+- [x] **P11-T3 · מדדים** — טוקנים, זמן, פגיעות מטמון, הפרות סכמה, עמידה בקריטריונים, הידרדרויות, המשכות.
       *גמור:* נשמרים לאורך זמן · נסיגה מזוהה אוטומטית.
+      *כפי שמומש:* גילוי אמיתי מהמחקר, אותה תבנית בדיוק כמו P9/P10/P11-T1: `packages/core/src/continuation/
+      continuation.ts`'s `runWithContinuation` (P5-T8, PROTOCOLS.md §5 — "עד 3 המשכות ל-Task") **קיים,
+      בדוק-יחידה במלואו, ואף פעם לא נצרך בשום קוד ריצה אמיתי** — לא ב-`apps/runtime`, ואפילו לא ב-
+      `recipe-end-to-end.test.ts` (P10-T5) שהוא ה-harness האמיתי הקרוב ביותר; כל מקום קורא ל-`collectGenerate`
+      הגולמי בלבד. זו בדיוק תבנית "תשתית אמיתית קיימת עמוק בקוד, אף פעם לא מחוברת" — נסגרה כאן **בתוך
+      `@ao/evals` בלבד** (לא ב-`apps/runtime`, שנשאר בדיוק כפי שהיה — חיווט ה-continuation האמיתי לתזמון
+      הייצור עצמו נשאר פער תיעודי-בכנות, לא "תוקן" מחוץ להיקף P11).
+      **מנגנון**: `apps/evals/src/canned-responses.ts`'s `splitForContinuation` — מפצל תגובה מתוכננת לשני
+      חצאים אמיתיים (שורות NDJSON שלמות, לא גזירת-תווים), שומר תמיד את שורת ה-`done` בחצי השני. `run-case.ts`
+      קורא ל-`runWithContinuation` האמיתי (לא מחקה אותו) על כל Task, כשה-`taskProvider` מוזן עם 2 תשובות
+      (`finishReason: "max_tokens"` ואז `"stop"`) **רק** כש-`estimatedSize: xlarge` **וגם** `agentType` הוא
+      `writer`/`coder` — שני סוגי הסוכן היחידים מבין 5 שבאמת מייצרים תוכן מהותי (ל-reader/analyst/critic אין
+      "פלט גדול" גם במשימת xlarge, אותו דבר בעולם האמיתי: ה-recon לא הופך לארוך יותר רק כי המסמך הסופי גדול).
+      **באג אמיתי שנתפס בהרצת pnpm eval אמיתית, לא בבדיקת יחידה**: הגרסה הראשונה תנתה את `useContinuation`
+      **לפי המקרה כולו** (לא לפי agentType) — הרצה בפועל הראתה `continuationAttempts: 5`/`7` על שני מקרי
+      ה-xlarge (במקום 1/3 הצפוי), כי גם שלבי ה-reader (shard, 4/3 משימות) "נזקקו" להמשכה בטעות. תוקן בקוד
+      עצמו (לא רק בתיעוד): הגבלה מפורשת ל-`writer`/`coder`; אומת שוב — `document-from-sources-large-output-he`:
+      1 המשכה (writer, single-mode), `migration-code-large-output-en`: 3 המשכות (coder, shard count=3) —
+      תואם בדיוק את מבנה ה-Stage האמיתי מהמתכון. `maxTokensSpent` של שני המקרים עודכן פעמיים בעקבות זה
+      (מהמספרים האמיתיים שנצפו בכל שלב) — לא הוקפא על ניחוש ביניים.
+      **מדדים חדשים** (`EvalCaseRunResult`): `continuationAttempts` (סכום אמיתי מ-`ContinuationResult.attempts.
+      length`), `cacheHitTokens` (סכום `Usage.cachedTokens` אמיתי על פני כל קריאה — **בכנות תמיד 0 היום**:
+      אף תגובת `MockLLMProvider` לא מגדירה `cachedTokens`, כי אין עדיין שכבת מטמון אמיתית מחוברת ל-harness;
+      זה נתון אמיתי-ותמיד-אפס, לא הושמט ולא זויף), `criteriaMet`/`criteriaUnmet` (סכום אמיתי מ-
+      `doneEnvelope.selfCheck.criteriaMet/unmet` — נתון אמיתי מתוך ה-envelope המפוענח, לא שיפוט איכות; זה
+      תפקידו של השופט ב-P11-T4). `report-table.ts` מציג עמודות `continuations`/`criteria` חדשות ושורת
+      "cache hits: N tokens" בסיכום.
+      **נשמרים לאורך זמן**: `apps/evals/src/history.ts` — `<evalsDir>/history.jsonl` (JSON Lines), שורה
+      אחת לכל `(timestamp, caseId)`, נכתב (append) ע"י כל הרצת `pnpm eval` ונשמר בגיט כקובץ עוקב-שינויים
+      רגיל — "לאורך זמן" חוצה commits אמיתיים, לא רק תהליך אחד. **פער שתועד בכנות**: שמירת הקובץ הזה חוצה
+      הרצות CI (שבהן ה-checkout בד"כ חד-פעמי/read-only) היא מנגנון נפרד שלא נבנה כאן — משאיר את זה ל-P11-T5,
+      שממילא בונה את שכבת "תת-קבוצה זולה ב-CI" הספציפית.
+      **נסיגה מזוהה אוטומטית**: `detectRegressions` — משווה כל מקרה מול הרשומה **העדכנית ביותר** (לפי
+      timestamp, לא הישנה ביותר) עבור אותו `caseId` בהיסטוריה הקודמת (מקרה בלי היסטוריה קודמת — ריצה
+      ראשונה אי-פעם — לא מסומן, אין מול מה להשוות). `tokensSpent`/`schemaViolations` — כל עלייה נחשבת
+      נסיגה (המדדים דטרמיניסטיים לחלוטין מול `MockLLMProvider`, אז כל שינוי הוא אמיתי, לא רעש). `pass:
+      true→false` נדגל; `false→true` לא (שיפור, לא נסיגה). `durationMs` — רק קפיצה של פי 3+ **וגם** מעל
+      50ms (זמן-קיר אמיתי, לא דטרמיניסטי כמו טוקנים — צריך סבילות לרעש-תזמון). נסיגה **מפילה את הריצה**
+      (`exitCode 1`) גם כשכל מקרה בודד עדיין עובר את ה-assertions הסטטיים שלו — זה בדיוק ההבדל בין T1/T2's
+      תקרות-מוחלטות לבין T3's נסיגה-יחסית.
+      **אימות אמיתי, לא רק בדיקות יחידה**: שתי הרצות `pnpm eval` רצופות על אותה 12-fixture מראות אפס
+      נסיגות (דטרמיניזם אמיתי, לא רק תיאורטי). ואז — harness זמני אמיתי: הוזרקה רשומת history מזויפת
+      עתידית-תאריך עם `tokensSpent: 1` עבור `repo-analysis-small-he`, הורץ `node dist/index.js` ישירות —
+      הראה בפועל `"1 regression(s) detected"` + `exit code 1` עם הסיבה המדויקת ("tokensSpent regressed: 1
+      -> 13545"), בעוד שכל 12 המקרים עדיין הראו `PASS` משלהם. **נמחקה לפני commit** (וגם `evals/history.jsonl`
+      אופס והורץ מחדש נקי, שורה אחת אמיתית לכל אחד מ-12 המקרים).
+      26 בדיקות חדשות (3 splitForContinuation + 4 ב-run-case.test.ts [xlarge ↔ continuation, non-xlarge ↔
+      אפס, criteriaMet/Unmet אמיתי, cacheHitTokens כן-0] + 16 ב-history.test.ts חדש + 3 ב-report-table.test.ts).
+      `pnpm typecheck`/`lint`/`format:check`/`build` נקיים על כל 10 חבילות. `vitest run` מהשורש: 1523/1524 —
+      הכשל היחיד הוא **אותה** מגבלת-סביבה מ-P10-T6/P11-T1/T2 (`docker-sandbox.test.ts`), לא רגרסיה.
 - [ ] **P11-T4 · שופט איכות** — ציון LLM מול rubric, **בתקציב קבוע ומופרד**.
       *גמור:* עקבי בין הרצות · לא נספר בתקציב המשימה.
 - [ ] **P11-T5 · נסיגות עלות** — סף שנכשל כשמשימה מתייקרת מעל X%.

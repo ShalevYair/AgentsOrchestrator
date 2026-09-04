@@ -3,6 +3,13 @@ import { listEvalCaseIds, loadEvalCase } from "@ao/platform";
 import { resolveAgentsDir } from "./agents-dir.js";
 import { parseTagFilters } from "./cli-args.js";
 import { resolveEvalsDir } from "./evals-dir.js";
+import {
+  appendHistory,
+  detectRegressions,
+  loadHistory,
+  resolveHistoryPath,
+  toHistoryEntry,
+} from "./history.js";
 import { resolveRecipesDir } from "./recipes-dir.js";
 import { printReportTable } from "./report-table.js";
 import { runEvalCase, type EvalCaseRunResult } from "./run-case.js";
@@ -46,14 +53,29 @@ async function main(): Promise<void> {
         tokensSpent: 0,
         costUsd: 0,
         schemaViolations: 0,
+        continuationAttempts: 0,
+        cacheHitTokens: 0,
+        criteriaMet: 0,
+        criteriaUnmet: 0,
         planSource: "planner",
         cancelled: false,
       });
     }
   }
 
-  printReportTable(results);
-  process.exitCode = results.every((r) => r.pass) ? 0 : 1;
+  // TASKS.md P11-T3: compare against every case's own prior history
+  // *before* this run's entries are appended to it, then persist this
+  // run so the next invocation (a future commit, a future CI run) has
+  // this one to compare against in turn.
+  const historyPath = resolveHistoryPath(evalsDir);
+  const previousHistory = loadHistory(historyPath);
+  const timestamp = new Date().toISOString();
+  const currentEntries = results.map((result) => toHistoryEntry(result, timestamp));
+  const regressions = detectRegressions(previousHistory, currentEntries);
+  appendHistory(historyPath, currentEntries);
+
+  printReportTable(results, regressions);
+  process.exitCode = results.every((r) => r.pass) && regressions.length === 0 ? 0 : 1;
 }
 
 main().catch((error: unknown) => {

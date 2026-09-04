@@ -130,4 +130,42 @@ describe("runEvalCase", () => {
     expect(xlarge.pass).toBe(true);
     expect(xlarge.tokensSpent).toBeGreaterThan(small.tokensSpent);
   });
+
+  it("P11-T3: an xlarge case genuinely drives @ao/core's real runWithContinuation to completion, not a label", async () => {
+    const result = await runEvalCase(
+      baseCase({
+        budgetTotal: 3_000_000,
+        understanding: {
+          ...baseCase().understanding,
+          deliverableShape: { kind: "markdown", estimatedSize: "xlarge", structure: "sectioned" },
+        },
+      }),
+      { agentsDir, recipesDir },
+    );
+
+    expect(result.pass).toBe(true);
+    expect(result.continuationAttempts).toBeGreaterThan(0);
+  });
+
+  it("P11-T3: a non-xlarge case needs zero continuation attempts (its canned response always finishes in one call)", async () => {
+    const result = await runEvalCase(baseCase(), { agentsDir, recipesDir });
+
+    expect(result.pass).toBe(true);
+    expect(result.continuationAttempts).toBe(0);
+  });
+
+  it("P11-T3: criteriaMet/criteriaUnmet reflect the real doneEnvelope.selfCheck from every successful task", async () => {
+    const result = await runEvalCase(baseCase(), { agentsDir, recipesDir });
+
+    // repo-analysis has 3 stages (read/analyze/write), each single- or
+    // shard-mode — every successful task's canned `done` envelope reports
+    // exactly one met criterion and zero unmet ones (canned-responses.ts).
+    expect(result.criteriaMet).toBeGreaterThan(0);
+    expect(result.criteriaUnmet).toBe(0);
+  });
+
+  it("P11-T3: cacheHitTokens is honestly 0 — no case's MockLLMProvider response sets cachedTokens", async () => {
+    const result = await runEvalCase(baseCase(), { agentsDir, recipesDir });
+    expect(result.cacheHitTokens).toBe(0);
+  });
 });

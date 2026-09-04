@@ -4,10 +4,11 @@ import {
   buildTokenReport,
   collectGenerate,
   Ledger,
-  parseNdjson,
   planWithRecipe,
   runScheduler,
+  runWithContinuation,
   validatePlan,
+  type ContinuationOutcome,
   type NdjsonParseResult,
   type PlanValidationContext,
   type ScheduledTask,
@@ -16,7 +17,22 @@ import {
 import { listAgentTypes, loadAgent, loadRecipe, resolveOutputSchema } from "@ao/platform";
 import { MockLLMProvider, resolveModelEntry, WORKER_MODEL_ID } from "@ao/providers";
 import type { EvalCase, TaskUnderstanding } from "@ao/shared";
-import { buildCannedResponse, buildEvalShardItems } from "./canned-responses.js";
+import { buildCannedResponse, buildEvalShardItems, splitForContinuation } from "./canned-responses.js";
+
+/**
+ * P11-T3 — one Task's real output plus the continuation-protocol metadata
+ * `@ao/core`'s `runWithContinuation` (PROTOCOLS.md §5) reports about how
+ * it got there. `runScheduler`'s `T` is generic exactly so a caller can
+ * inject this kind of richer per-Task value instead of the bare parse
+ * result P11-T1/T2 used.
+ */
+export interface EvalTaskOutcomeValue {
+  parsed: NdjsonParseResult;
+  continuationAttempts: number;
+  continuationOutcome: ContinuationOutcome;
+  /** `Usage.cachedTokens` summed across the initial call plus every continuation attempt for this Task. */
+  cacheHitTokens: number;
+}
 
 /** `inputScale: "large"` feeds far more shard items to `shard`-mode stages than a `"small"`/omitted case — enough to make `MockLLMProvider`'s length-based prompt-token estimate genuinely differ between the two, not just differ in label. */
 const SHARD_ITEM_COUNT_BY_INPUT_SCALE: Record<"small" | "large", number> = { small: 4, large: 200 };
@@ -63,6 +79,14 @@ export interface EvalCaseRunResult {
   costUsd: number;
   /** Summed across every task outcome's `NdjsonParseResult.schemaViolations`. */
   schemaViolations: number;
+  /** Summed across every task's real `runWithContinuation` attempts (PROTOCOLS.md §5) — 0 for every case whose canned response fits in one call, which is every P11-T2 case except the two `estimatedSize: xlarge` ones this task wires to genuinely need it. */
+  continuationAttempts: number;
+  /** Summed `Usage.cachedTokens` across every real call this run made (initial + continuation) — honestly 0 today: no case's `MockLLMProvider` response ever sets `cachedTokens`, because no real caching layer (context cache / response cache) is wired into this harness yet. Reported as a real (currently-always-zero) measurement, not omitted, so a future case that does exercise caching shows up here without further plumbing. */
+  cacheHitTokens: number;
+  /** Sum of `doneEnvelope.selfCheck.criteriaMet.length` across every successful task — real self-reported data from the canned `done` envelope (PROTOCOLS.md §3), not a quality judgment (that's P11-T4's LLM judge). */
+  criteriaMet: number;
+  /** Sum of `doneEnvelope.selfCheck.unmet.length` across every successful task. */
+  criteriaUnmet: number;
   planSource: "recipe" | "planner";
   cancelled: boolean;
 }
@@ -162,7 +186,30 @@ export async function runEvalCase(
   });
   const stageById = new Map(plan.stages.map((s) => [s.id, s]));
 
-  const runTask = async (task: ScheduledTask): Promise<TaskRunResult<NdjsonParseResult>> => {
+  // P11-T3 — xlarge-output cases genuinely need @ao/core's real
+  // runWithContinuation (PROTOCOLS.md §5): the canned response is
+  // deliberately split so the first call looks cut off by the output cap
+  // (finishReason: "max_tokens", not done) and a second call finishes it,
+  // exactly as a real model output that large would hit against
+  // outputContract.maxOutputTokens. Every other case's canned response
+  // always finishes "stop" already done, so runWithContinuation's own
+  // "already-complete" fast path applies — zero behavior change for them.
+  //
+  // Gated on agentType, not just the case's estimatedSize: across all 5
+  // recipes, only `writer` (sections) and `coder` (file content) ever
+  // generate substantial new prose/content — `reader`/`analyst`/`critic`
+  // stay comparatively short regardless of the deliverable's declared
+  // size (a recon reader's per-file findings don't balloon just because
+  // the final document will be huge; only the stage that actually
+  // assembles that document does). Applying this to every stage
+  // indiscriminately (an earlier version of this code did) would have
+  // made every xlarge case's *reader* stage also "need" continuation —
+  // not a real property of a large output, just an artifact of a coarser
+  // condition.
+  const xlargeOutput = evalCase.understanding.deliverableShape.estimatedSize === "xlarge";
+  const CONTENT_PRODUCING_AGENT_TYPES = new Set(["writer", "coder"]);
+
+  const runTask = async (task: ScheduledTask): Promise<TaskRunResult<EvalTaskOutcomeValue>> => {
     const { definition, promptTemplate } = loadAgent(options.agentsDir, task.agentType);
     const outputSchema = resolveOutputSchema(definition.outputContract.schemaRef);
     const stage = stageById.get(task.stageId);
@@ -178,13 +225,48 @@ export async function runEvalCase(
     const request = buildAgentRequest(definition, prompt, { model });
     const cannedText = buildCannedResponse(task.agentType, outputScale);
     if (!cannedText) throw new Error(`no canned eval response for agentType "${task.agentType}"`);
-    const taskProvider = new MockLLMProvider({ responses: [{ text: cannedText }] });
+    const useContinuation = xlargeOutput && CONTENT_PRODUCING_AGENT_TYPES.has(task.agentType);
+
+    const taskProvider = useContinuation
+      ? (() => {
+          const { initialText, continuationText } = splitForContinuation(cannedText);
+          return new MockLLMProvider({
+            responses: [
+              { text: initialText, finishReason: "max_tokens" },
+              { text: continuationText, finishReason: "stop" },
+            ],
+          });
+        })()
+      : new MockLLMProvider({ responses: [{ text: cannedText }] });
+
     const collected = await collectGenerate(taskProvider, request);
-    const parsed = parseNdjson(collected.text);
-    return { usage: collected.usage, modelId: request.model, value: parsed };
+    const continuationResult = await runWithContinuation({
+      ledger: executionLedger,
+      provider: taskProvider,
+      stageId: task.stageId,
+      agentType: task.agentType,
+      baseRequest: request,
+      initialText: collected.text,
+      initialFinishReason: collected.finishReason,
+      worstCasePerContinuation: 5000,
+    });
+    const cacheHitTokens =
+      collected.usage.cachedTokens +
+      continuationResult.attempts.reduce((sum, attempt) => sum + attempt.usage.cachedTokens, 0);
+
+    return {
+      usage: collected.usage,
+      modelId: request.model,
+      value: {
+        parsed: continuationResult.parsed,
+        continuationAttempts: continuationResult.attempts.length,
+        continuationOutcome: continuationResult.outcome,
+        cacheHitTokens,
+      },
+    };
   };
 
-  const schedulerResult = await runScheduler<NdjsonParseResult>({
+  const schedulerResult = await runScheduler<EvalTaskOutcomeValue>({
     ledger: executionLedger,
     plan,
     runTask,
@@ -205,18 +287,37 @@ export async function runEvalCase(
     failures.push("scheduler produced zero task outcomes");
   }
   let schemaViolations = 0;
+  let continuationAttempts = 0;
+  let cacheHitTokens = 0;
+  let criteriaMet = 0;
+  let criteriaUnmet = 0;
   for (const outcome of allOutcomes) {
     if (outcome.status !== "success") {
       failures.push(`task ${outcome.taskId} did not succeed: status=${outcome.status}`);
       continue;
     }
-    const violations = outcome.value?.schemaViolations ?? 0;
+    const value = outcome.value;
+    const violations = value?.parsed.schemaViolations ?? 0;
     schemaViolations += violations;
     if (violations !== 0) {
       failures.push(`task ${outcome.taskId} produced ${String(violations)} schema violation(s)`);
     }
-    if (outcome.value?.done !== true) {
+    if (value?.parsed.done !== true) {
       failures.push(`task ${outcome.taskId} did not report done`);
+    }
+    if (value) {
+      continuationAttempts += value.continuationAttempts;
+      cacheHitTokens += value.cacheHitTokens;
+      if (value.continuationAttempts > 0 && value.continuationOutcome !== "completed") {
+        failures.push(
+          `task ${outcome.taskId} needed continuation but ended with outcome "${value.continuationOutcome}"`,
+        );
+      }
+      const selfCheck = value.parsed.doneEnvelope?.selfCheck;
+      if (selfCheck) {
+        criteriaMet += selfCheck.criteriaMet.length;
+        criteriaUnmet += selfCheck.unmet.length;
+      }
     }
   }
 
@@ -243,6 +344,10 @@ export async function runEvalCase(
     tokensSpent: report.grandTotalSpent,
     costUsd: report.totalCostUsd,
     schemaViolations,
+    continuationAttempts,
+    cacheHitTokens,
+    criteriaMet,
+    criteriaUnmet,
     planSource: source,
     cancelled: schedulerResult.cancelled,
   };

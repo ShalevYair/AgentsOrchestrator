@@ -13,6 +13,10 @@ function result(overrides: Partial<EvalCaseRunResult> = {}): EvalCaseRunResult {
     tokensSpent: 100,
     costUsd: 0.01,
     schemaViolations: 0,
+    continuationAttempts: 0,
+    cacheHitTokens: 0,
+    criteriaMet: 0,
+    criteriaUnmet: 0,
     planSource: "recipe",
     cancelled: false,
     ...overrides,
@@ -59,14 +63,40 @@ describe("printReportTable", () => {
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("reason two"));
   });
 
-  it("sums tokens/cost/time across all results into the totals line", () => {
+  it("sums tokens/cost/time/cache-hits across all results into the totals line", () => {
     printReportTable([
-      result({ tokensSpent: 100, costUsd: 0.01, durationMs: 10 }),
-      result({ tokensSpent: 200, costUsd: 0.02, durationMs: 20 }),
+      result({ tokensSpent: 100, costUsd: 0.01, durationMs: 10, cacheHitTokens: 5 }),
+      result({ tokensSpent: 200, costUsd: 0.02, durationMs: 20, cacheHitTokens: 7 }),
     ]);
 
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("tokens: 300"));
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("$0.0300"));
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("30ms"));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("cache hits: 12 tokens"));
+  });
+
+  it("includes continuations and criteria in each table row", () => {
+    printReportTable([result({ continuationAttempts: 2, criteriaMet: 3, criteriaUnmet: 1 })]);
+
+    expect(tableSpy).toHaveBeenCalledWith([expect.objectContaining({ continuations: 2, criteria: "3/4" })]);
+  });
+
+  it("says nothing about regressions when none are passed in", () => {
+    printReportTable([result()]);
+    expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining("regression"));
+  });
+
+  it("lists every regression finding when some are passed in", () => {
+    printReportTable(
+      [result()],
+      [
+        { caseId: "case-a", reason: "tokensSpent regressed: 100 -> 200" },
+        { caseId: "case-b", reason: "now fails" },
+      ],
+    );
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("2 regression(s) detected"));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("case-a: tokensSpent regressed: 100 -> 200"));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("case-b: now fails"));
   });
 });

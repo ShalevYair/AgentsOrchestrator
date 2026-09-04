@@ -3,7 +3,9 @@ description: >-
   P11-T2 golden task — מסמך ממקורות עם פלט גדול (עברית, מסמכים/יצירה):
   מתכון "מסמך ממקורות" (reader->writer), עם deliverableShape.estimatedSize:
   xlarge — מכפיל את מספר הסעיפים שה-writer הסינתטי מייצר (ולכן את הטוקנים
-  שהוא באמת מוציא), לא רק את התווית. מכסה את סולם "פלט גדול".
+  שהוא באמת מוציא), לא רק את התווית. מכסה את סולם "פלט גדול". מ-P11-T3:
+  xlarge גם מפעיל בפועל את `runWithContinuation` האמיתי (תגובת ה-writer
+  מפוצלת ל-2 קריאות אמיתיות, לא רק קריאה אחת).
 tags: [large-output, docs, creation, he]
 recipeName: document-from-sources
 userRequest: "כתוב מסמך מקיף המבוסס על המקורות שסופקו, כולל כל הסעיפים הרלוונטיים"
@@ -21,5 +23,5 @@ understanding:
   ambiguities: []
   riskFlags: ["large-output"]
 assertions:
-  maxTokensSpent: 22000
+  maxTokensSpent: 27000
   maxDurationMs: 5000

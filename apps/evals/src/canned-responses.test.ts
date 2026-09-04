@@ -1,6 +1,6 @@
 import { parseNdjson } from "@ao/core";
 import { describe, expect, it } from "vitest";
-import { buildCannedResponse, buildEvalShardItems } from "./canned-responses.js";
+import { buildCannedResponse, buildEvalShardItems, splitForContinuation } from "./canned-responses.js";
 
 const AGENT_TYPES = ["reader", "analyst", "writer", "critic", "coder"];
 
@@ -36,6 +36,36 @@ describe("buildCannedResponse", () => {
       const lastLine = text.trim().split("\n").at(-1);
       expect(JSON.parse(lastLine ?? "{}")).toMatchObject({ t: "done" });
     }
+  });
+});
+
+describe("splitForContinuation", () => {
+  it("splits a multi-line response into two non-empty halves whose concatenation reparses identically", () => {
+    const full = buildCannedResponse("writer", 9) ?? "";
+    const { initialText, continuationText } = splitForContinuation(full);
+
+    expect(initialText.length).toBeGreaterThan(0);
+    expect(continuationText.length).toBeGreaterThan(0);
+    const reparsed = parseNdjson(initialText + continuationText);
+    const original = parseNdjson(full);
+    expect(reparsed.schemaViolations).toBe(0);
+    expect(reparsed.envelopes).toEqual(original.envelopes);
+  });
+
+  it("the initial half is never done and the continuation half completes it", () => {
+    const full = buildCannedResponse("coder", 9) ?? "";
+    const { initialText, continuationText } = splitForContinuation(full);
+
+    expect(parseNdjson(initialText).done).toBe(false);
+    expect(parseNdjson(initialText + continuationText).done).toBe(true);
+  });
+
+  it("keeps the done line in the continuation half even for a minimal 2-line response", () => {
+    const full = buildCannedResponse("reader", 1) ?? "";
+    const { initialText, continuationText } = splitForContinuation(full);
+
+    expect(parseNdjson(initialText + continuationText).done).toBe(true);
+    expect(continuationText).toContain('"t":"done"');
   });
 });
 
