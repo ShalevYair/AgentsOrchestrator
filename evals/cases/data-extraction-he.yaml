@@ -1,0 +1,25 @@
+id: data-extraction-he
+description: >-
+  P11-T1 smoke fixture — מריץ את מתכון "חילוץ נתונים" מקצה לקצה (כולל שלב
+  coder עם file_begin/chunk/end אמיתי) דרך אותה שרשרת אמיתית. מוכיח שהמסגרת
+  מטפלת גם בסוג deliverable "data", לא רק markdown; אינו אחד מ-12 משימות
+  הזהב הנדרשות ב-P11-T2.
+tags: [small, data, analysis, he]
+recipeName: data-extraction
+userRequest: "חלץ מהחומר הגולמי נקודות נתונים מובנות וכתוב קובץ JSON אחד"
+budgetTotal: 1000000
+budgetLevel: standard
+understanding:
+  intent: analyze
+  deliverableShape:
+    kind: data
+    estimatedSize: small
+    structure: atomic
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "קובץ הנתונים תקין ומובנה"
+  ambiguities: []
+  riskFlags: []
+assertions:
+  maxTokensSpent: 50000
+  maxDurationMs: 5000

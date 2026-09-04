@@ -1858,8 +1858,77 @@
 
 **מטרה:** להפוך "נראה שזה עובד" ל"נמדד שזה עובד".
 
-- [ ] **P11-T1 · מסגרת evals** — `evals/` עם fixtures, תקציב ואסרציות.
+- [x] **P11-T1 · מסגרת evals** — `evals/` עם fixtures, תקציב ואסרציות.
       *גמור:* `pnpm eval` מריץ הכל ומדפיס טבלה.
+      *כפי שמומש:* גילוי אמיתי מהמחקר, אותה תבנית בדיוק כמו P9/P10: אין שום תשתית eval/benchmark/golden-task
+      קיימת מראש (`grep` על eval/benchmark/golden בכל הקוד לא העלה דבר מחוץ ל-TASKS.md עצמו) — **אבל**
+      `apps/runtime/src/recipe-end-to-end.test.ts` (P10-T5) כבר היה בפועל בדיוק המנגנון הדרוש: מריץ שרשרת
+      אמיתית `planWithRecipe` → `validatePlan` → `runScheduler` מול `MockLLMProvider`, עם תשובת NDJSON
+      מקודדת-קשיח אחת לכל agentType (`RESPONSES_BY_AGENT_TYPE`), לכל אחד מ-5 המתכונים — רק שזה היה חמישה
+      גופי-בדיקה נפרדים וקשיחים, לא מסגרת מונעת-נתונים. זה בדיוק מה ש-P11-T1 היה צריך לבנות **עליו**, לא
+      מאפס — אותה תבנית "תשתית אמיתית קיימת עמוק בקוד, אף פעם לא מחוברת כמנגנון כללי" שחזרה גם ב-P9 וגם
+      ב-P10.
+      **סכמה** (`packages/shared/src/schemas/eval-case.ts`): `EvalCaseSchema` — `understanding` הוא
+      `TaskUnderstandingSchema.omit({ suggestedRecipe: true })` בכוונה: ה-runner הוא זה שממלא
+      `suggestedRecipe: recipeName`, כדי שקובץ fixture לא יוכל לסתור את עצמו (לרשום מתכון אחד ב-`recipeName`
+      ואחר ב-`understanding.suggestedRecipe`). `assertions` (`maxTokensSpent`/`maxDurationMs`) שני השדות
+      אופציונליים — זה בדיוק "fixtures, תקציב ואסרציות" מנוסח המשימה: תקציב נבדק מול `TokenReport.grandTotalSpent`
+      האמיתי (`@ao/core`'s `buildTokenReport`, P4-T8, **נעשה בו reuse מלא**, לא נבנה מחדש), לא מספר מומצא.
+      6 בדיקות ב-`eval-case.test.ts`.
+      **רישום מקבצים** (`packages/platform/src/eval-registry/loader.ts`): `listEvalCaseIds`/`loadEvalCase` —
+      **אותו דפוס בדיוק** כמו `agent-registry`/`recipe-registry` (P10-T1/T4): `evals/cases/<id>.yaml`, קריאה
+      טרייה מהדיסק בכל קריאה (חם מובנה-בעיצוב, לא watcher, כמו כל השאר), `NotFoundError`/`ConfigError` עקביים,
+      אימות ש-`id` בקובץ תואם את שם הקובץ. 10 בדיקות ב-`loader.test.ts`.
+      **חיפוש תיקיית evals/**: `apps/runtime/src/agents-dir.ts`/`recipes-dir.ts` הם פרטיים ל-`apps/runtime`
+      (לא מיוצאים דרך `dist/index.js` של החבילה הזו — זו נקודת הכניסה שמרימה שרת HTTP, לא ספרייה ל-import
+      מ-`apps/evals`). `apps/evals` היה צריך שלוש פונקציות דומות (agents/recipes/evals) — נקודה שבה העתקה
+      נוספת של אותן ~10 שורות הפכה יקרה יותר מהפשטה. חולץ `resolveWorkspaceSubdir` חדש
+      (`packages/platform/src/paths/workspace-subdir.ts`) — "env var override, אחרת `findWorkspaceRoot`+join"
+      — **בלי לגעת** בשתי הפונקציות הקיימות של `apps/runtime` (כבר שולחו, כבר בדוקות, אין סיבה). שלוש
+      עטיפות דקות-שורה-אחת ב-`apps/evals/src/{agents,recipes,evals}-dir.ts` בונות עליו, עם אותם שמות משתני
+      סביבה בדיוק (`AO_AGENTS_DIR`/`AO_RECIPES_DIR`/`AO_EVALS_DIR`) כדי שדריסה תחול זהה על שתי האפליקציות.
+      5 בדיקות ב-`workspace-subdir.test.ts`.
+      **`apps/evals`** — אפליקציית composition-root חדשה, מבנה זהה ל-`apps/runtime` (`tsc -b`, `node
+      dist/index.js`): `run-case.ts`'s `runEvalCase` הוא **הכללה** של `recipe-end-to-end.test.ts`'s
+      `runRecipeEndToEnd` הפרטית ל-פונקציה מונעת-`EvalCase`: אותה שרשרת אמיתית בדיוק
+      (`planWithRecipe`/`validatePlan`/`runScheduler`/`loadAgent`/`buildAgentPrompt`/`buildAgentRequest`/
+      `collectGenerate`/`parseNdjson`), אבל בודקת גם `source === "recipe"` (אפס קריאות LLM לתכנון — נבדק
+      מבנית: `plannerProvider` מקבל `responses: []` בכוונה, כך שנפילה-חזרה אמיתית ל-planner תיכשל בקול רם
+      במקום להסוות fixture שבור בתוכנית שנוצרה מ-LLM), שכל outcome הצליח עם `schemaViolations === 0` ו-
+      `done === true`, ואז את שני סייגי ה-assertions האופציונליים מול `buildTokenReport` וזמן-קיר אמיתי
+      (`performance.now()`). `Ledger`'s `pricing` מחובר ל-`resolveModelEntry` **בדיוק** כמו
+      `apps/runtime/src/chat/run-chat.ts` (`pricing: (id) => resolveModelEntry(id)?.pricing`) — לא מקור חדש
+      של מחיר לא-מאומת, reuse של אותו אחד קיים. `canned-responses.ts` **לא** מיובא מ-`recipe-end-to-end.test.ts`
+      של `apps/runtime` בכוונה — זה קובץ בדיקה פרטי, לא ייצוא ספרייה, וזול יותר לשכפל כ-30 שורות fixture-glue
+      כאן מאשר להפוך בדיקה פרטית לתלות חוצה-אפליקציות. `report-table.ts`'s `printReportTable` היא ה"מדפיס
+      טבלה" המילולי מהגדרת-הגמור — `console.table` (אותה תקדימה בדיוק כמו `packages/providers/src/demo.ts`'s
+      CLI). `index.ts` תומך גם ב-`--tag=` (חוזר) לסינון — המנגנון ש-P11-T5's "תת-קבוצה זולה ב-CI" ידרוש
+      בהמשך, לא מחובר לשום job עדיין. שורש: `"eval": "pnpm --filter @ao/evals start"` עם `preeval` שבונה
+      את `@ao/evals` ואת כל תלויות ה-workspace שלו (`pnpm --filter @ao/evals... build`).
+      **3 fixtures לדוגמה** (`evals/cases/*.yaml`) — `repo-analysis-small-he` (עברית, markdown),
+      `code-review-en` (אנגלית, markdown), `data-extraction-he` (עברית, deliverable מסוג `data` עם שלב
+      `coder` אמיתי) — כל אחד מתעד בתיאור שלו-עצמו **בפירוש** שהוא אינו אחד מ-12 משימות הזהב הנדרשות
+      ב-P11-T2 (אלה עדיין לא נכתבו) אלא רק הוכחה שהמסגרת רצה. **אימות אמיתי, לא רק ולידציה סטטית** (בדיוק
+      כפי שנדרש): נוצר `evals/cases/tmp-verify-failure.yaml` זמני עם `maxTokensSpent: 1` בלתי-אפשרי — הרצה
+      אמיתית של `pnpm eval` הראתה שורת `FAIL` עם הסיבה המדויקת ("grandTotalSpent ... exceeds
+      maxTokensSpent 1") ו-`exit code 1` אמיתי; אז נערך לרפרנס `recipeName: nonexistent-recipe` — הראה
+      ש-`index.ts`'s try/catch תופס את ה-`NotFoundError` האמיתי מ-`loadRecipe` ומדווח "threw instead of
+      completing" עם ה-stack האמיתי, שוב עם `exit code 1`. שני המקרים הוכיחו שהמסגרת לא "חותמת גומי" —
+      **נמחק לפני commit**, כנדרש.
+      35 בדיקות חדשות סה"כ (6 eval-case + 10 eval-registry loader + 5 workspace-subdir + 14 ב-`@ao/evals`:
+      6 run-case + 4 cli-args + 4 report-table). `pnpm typecheck`/`lint`/`format:check`/`build` נקיים על כל
+      10 חבילות/אפליקציות (כולל `@ao/evals` החדשה). `vitest run` מהשורש: 1478/1479 — הכשל היחיד
+      (`docker-sandbox.test.ts`'s live-daemon probe ב-`@ao/tools`) הוא בדיוק אותה מגבלת-סביבה קיימת-מראש
+      שתועדה ב-P10-T6 (אין דימון Docker בקונטיינר המרוחק הזה) — לא נגעתי ב-`packages/tools` כלל, לא רגרסיה.
+      **פערים אמיתיים שתועדו בכנות, לא הוסתרו:** (1) 3 ה-fixtures הנוכחיים רחוקים מאוד מ-"לפחות 12 משימות
+      זהב שמכסות קטן/גדול, קוד/מסמכים, ניתוח/יצירה, עברית/אנגלית" — זה **כל** P11-T2, פתוח לגמרי, לא נגעתי
+      בו כאן מעבר לשלוש דוגמאות-הוכחת-מנגנון. (2) כל מקרה חייב לעבור כרגע דרך נתיב ה-recipe נטול-ה-LLM
+      (דטרמיניסטי מול `MockLLMProvider`) — אין עדיין מקרה שמפעיל בפועל את ה-planner האמיתי מול LLM אמיתי;
+      זו בחירת-היקף מכוונת (עקבית עם כלל #6: אפס טוקנים/רשת בסוג הבדיקה הזה), לא מגבלה טכנית של הסכמה עצמה
+      (`EvalCase` לא אוסרת מקרה כזה בעתיד) — לא נבנה שום קוד מת סביב האפשרות הזו כרגע. (3) מחירי המודלים
+      שה-cost report מציג מגיעים מ-`MODEL_REGISTRY` הסטטי (`packages/providers/src/models.ts`) שכבר מסומן
+      שם עצמו כ"best-effort"/לא-מאומת עבור חלק מהערכים — לא מקור חדש של נתון לא-מאומת, reuse של אותו אחד
+      שכבר קיים ומתועד ב-`run-chat.ts`.
 - [ ] **P11-T2 · משימות זהב** — לפחות 12: קטנות/גדולות, קוד/מסמכים, ניתוח/יצירה, עברית/אנגלית.
       *גמור:* מכסות את שני הסולמות (קלט גדול, פלט גדול).
 - [ ] **P11-T3 · מדדים** — טוקנים, זמן, פגיעות מטמון, הפרות סכמה, עמידה בקריטריונים, הידרדרויות, המשכות.

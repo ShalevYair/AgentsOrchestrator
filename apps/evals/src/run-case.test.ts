@@ -1,0 +1,95 @@
+import type { EvalCase } from "@ao/shared";
+import { describe, expect, it } from "vitest";
+import { resolveAgentsDir } from "./agents-dir.js";
+import { resolveRecipesDir } from "./recipes-dir.js";
+import { runEvalCase } from "./run-case.js";
+
+const agentsDir = resolveAgentsDir({ moduleUrl: import.meta.url });
+const recipesDir = resolveRecipesDir({ moduleUrl: import.meta.url });
+
+function baseCase(overrides: Partial<EvalCase> = {}): EvalCase {
+  return {
+    id: "test-case",
+    description: "מקרה לבדיקת יחידה",
+    tags: ["small", "code"],
+    recipeName: "repo-analysis",
+    userRequest: "נתח את המאגר",
+    budgetTotal: 1_000_000,
+    budgetLevel: "standard",
+    understanding: {
+      intent: "analyze",
+      deliverableShape: { kind: "markdown", estimatedSize: "medium", structure: "sectioned" },
+      evidenceNeeds: [],
+      acceptanceCriteria: ["ok"],
+      ambiguities: [],
+      riskFlags: [],
+    },
+    assertions: {},
+    ...overrides,
+  };
+}
+
+describe("runEvalCase", () => {
+  it("passes a well-formed case through the real recipe -> plan -> scheduler chain with zero LLM planning calls", async () => {
+    const result = await runEvalCase(baseCase(), { agentsDir, recipesDir });
+
+    expect(result.pass).toBe(true);
+    expect(result.failures).toEqual([]);
+    expect(result.planSource).toBe("recipe");
+    expect(result.cancelled).toBe(false);
+    expect(result.schemaViolations).toBe(0);
+    expect(result.tokensSpent).toBeGreaterThan(0);
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("runs every documented recipe end to end, mirroring apps/runtime's own recipe-end-to-end.test.ts coverage", async () => {
+    for (const recipeName of [
+      "repo-analysis",
+      "code-review",
+      "document-from-sources",
+      "migration",
+      "data-extraction",
+    ]) {
+      const result = await runEvalCase(baseCase({ id: recipeName, recipeName }), { agentsDir, recipesDir });
+      expect({ recipeName, pass: result.pass, failures: result.failures }).toEqual({
+        recipeName,
+        pass: true,
+        failures: [],
+      });
+    }
+  });
+
+  it("fails when maxTokensSpent is set below what the run actually spends", async () => {
+    const result = await runEvalCase(baseCase({ assertions: { maxTokensSpent: 1 } }), {
+      agentsDir,
+      recipesDir,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.failures[0]).toMatch(/exceeds maxTokensSpent/);
+  });
+
+  it("fails when maxDurationMs is set to an impossible ceiling", async () => {
+    const result = await runEvalCase(baseCase({ assertions: { maxDurationMs: 0 } }), {
+      agentsDir,
+      recipesDir,
+    });
+
+    expect(result.pass).toBe(false);
+    expect(result.failures.some((f) => f.includes("exceeds maxDurationMs"))).toBe(true);
+  });
+
+  it("throws with a clear message for a recipeName that isn't registered under recipes/", async () => {
+    await expect(
+      runEvalCase(baseCase({ recipeName: "does-not-exist" }), { agentsDir, recipesDir }),
+    ).rejects.toThrow(/unknown recipe "does-not-exist"/);
+  });
+
+  it("reports grandTotalSpent and cost consistently across two runs of the exact same case (deterministic, MockLLMProvider-backed)", async () => {
+    const a = await runEvalCase(baseCase(), { agentsDir, recipesDir });
+    const b = await runEvalCase(baseCase(), { agentsDir, recipesDir });
+
+    expect(a.tokensSpent).toBe(b.tokensSpent);
+    expect(a.costUsd).toBe(b.costUsd);
+  });
+});

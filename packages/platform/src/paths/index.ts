@@ -7,6 +7,7 @@ export {
 } from "./jail.js";
 export { expandHome } from "./home.js";
 export { findWorkspaceRoot } from "./workspace-root.js";
+export { resolveWorkspaceSubdir, type ResolveWorkspaceSubdirOptions } from "./workspace-subdir.js";
 export {
   MINIMUM_PYTHON_VERSION,
   candidatesForPlatform,

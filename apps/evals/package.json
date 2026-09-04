@@ -1,0 +1,23 @@
+{
+  "name": "@ao/evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "clean": "tsc -b --clean",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@ao/core": "workspace:*",
+    "@ao/platform": "workspace:*",
+    "@ao/providers": "workspace:*",
+    "@ao/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0"
+  }
+}

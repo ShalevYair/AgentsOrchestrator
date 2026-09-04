@@ -42,6 +42,25 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@26.4.0)(@vitest/coverage-v8@4.1.11)(jsdom@25.0.1)(vite@8.2.2(@types/node@26.4.0)(jiti@1.21.7)(yaml@2.9.0))
 
+  apps/evals:
+    dependencies:
+      '@ao/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@ao/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
+      '@ao/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
+      '@ao/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+    devDependencies:
+      '@types/node':
+        specifier: ^26.4.0
+        version: 26.4.0
+
   apps/runtime:
     dependencies:
       '@ao/core':
