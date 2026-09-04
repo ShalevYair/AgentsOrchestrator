@@ -2073,8 +2073,39 @@
       **פער שנותר, מתועד בכנות**: כפי שלעיל — שיפוט תוכן-אמיתי (לא placeholder) ידרוש ספק LLM אמיתי, שאסור
       בסוג הבדיקה הזה לפי כלל #6; ה-mock כאן מוכיח שהצנרת (rubric→prompt→parse→ציון-משוקלל, תקציב נפרד,
       עקביות) עובדת נכון, לא שהתוכן הסינתטי "איכותי".
-- [ ] **P11-T5 · נסיגות עלות** — סף שנכשל כשמשימה מתייקרת מעל X%.
+- [x] **P11-T5 · נסיגות עלות** — סף שנכשל כשמשימה מתייקרת מעל X%.
       *גמור:* תת-קבוצה זולה רצה ב-CI.
+      *כפי שמומש:* מנגנון **נפרד במכוון** מ-`detectRegressions` של P11-T3, לא כפילות: `history.jsonl`
+      (T3) גדל בכל הרצה ומשווה מול הרשומה **האחרונה** בלבד (כל עלייה = נסיגה, בלי סבילות) — טוב למשוב
+      מקומי, אבל לא מתאים ל-CI (הפער שתועד ב-T3 עצמו: ל-`history.jsonl` "אין לאן לנחות" לאורך זמן ב-checkout
+      ephemeral). `apps/evals/src/cost-baseline.ts` הוא במקום זאת **קובץ snapshot קטן ומחויב-בגיט**
+      (`evals/cost-baseline.json`) שמתעדכן **בכוונה** (לא אוטומטית בכל הרצה), עם `checkCostRegressions`
+      שבודק סף אחוזי אמיתי (`COST_REGRESSION_THRESHOLD_PERCENT = 25`) — בדיוק ניסוח המשימה "מתייקרת מעל X%",
+      לא כל שינוי.
+      **"תת-קבוצה זולה"**: נעשה reuse מלא של מנגנון `--tag=` הקיים (P11-T1) — לא נבנה מנגנון סינון חדש.
+      4 מתוך 12 המשימות תויגו `ci-cheap` (`code-review-en`, `data-extraction-he`,
+      `document-from-sources-small-en`, `repo-analysis-small-he`) — אחת לכל דומיין (code/data/docs) פלוס
+      שנייה עם `code`, שתיים עברית ושתיים אנגלית, כולן בסולם `small` (הכי זול/מהיר). `evals/cost-baseline.json`
+      נבנה **מהמספרים האמיתיים שנצפו בהרצה בפועל** של `pnpm eval -- --tag=ci-cheap` (לא ניחוש): 11,452 /
+      12,987 / 10,989 / 13,545 טוקנים, בהתאמה.
+      **CI מחובר בפועל**: `.github/workflows/ci.yml` — שלב חדש "Eval cost regression (cheap subset)" מריץ
+      `pnpm eval -- --tag=ci-cheap` על שלוש הפלטפורמות (`ubuntu-latest`/`windows-latest`/`macos-latest`,
+      אותו מטריקס קיים — עקבי עם ADR-011: Windows הוא יעד מדרגה ראשונה, לא קישוט). אומת בפועל ש-
+      `pnpm eval -- --tag=ci-cheap` מעביר את ה-flag דרך שכבת ה-`pnpm --filter` המקוננת עד ל-CLI בפועל
+      (נבדק ידנית: "running 4 of 12 eval case(s)").
+      **אימות אמיתי של הסף עצמו, לא רק בדיקת יחידה**: לאחר יצירת ה-baseline האמיתי, בוצע harness זמני —
+      עריכת `evals/cost-baseline.json` בפועל כך ש-`repo-analysis-small-he`'s `tokensSpent` הבסיס הורד
+      ל-5000 (מתחת ל-13,545 האמיתי בהרבה), הרצה אמיתית של `node dist/index.js --tag=ci-cheap` הראתה
+      "1 cost regression(s) detected... tokensSpent 13545 is 170.9% above baseline 5000 (threshold: 25%)"
+      ו-`exit code 1`, בעוד ששאר 3 המקרים עדיין `PASS`. **שוחזר ה-baseline האמיתי לפני commit**.
+      11 בדיקות חדשות ב-`cost-baseline.test.ts` + 2 ב-`report-table.test.ts`. `pnpm typecheck`/`lint`/
+      `format:check`/`build` נקיים על כל 10 החבילות. `vitest run` מהשורש: 1555/1556 — הכשל היחיד הוא
+      **אותה** מגבלת-סביבה מ-P10-T6/P11-T1–T4 (`docker-sandbox.test.ts`), לא רגרסיה.
+      **פער שנותר, מתועד בכנות**: `evals/history.jsonl` (T3) עדיין נכתב (append) גם כשה-CI מריץ
+      `pnpm eval` — ב-checkout ephemeral זה נשאר שינוי מקומי לא-מחויב שנזרק בסוף הריצה, לא רגרסיה (הצעד
+      עצמו לא בודק ניקיון של עץ העבודה) אבל גם לא "נשמר לאורך זמן" עבור ריצות CI עצמן — זה בדיוק הפער
+      שתועד כבר ב-T3 ולא נסגר כאן; `cost-baseline.json` (מנגנון נפרד, מחויב-בכוונה) הוא הפתרון האמיתי
+      לצורך הספציפי הזה של CI, לא תיקון לפער של T3.
 - [ ] **P11-T6 · סקירת אבטחה** 🪟 — כל [`ARCHITECTURE.md` §11](ARCHITECTURE.md#11-אבטחה-ופרטיות)
       + חדירה לארגז החול **בשלוש הפלטפורמות בנפרד**. סעיף ייעודי: **מה בפועל לא מבודד ב-Windows מקורי**,
       והאם ההצהרה ב-UI מדויקת.

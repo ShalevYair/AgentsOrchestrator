@@ -101,4 +101,22 @@ describe("printReportTable", () => {
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("case-a: tokensSpent regressed: 100 -> 200"));
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("case-b: now fails"));
   });
+
+  it("says nothing about cost regressions when none are passed in", () => {
+    printReportTable([result()]);
+    expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining("cost regression"));
+  });
+
+  it("lists every cost regression finding when some are passed in", () => {
+    printReportTable(
+      [result()],
+      [],
+      [{ caseId: "case-a", reason: "tokensSpent 1300 is 30.0% above baseline 1000" }],
+    );
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("1 cost regression(s) detected"));
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining("case-a: tokensSpent 1300 is 30.0% above baseline 1000"),
+    );
+  });
 });

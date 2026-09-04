@@ -1,4 +1,5 @@
 /* eslint-disable no-console -- this file's whole job is CLI table/summary output, same precedent as packages/providers/src/demo.ts. */
+import type { CostRegressionFinding } from "./cost-baseline.js";
 import type { RegressionFinding } from "./history.js";
 import type { EvalCaseRunResult } from "./run-case.js";
 
@@ -52,6 +53,7 @@ function toRow(result: JudgedEvalCaseRunResult): TableRow {
 export function printReportTable(
   results: readonly JudgedEvalCaseRunResult[],
   regressions: readonly RegressionFinding[] = [],
+  costRegressions: readonly CostRegressionFinding[] = [],
 ): void {
   const rows = results.map(toRow);
   console.table(rows);
@@ -76,6 +78,16 @@ export function printReportTable(
   if (regressions.length > 0) {
     console.log(`\n${String(regressions.length)} regression(s) detected vs. prior history:\n`);
     for (const regression of regressions) {
+      console.log(`  ${regression.caseId}: ${regression.reason}`);
+    }
+  }
+
+  // P11-T5: distinct from the block above — this is against the small,
+  // deliberately-committed evals/cost-baseline.json, with real percentage
+  // tolerance, the mechanism CI's cheap-subset run actually gates on.
+  if (costRegressions.length > 0) {
+    console.log(`\n${String(costRegressions.length)} cost regression(s) detected vs. committed baseline:\n`);
+    for (const regression of costRegressions) {
       console.log(`  ${regression.caseId}: ${regression.reason}`);
     }
   }

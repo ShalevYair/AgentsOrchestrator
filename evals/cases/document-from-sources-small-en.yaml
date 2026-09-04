@@ -5,7 +5,7 @@ description: >-
   default small scale, in English — pairs with
   document-from-sources-large-output-he to cover both ends of the
   output-size axis for this recipe.
-tags: [small, docs, creation, en]
+tags: [small, docs, creation, en, ci-cheap]
 recipeName: document-from-sources
 userRequest: "Write a short document based on the provided sources, covering only the key points"
 budgetTotal: 1000000

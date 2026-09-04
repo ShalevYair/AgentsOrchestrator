@@ -3,7 +3,7 @@ description: >-
   P11-T2 golden task — small code review (English, code/analysis): runs
   the "code-review" recipe end to end through the real planWithRecipe ->
   validatePlan -> runScheduler chain against MockLLMProvider.
-tags: [small, code, analysis, en]
+tags: [small, code, analysis, en, ci-cheap]
 recipeName: code-review
 userRequest: "Review the changed files in this branch against our review checklist and summarize findings"
 budgetTotal: 1000000

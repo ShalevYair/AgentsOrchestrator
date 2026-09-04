@@ -4,6 +4,7 @@ import { listEvalCaseIds, loadEvalCase } from "@ao/platform";
 import type { EvalCase } from "@ao/shared";
 import { resolveAgentsDir } from "./agents-dir.js";
 import { parseTagFilters } from "./cli-args.js";
+import { checkCostRegressions, loadCostBaseline, resolveCostBaselinePath } from "./cost-baseline.js";
 import { resolveEvalsDir } from "./evals-dir.js";
 import {
   appendHistory,
@@ -107,8 +108,16 @@ async function main(): Promise<void> {
   const regressions = detectRegressions(previousHistory, currentEntries);
   appendHistory(historyPath, currentEntries);
 
-  printReportTable(results, regressions);
-  process.exitCode = results.every((r) => r.pass) && regressions.length === 0 ? 0 : 1;
+  // TASKS.md P11-T5 — a committed, deliberately-updated baseline (not
+  // history.jsonl's ever-growing per-run log) checked with real
+  // tolerance, so CI can run just the "ci-cheap"-tagged subset and only
+  // fail on a real cost blowup, not routine 1-token drift.
+  const costBaseline = loadCostBaseline(resolveCostBaselinePath(evalsDir));
+  const costRegressions = checkCostRegressions(costBaseline, results);
+
+  printReportTable(results, regressions, costRegressions);
+  process.exitCode =
+    results.every((r) => r.pass) && regressions.length === 0 && costRegressions.length === 0 ? 0 : 1;
 }
 
 main().catch((error: unknown) => {
