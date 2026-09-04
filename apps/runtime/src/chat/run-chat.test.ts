@@ -349,3 +349,108 @@ describe("runChatTurn stop wiring (P9-T11)", () => {
     expect(runRegistry.requestStop(runId)).toBe(false);
   });
 });
+
+describe("runChatTurn fault injection (P11-T8)", () => {
+  /**
+   * Simulates a provider-side disconnect/exhausted-retry (a real Gemini
+   * call would already have gone through `@ao/providers`'s own
+   * `withRetry` — P1-T5 — before ever throwing; by the time an error
+   * reaches `LLMProvider.generate()`'s caller, retries are exhausted).
+   * `failAfterChunks: 0` means the stream never yields anything at all
+   * (connection never opens); a positive count throws after that many
+   * real chunks (connection drops mid-reply).
+   */
+  class FlakyProvider extends MockLLMProvider {
+    constructor(
+      private readonly failAfterChunks: number,
+      options: ConstructorParameters<typeof MockLLMProvider>[0],
+    ) {
+      super(options);
+    }
+    override async *generate(req: Parameters<MockLLMProvider["generate"]>[0]) {
+      let yielded = 0;
+      for await (const delta of super.generate(req)) {
+        if (yielded >= this.failAfterChunks) {
+          throw new Error("simulated disconnect: ECONNRESET");
+        }
+        yielded += 1;
+        yield delta;
+      }
+    }
+  }
+
+  it("a stream that never opens ends the run as 'failed' with a clear error, never hangs", async () => {
+    const thread = createThread(driver, "t");
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "hi" });
+    const runId = "run_disconnectimmediate";
+    const flaky = new FlakyProvider(0, { responses: [{ text: "won't ever arrive", chunkCount: 3 }] });
+
+    await expect(
+      runChatTurn({ driver, hub, provider: flaky, runRegistry, model: MODEL, threadId: thread.id, runId }),
+    ).rejects.toThrow("simulated disconnect");
+
+    // No assistant message at all — only the user's own message is there.
+    expect(listMessages(driver, thread.id)).toHaveLength(1);
+
+    const types = listEventsSince(driver, runId, -1).map((e) => e.type);
+    expect(types).toContain("error");
+    const finished = listEventsSince(driver, runId, -1).find((e) => e.type === "run.finished");
+    expect(finished).toMatchObject({ payload: { status: "failed" } });
+
+    // The reservation was released, not settled — a disconnect never gets billed.
+    const ledgerPayload = (finished?.payload as { ledger: { tokens: { spent: number; committed: number } } })
+      .ledger;
+    expect(ledgerPayload.tokens.spent).toBe(0);
+    expect(ledgerPayload.tokens.committed).toBe(0);
+
+    // The run registry never leaks the aborted entry — a later stop on the same id is a no-op.
+    expect(runRegistry.requestStop(runId)).toBe(false);
+  });
+
+  it("a stream that drops mid-reply also ends as 'failed' — the partial text it already sent is not persisted", async () => {
+    const thread = createThread(driver, "t");
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "hi" });
+    const runId = "run_disconnectmidstream";
+    const flaky = new FlakyProvider(1, {
+      responses: [{ text: "hello there, this is a longer reply", chunkCount: 4 }],
+    });
+
+    await expect(
+      runChatTurn({ driver, hub, provider: flaky, runRegistry, model: MODEL, threadId: thread.id, runId }),
+    ).rejects.toThrow("simulated disconnect: ECONNRESET");
+
+    // One real chunk was streamed to any connected WS client (task.delta below), but — unlike a
+    // user-initiated stop (P9-T11), which persists whatever text arrived — a genuine mid-stream
+    // failure discards it: run-chat.ts's catch block never calls insertMessage. This asymmetry is
+    // a real, verified behavior, not a defect to fix in this task (see docs/TASKS.md P11-T8).
+    expect(listMessages(driver, thread.id)).toHaveLength(1);
+
+    const types = listEventsSince(driver, runId, -1).map((e) => e.type);
+    expect(types).toContain("task.delta"); // the one chunk that did arrive before the throw
+    expect(types).toContain("error");
+    const finished = listEventsSince(driver, runId, -1).find((e) => e.type === "run.finished");
+    expect(finished).toMatchObject({ payload: { status: "failed" } });
+  });
+
+  it("a failed run does not block the next run on the same thread from completing normally", async () => {
+    const thread = createThread(driver, "t");
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "hi" });
+    const flaky = new FlakyProvider(0, { responses: [{ text: "unreachable", chunkCount: 1 }] });
+
+    await expect(
+      runChatTurn({ driver, hub, provider: flaky, runRegistry, model: MODEL, threadId: thread.id }),
+    ).rejects.toThrow();
+
+    insertMessage(driver, { threadId: thread.id, role: "user", content: "again?" });
+    const { assistantMessage } = await runChatTurn({
+      driver,
+      hub,
+      provider, // the healthy MockLLMProvider from beforeEach
+      runRegistry,
+      model: MODEL,
+      threadId: thread.id,
+    });
+
+    expect(assistantMessage?.content).toBe("hi back");
+  });
+});
