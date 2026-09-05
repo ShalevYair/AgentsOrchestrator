@@ -16,6 +16,33 @@ const CLI_ENTRY = join(CLI_DIR, "dist", "cli.js");
 const READY_TIMEOUT_MS = 15_000;
 const READY_PATTERN = /is running at (http:\/\/\S+)/;
 
+/**
+ * `child.kill()` alone is not enough before deleting `dataDir`: on Windows,
+ * `child_process.kill()` maps to `TerminateProcess()` (POSIX signal
+ * handlers, including this CLI's own graceful-shutdown SIGTERM handler,
+ * never run) and — separately from that — killing is asynchronous either
+ * way, so the very next line can run before the OS has actually released
+ * the process's open `ao.sqlite3` handle. Observed for real on CI's
+ * windows-latest: the smoke test's own health/page checks passed, then
+ * cleanup failed with `EBUSY: resource busy or locked, unlink ...
+ * ao.sqlite3` because `rmSync` ran immediately after `kill()` instead of
+ * after the process was actually confirmed gone.
+ */
+function killAndWait(child, timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(resolve, timeoutMs);
+    child.once("exit", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    child.kill();
+  });
+}
+
 function waitForReady(child) {
   return new Promise((resolve, reject) => {
     let output = "";
@@ -69,8 +96,12 @@ async function main() {
 
     console.log("smoke test: /api/health and / both responded correctly — PASS");
   } finally {
-    child.kill();
-    rmSync(dataDir, { recursive: true, force: true });
+    await killAndWait(child);
+    // maxRetries/retryDelay: even after the process is confirmed exited,
+    // Windows can lag briefly before the OS fully releases the file handle
+    // (antivirus scanning, delayed handle teardown) — belt-and-suspenders
+    // alongside killAndWait, not a substitute for it.
+    rmSync(dataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 }
 
