@@ -78,6 +78,15 @@
       "invalid": "The key you entered is invalid or unauthorized. Check it and try again.",
       "valid": "Key validated successfully against Gemini.",
       "getKeyLink": "Get a free API key from Google AI Studio"
+    },
+    "environment": {
+      "heading": "Environment",
+      "loading": "Checking environment...",
+      "node": "Node.js {{version}}",
+      "pythonOk": "Python {{version}}",
+      "pythonMissing": "Python not found — local script tools are disabled",
+      "dockerAvailable": "Docker available — full isolation for local tools",
+      "dockerUnavailable": "Docker unavailable — partial isolation only"
     }
   },
   "artifacts": {

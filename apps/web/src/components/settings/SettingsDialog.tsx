@@ -2,6 +2,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog.js";
 import { ApiKeyForm } from "./ApiKeyForm.js";
+import { EnvironmentStatus } from "./EnvironmentStatus.js";
 import { LanguageSwitcher } from "./LanguageSwitcher.js";
 
 export interface SettingsDialogProps {
@@ -25,6 +26,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): Rea
         <div className="flex flex-col gap-6">
           <ApiKeyForm />
           <LanguageSwitcher />
+          <EnvironmentStatus />
         </div>
       </DialogContent>
     </Dialog>

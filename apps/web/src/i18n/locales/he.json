@@ -78,6 +78,15 @@
       "invalid": "המפתח שהוזן אינו תקין או שאין לו הרשאה. בדקו אותו ונסו שוב.",
       "valid": "המפתח אומת בהצלחה מול Gemini.",
       "getKeyLink": "השיגו מפתח API בחינם מ-Google AI Studio"
+    },
+    "environment": {
+      "heading": "סביבה",
+      "loading": "בודק סביבה...",
+      "node": "Node.js {{version}}",
+      "pythonOk": "Python {{version}}",
+      "pythonMissing": "Python לא נמצא — כלי סקריפט מקומיים כבויים",
+      "dockerAvailable": "Docker זמין — בידוד מלא לכלים מקומיים",
+      "dockerUnavailable": "Docker לא זמין — בידוד חלקי בלבד"
     }
   },
   "artifacts": {

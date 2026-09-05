@@ -78,6 +78,9 @@ importers:
       '@ao/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@ao/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       '@fastify/websocket':
         specifier: ^11.2.0
         version: 11.3.0

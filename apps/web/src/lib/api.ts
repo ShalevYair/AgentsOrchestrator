@@ -28,6 +28,19 @@ export interface KeyStatus {
   maskedKey: string | null;
 }
 
+/** P12-T2 — mirrors `packages/tools/src/env-check/types.ts`'s `EnvironmentReport`. */
+export interface EnvironmentReport {
+  node: { version: string; ok: boolean };
+  python: { available: boolean; version: string | null; ok: boolean; installInstructions: string | null };
+  docker: { available: boolean };
+  sandbox: {
+    implementation: "linux" | "darwin" | "windows-native" | "docker";
+    networkBlocking: boolean;
+    memoryCpuCaps: "full" | "partial" | "none";
+    notes: string[];
+  };
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -96,4 +109,6 @@ export const api = {
   setKey: (apiKey: string) =>
     request<KeyStatus>("/api/keys", { method: "POST", body: JSON.stringify({ apiKey }) }),
   deleteKey: () => request<KeyStatus>("/api/keys", { method: "DELETE" }),
+
+  environment: () => request<EnvironmentReport>("/api/environment"),
 };

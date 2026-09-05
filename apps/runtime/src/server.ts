@@ -1,6 +1,7 @@
 import fastifyWebsocket from "@fastify/websocket";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { AppContext } from "./context.js";
+import { registerEnvironmentRoutes } from "./routes/environment.js";
 import { registerEventRoutes } from "./routes/events.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerKeyRoutes } from "./routes/keys.js";
@@ -22,6 +23,7 @@ export async function buildServer(ctx: AppContext): Promise<FastifyInstance> {
   await app.register(fastifyWebsocket);
 
   registerHealthRoutes(app, ctx);
+  registerEnvironmentRoutes(app);
   registerThreadRoutes(app, ctx);
   registerEventRoutes(app, ctx);
   registerRunRoutes(app, ctx);

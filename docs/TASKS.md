@@ -2298,10 +2298,28 @@
       (`C:\Users\Some Name\...`) · הרצה מכונן שאינו `C:`.
       *גמור:* **smoke test ב-CI על `windows-latest` מרים את השרת ומקבל תשובה מ-endpoint אמיתי** ·
       עובד על מכונה נקייה בשלוש הפלטפורמות.
-- [ ] **P12-T2 · בדיקת סביבה** 🪟 — Node/Python/Docker, עם הודעות מדויקות מה חסר ואיך מתקינים
+- [x] **P12-T2 · בדיקת סביבה** 🪟 — Node/Python/Docker, עם הודעות מדויקות מה חסר ואיך מתקינים
       **לכל פלטפורמה בנפרד** (ב-Windows: קישור ל-Python מ-python.org ולא הצעת `apt`).
       *גמור:* חוסר Python **לא** מפיל את האפליקציה — רק משבית את הסקריפטים, עם הסבר ·
       ב-Windows ללא Docker מוצגת רמת הבידוד בפועל ([P7-T1](#p7)).
+      *כפי שמומש:* `checkEnvironment` (`packages/tools/src/env-check/`) מרכיב שלוש בדיקות עצמאיות —
+      `checkNode` (גרסה נוכחית מול מינימום 22), `checkPython` (עוטף את `discoverPython`/
+      `meetsMinimumPythonVersion` הקיימים מ-[P0-T10](#p0), לא ממציא גילוי מחדש), ו-`checkDocker` (עוטף
+      את `probeDockerAvailable` הקיים מ-[P7-T7](#p7)) — plus `detectSandbox(platform).capabilities`
+      שכבר היה קיים מ-P7-T1 ומדווח את רמת הבידוד **בפועל** (למשל `windows-native` עם
+      `networkBlocking:false` ו-`notes` מוסברים כשאין Docker). כל ארבע הבדיקות נשארות בתוך `@ao/tools`
+      (לא `@ao/platform`, כדי לא להפוך את כיוון התלות `tools→platform`) ואף אחת מהן לא זורקת —
+      `checkEnvironment` עצמו לא יכול להפיל את העלייה. הודעת ה-Python **שונה לגמרי לפי פלטפורמה**
+      (`python-install-instructions.ts`): Windows מקבל קישור ל-python.org ומשפט מפורש "לא apt/yum",
+      macOS מקבל python.org+Homebrew, לינוקס מקבל את מנהל החבילות של ההפצה. מחובר בפועל ל-composition
+      root: `apps/runtime/src/index.ts` מריץ את הבדיקה בעלייה ורושם אזהרה (לא שגיאה) כש-Python/Docker
+      חסרים; `GET /api/environment` חדש (`routes/environment.ts`, ללא `AppContext` — פונקציה טהורה של
+      המכונה) מזין רכיב UI חדש (`EnvironmentStatus.tsx` תחת הגדרות) שמציג את שלוש השורות בפועל, כולל
+      הודעת ההתקנה/ההערות הדינמיות. **החלטת i18n:** התוויות הקבועות (`settings.environment.*`) עוברות
+      i18next כרגיל, אבל הטקסט המזוהה-בזמן-ריצה עצמו (`installInstructions`, `sandbox.notes`) נשאר
+      עברית קשיחה — עקבי עם ההחלטה הקיימת כבר ב-`SandboxCapabilities.notes` מ-P7-T1, לא סטייה חדשה.
+      18 בדיקות חדשות (`env-check`: 13, `EnvironmentStatus`: 4, `server.test.ts`: 1) + בדיקת אינטגרציה
+      "אמיתית, לא מוקית" שמוכיחה ש-`checkEnvironment()` האמיתי לעולם לא זורק על המכונה הזאת.
 - [ ] **P12-T3 · תיעוד משתמש** — התקנה, מדריך ראשון, מדריך תקציב, פתרון תקלות.
       *גמור:* משתמש חדש מסיים משימה אמיתית בלי לשאול.
 - [ ] **P12-T4 · תיעוד מפתחים** — `CONTRIBUTING.md`, מפת הקוד, איך מוסיפים רכיב.

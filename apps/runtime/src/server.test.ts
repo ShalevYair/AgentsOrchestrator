@@ -352,3 +352,20 @@ describe("keys", () => {
     expect(status.json()).toEqual({ hasKey: false, backend: null, maskedKey: null });
   });
 });
+
+describe("GET /api/environment (P12-T2)", () => {
+  it("reports node/python/docker/sandbox without ever failing the request", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/environment" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{
+      node: { ok: boolean };
+      python: { ok: boolean; installInstructions: string | null };
+      docker: { available: boolean };
+      sandbox: { implementation: string; notes: string[] };
+    }>();
+    expect(body.node.ok).toBe(true);
+    expect(typeof body.python.ok).toBe("boolean");
+    expect(typeof body.docker.available).toBe("boolean");
+    expect(["linux", "darwin", "windows-native", "docker"]).toContain(body.sandbox.implementation);
+  });
+});

@@ -1,5 +1,6 @@
 import { createLogger, createSecretRegistry, loadConfig } from "@ao/platform";
 import { createKeyStore, GeminiProvider } from "@ao/providers";
+import { checkEnvironment } from "@ao/tools";
 import { resolveAgentsDir } from "./agents-dir.js";
 import { resolveRecipesDir } from "./recipes-dir.js";
 import { RunRegistry } from "./chat/run-registry.js";
@@ -17,6 +18,25 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const secretRegistry = createSecretRegistry();
   const logger = createLogger({ level: config.logLevel, registry: secretRegistry });
+
+  // P12-T2: probed once at startup and logged — never blocks boot. A missing
+  // Python only disables script-running tools (with an explanation); running
+  // without Docker only means the real (possibly partial) native sandbox
+  // isolation applies, which `environment.sandbox.notes` spells out.
+  const environment = checkEnvironment();
+  logger.info({ environment }, "environment check");
+  if (!environment.python.ok) {
+    logger.warn(
+      { installInstructions: environment.python.installInstructions },
+      "Python not available — local script tools will be disabled",
+    );
+  }
+  if (!environment.docker.available && environment.sandbox.notes.length > 0) {
+    logger.warn(
+      { sandbox: environment.sandbox },
+      "running without Docker — local tool sandboxing is only partially isolated",
+    );
+  }
 
   const driver = openDb(config.dataDir);
   const hub = new EventHub(driver);
