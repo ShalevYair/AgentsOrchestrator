@@ -469,6 +469,7 @@ describe("telemetry (P12-T7)", () => {
       expect(raw).not.toContain("sensitive");
     } finally {
       await failApp.close();
+      failingCtx.driver.close();
       rmSync(telemetryDir, { recursive: true, force: true });
     }
   });
