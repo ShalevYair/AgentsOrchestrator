@@ -71,6 +71,7 @@ docs/         מסמכי אפיון וארכיטקטורה — ראו הבא
 | 🤔 [`docs/DECISIONS.md`](docs/DECISIONS.md) | כשמשהו לא ברור, או לפני שסוטים מהחלטה קיימת |
 | 🧩 [`docs/EXTENDING.md`](docs/EXTENDING.md) | **הוספת יכולת חדשה בלי לגעת ב-`packages/core`** — ראו §1 למטה |
 | 📊 [`docs/TELEMETRY.md`](docs/TELEMETRY.md) | בדיוק מה נאסף (ומה לעולם לא), אם וכשמישהו מפעיל את הטלמטריה האופציונלית |
+| 📦 [`RELEASING.md`](RELEASING.md) / [`CHANGELOG.md`](CHANGELOG.md) | רק למי שמריץ שחרור גרסה בפועל — לא חלק מזרימת הפיתוח הרגילה |
 
 ## איך מוסיפים רכיב
 
