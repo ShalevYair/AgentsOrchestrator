@@ -46,7 +46,7 @@ function result(overrides: Partial<EvalCaseRunResult> = {}): EvalCaseRunResult {
 
 describe("resolveCostBaselinePath", () => {
   it("resolves to <evalsDir>/cost-baseline.json", () => {
-    expect(resolveCostBaselinePath("/foo/evals")).toBe("/foo/evals/cost-baseline.json");
+    expect(resolveCostBaselinePath(join("/foo", "evals"))).toBe(join("/foo", "evals", "cost-baseline.json"));
   });
 });
 

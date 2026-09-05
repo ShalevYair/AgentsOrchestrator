@@ -64,7 +64,7 @@ function runResult(overrides: Partial<EvalCaseRunResult> = {}): EvalCaseRunResul
 
 describe("resolveHistoryPath", () => {
   it("resolves to <evalsDir>/history.jsonl", () => {
-    expect(resolveHistoryPath("/foo/evals")).toBe("/foo/evals/history.jsonl");
+    expect(resolveHistoryPath(join("/foo", "evals"))).toBe(join("/foo", "evals", "history.jsonl"));
   });
 });
 
