@@ -78,6 +78,24 @@
       "invalid": "The key you entered is invalid or unauthorized. Check it and try again.",
       "valid": "Key validated successfully against Gemini.",
       "getKeyLink": "Get a free API key from Google AI Studio"
+    },
+    "environment": {
+      "heading": "Environment",
+      "loading": "Checking environment...",
+      "node": "Node.js {{version}}",
+      "pythonOk": "Python {{version}}",
+      "pythonMissing": "Python not found — local script tools are disabled",
+      "dockerAvailable": "Docker available — full isolation for local tools",
+      "dockerUnavailable": "Docker unavailable — partial isolation only"
+    },
+    "telemetry": {
+      "heading": "Telemetry",
+      "on": "Enabled",
+      "off": "Disabled (default)",
+      "collects1": "App start: app version, Node version, OS, whether a real or mock provider is configured",
+      "collects2": "Successful chat turn: duration only",
+      "collects3": "Failed chat turn: duration and a stable error code — never the message content or the raw error message",
+      "howToChange": "Everything is stored locally only (~/.agents-orchestrator/telemetry) and never sent anywhere. Enable/disable via config.json or AO_TELEMETRY_ENABLED — full details in docs/TELEMETRY.md."
     }
   },
   "artifacts": {

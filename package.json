@@ -22,6 +22,7 @@
     "test:watch": "vitest",
     "preeval": "pnpm --filter @ao/evals... build",
     "eval": "pnpm --filter @ao/evals start",
+    "bump-version": "node scripts/bump-version.mjs",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -1,5 +1,6 @@
+import { dirname } from "node:path";
 import { Writable } from "node:stream";
-import { createSecretRegistry, createLogger } from "@ao/platform";
+import { createSecretRegistry, createLogger, createTelemetryRecorder } from "@ao/platform";
 import { MockLLMProvider, type KeyStore, type MockLLMProviderOptions } from "@ao/providers";
 import type { LLMProvider } from "@ao/shared";
 import { resolveAgentsDir } from "../agents-dir.js";
@@ -53,6 +54,10 @@ export function buildTestContext(
     secretRegistry: createSecretRegistry(),
     agentsDir: resolveAgentsDir({ moduleUrl: import.meta.url }),
     recipesDir: resolveRecipesDir({ moduleUrl: import.meta.url }),
+    // Off by construction in tests — same default as production, and no
+    // test here should depend on telemetry being on to pass. `dataDir` is
+    // never touched when disabled, but must still be a real path.
+    telemetry: createTelemetryRecorder({ enabled: false, dataDir: dirname(dbPath) }),
     createValidationProvider: () => validationProvider,
   };
 }

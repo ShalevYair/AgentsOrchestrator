@@ -31,6 +31,13 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # TASKS.md P12-T1's "done": a real child process, a real bound port, a
+      # real HTTP response — on windows-latest exactly like the other two.
+      # A plain Node script (no shell-specific syntax), so one step covers
+      # all three OSes in the matrix without branching on `runner.os`.
+      - name: "Smoke test: one-command launch (P12-T1)"
+        run: node apps/cli/scripts/smoke-test.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 

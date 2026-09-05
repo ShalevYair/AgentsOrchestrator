@@ -1,4 +1,4 @@
-import { GoalConfigSchema, NotFoundError, SchemaValidationError } from "@ao/shared";
+import { GoalConfigSchema, isAppError, NotFoundError, SchemaValidationError } from "@ao/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { AppContext } from "../context.js";
 import {
@@ -99,6 +99,7 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: AppContext): voi
         // runChatTurn's doc comment). Errors from here on surface as an
         // `error` WS event (published inside runChatTurn) plus a logged
         // rejection here as a last-resort net.
+        const startedAt = Date.now();
         void runChatTurn({
           driver: ctx.driver,
           hub: ctx.hub,
@@ -108,9 +109,20 @@ export function registerThreadRoutes(app: FastifyInstance, ctx: AppContext): voi
           threadId,
           runId,
           goalConfig: thread.goalConfig,
-        }).catch((error: unknown) => {
-          ctx.logger.error({ err: error, runId, threadId }, "chat turn failed");
-        });
+        })
+          .then(() => {
+            // P12-T7: duration only — this walking-skeleton chat path (P2)
+            // has no rich usage/degradation summary to thread back through
+            // RunChatTurnResult without touching its already-well-tested
+            // internals; that richer event can grow once the real
+            // Scheduler/Plan path replaces it.
+            ctx.telemetry.record({ type: "run_completed", durationMs: Date.now() - startedAt });
+          })
+          .catch((error: unknown) => {
+            ctx.logger.error({ err: error, runId, threadId }, "chat turn failed");
+            const errorCode = isAppError(error) ? error.code : "UNKNOWN_ERROR";
+            ctx.telemetry.record({ type: "run_failed", durationMs: Date.now() - startedAt, errorCode });
+          });
 
         reply.code(202).send({ runId, userMessage });
       } catch (error) {

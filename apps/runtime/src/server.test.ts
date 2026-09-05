@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { createTelemetryRecorder, telemetryFilePath } from "@ao/platform";
 import { MockLLMProvider } from "@ao/providers";
 import { buildServer } from "./server.js";
 import { buildTestContext, type TestContext } from "./test-support/build-test-context.js";
@@ -65,7 +66,12 @@ describe("GET /api/health", () => {
   it("reports the selected provider and model", async () => {
     const res = await app.inject({ method: "GET", url: "/api/health" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ status: "ok", provider: "mock", model: "gemini-3.7-flash" });
+    expect(res.json()).toEqual({
+      status: "ok",
+      provider: "mock",
+      model: "gemini-3.7-flash",
+      telemetryEnabled: false,
+    });
   });
 });
 
@@ -350,5 +356,121 @@ describe("keys", () => {
 
     const status = await app.inject({ method: "GET", url: "/api/keys/status" });
     expect(status.json()).toEqual({ hasKey: false, backend: null, maskedKey: null });
+  });
+});
+
+describe("GET /api/environment (P12-T2)", () => {
+  it("reports node/python/docker/sandbox without ever failing the request", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/environment" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{
+      node: { ok: boolean };
+      python: { ok: boolean; installInstructions: string | null };
+      docker: { available: boolean };
+      sandbox: { implementation: string; notes: string[] };
+    }>();
+    expect(body.node.ok).toBe(true);
+    expect(typeof body.python.ok).toBe("boolean");
+    expect(typeof body.docker.available).toBe("boolean");
+    expect(["linux", "darwin", "windows-native", "docker"]).toContain(body.sandbox.implementation);
+  });
+});
+
+describe("telemetry (P12-T7)", () => {
+  it("is off by default — no telemetry directory is ever created for a normal chat turn", async () => {
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<ThreadDto>();
+    await app.inject({
+      method: "POST",
+      url: `/api/threads/${thread.id}/messages`,
+      payload: { content: "hi" },
+    });
+    await waitFor(async () => {
+      const res = await app.inject({ method: "GET", url: `/api/threads/${thread.id}/messages` });
+      return res.json<MessageDto[]>().length === 2 ? true : undefined;
+    });
+    expect(ctx.telemetry.enabled).toBe(false);
+  });
+
+  it("when opted in, records run_completed (with no content) after a successful chat turn", async () => {
+    const telemetryDir = mkdtempSync(join(tmpdir(), "ao-telemetry-server-test-"));
+    ctx.telemetry = createTelemetryRecorder({ enabled: true, dataDir: telemetryDir });
+
+    const create = await app.inject({ method: "POST", url: "/api/threads", payload: {} });
+    const thread = create.json<ThreadDto>();
+    await app.inject({
+      method: "POST",
+      url: `/api/threads/${thread.id}/messages`,
+      payload: { content: "hi there" },
+    });
+
+    const events = await waitFor(() => {
+      let lines: unknown[];
+      try {
+        lines = readFileSync(telemetryFilePath(telemetryDir), "utf8")
+          .trim()
+          .split("\n")
+          .filter((line) => line.length > 0)
+          .map((line) => JSON.parse(line) as { type: string });
+      } catch {
+        return undefined;
+      }
+      return lines.length > 0 ? lines : undefined;
+    });
+
+    expect(events).toHaveLength(1);
+    const [event] = events as [{ type: string; durationMs: number; timestamp: string }];
+    expect(event).toMatchObject({ type: "run_completed" });
+    expect(typeof event.durationMs).toBe("number");
+    expect(event.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    rmSync(telemetryDir, { recursive: true, force: true });
+  });
+
+  it("when opted in, records run_failed with a stable error code (never the raw message) after a provider failure", async () => {
+    const telemetryDir = mkdtempSync(join(tmpdir(), "ao-telemetry-server-test-fail-"));
+    const failingCtx = buildTestContext(join(dir, "ao-telemetry-fail.sqlite3"));
+    failingCtx.telemetry = createTelemetryRecorder({ enabled: true, dataDir: telemetryDir });
+    // eslint-disable-next-line @typescript-eslint/require-await -- must match LLMProvider.generate's async generator signature
+    failingCtx.provider.generate = async function* generate() {
+      throw new Error("boom — some sensitive detail that must never reach telemetry");
+      yield { text: "", isThought: false };
+    };
+    const failApp = await buildServer(failingCtx);
+    try {
+      const create = await failApp.inject({ method: "POST", url: "/api/threads", payload: {} });
+      const thread = create.json<ThreadDto>();
+      await failApp.inject({
+        method: "POST",
+        url: `/api/threads/${thread.id}/messages`,
+        payload: { content: "hi" },
+      });
+
+      const events = await waitFor(() => {
+        let lines: unknown[];
+        try {
+          lines = readFileSync(telemetryFilePath(telemetryDir), "utf8")
+            .trim()
+            .split("\n")
+            .filter((line) => line.length > 0)
+            .map((line) => JSON.parse(line) as { type: string });
+        } catch {
+          return undefined;
+        }
+        return lines.length > 0 ? lines : undefined;
+      });
+
+      expect(events).toHaveLength(1);
+      const [event] = events as [{ type: string; durationMs: number; errorCode: string; timestamp: string }];
+      expect(event).toMatchObject({ type: "run_failed", errorCode: "UNKNOWN_ERROR" });
+      expect(typeof event.durationMs).toBe("number");
+      expect(event.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      const raw = readFileSync(telemetryFilePath(telemetryDir), "utf8");
+      expect(raw).not.toContain("boom");
+      expect(raw).not.toContain("sensitive");
+    } finally {
+      await failApp.close();
+      failingCtx.driver.close();
+      rmSync(telemetryDir, { recursive: true, force: true });
+    }
   });
 });

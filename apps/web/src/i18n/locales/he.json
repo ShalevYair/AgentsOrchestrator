@@ -78,6 +78,24 @@
       "invalid": "המפתח שהוזן אינו תקין או שאין לו הרשאה. בדקו אותו ונסו שוב.",
       "valid": "המפתח אומת בהצלחה מול Gemini.",
       "getKeyLink": "השיגו מפתח API בחינם מ-Google AI Studio"
+    },
+    "environment": {
+      "heading": "סביבה",
+      "loading": "בודק סביבה...",
+      "node": "Node.js {{version}}",
+      "pythonOk": "Python {{version}}",
+      "pythonMissing": "Python לא נמצא — כלי סקריפט מקומיים כבויים",
+      "dockerAvailable": "Docker זמין — בידוד מלא לכלים מקומיים",
+      "dockerUnavailable": "Docker לא זמין — בידוד חלקי בלבד"
+    },
+    "telemetry": {
+      "heading": "טלמטריה",
+      "on": "פעילה",
+      "off": "כבויה (ברירת מחדל)",
+      "collects1": "אירוע הפעלה: גרסת האפליקציה, גרסת Node, מערכת ההפעלה, האם מוגדר ספק אמיתי או דמה",
+      "collects2": "סיום שיחה מוצלח: משך הזמן בלבד",
+      "collects3": "כישלון שיחה: משך הזמן וקוד שגיאה יציב — לעולם לא תוכן ההודעה או הודעת השגיאה הגולמית",
+      "howToChange": "כל הנתונים נשמרים מקומית בלבד (~/.agents-orchestrator/telemetry) ולעולם לא נשלחים לשום מקום. הפעלה/כיבוי: config.json או AO_TELEMETRY_ENABLED — פירוט מלא ב-docs/TELEMETRY.md."
     }
   },
   "artifacts": {
