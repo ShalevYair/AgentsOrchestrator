@@ -1,4 +1,10 @@
-import { createLogger, createSecretRegistry, loadConfig, type Logger } from "@ao/platform";
+import {
+  createLogger,
+  createSecretRegistry,
+  createTelemetryRecorder,
+  loadConfig,
+  type Logger,
+} from "@ao/platform";
 import { createKeyStore, GeminiProvider } from "@ao/providers";
 import { checkEnvironment } from "@ao/tools";
 import { resolveAgentsDir } from "./agents-dir.js";
@@ -13,6 +19,15 @@ import type { AppContext } from "./context.js";
 const DEFAULT_PORT = 8787;
 const DEFAULT_HOST = "127.0.0.1";
 const SHUTDOWN_TIMEOUT_MS = 5000;
+/**
+ * Not read from package.json at runtime on purpose: once bundled into
+ * apps/cli (P12-T1), this file's own package.json doesn't exist at the
+ * bundled location, and reading `apps/runtime/package.json` by a relative
+ * path would silently break the same way `agents`/`recipes` dir resolution
+ * would have without the AO_AGENTS_DIR/AO_RECIPES_DIR override. Bump this
+ * alongside the real package.json versions at release time (P12-T8).
+ */
+const APP_VERSION = "0.1.0";
 
 export interface StartRuntimeOptions {
   /** Defaults to `AO_RUNTIME_PORT` env, then 8787. `0` always means "OS picks a free port". */
@@ -117,6 +132,24 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
   const recipesDir = resolveRecipesDir({ moduleUrl: import.meta.url });
   logger.info({ agentsDir, recipesDir }, "resolved agents/recipes directories");
 
+  const telemetry = createTelemetryRecorder({
+    enabled: config.telemetryEnabled,
+    dataDir: config.dataDir,
+    logger,
+  });
+  logger.info(
+    { telemetryEnabled: telemetry.enabled },
+    "telemetry: opt-in, off by default (see docs/TELEMETRY.md)",
+  );
+  const nodeMajorVersion = Number.parseInt(process.versions.node.split(".")[0] ?? "", 10) || 0;
+  telemetry.record({
+    type: "app_started",
+    appVersion: APP_VERSION,
+    nodeMajorVersion,
+    platform: process.platform === "win32" || process.platform === "darwin" ? process.platform : "linux",
+    providerKind: kind,
+  });
+
   const ctx: AppContext = {
     driver,
     hub,
@@ -129,6 +162,7 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
     secretRegistry,
     agentsDir,
     recipesDir,
+    telemetry,
     createValidationProvider: (apiKey) => new GeminiProvider({ apiKey }),
   };
 

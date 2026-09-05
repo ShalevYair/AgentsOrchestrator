@@ -15,4 +15,9 @@
   // Where runs, the SQLite index, staged artifacts and caches live.
   // Defaults to ~/.agents-orchestrator on every platform.
   "dataDir": "~/.agents-orchestrator",
+
+  // Opt-in, local-only usage telemetry — off by default. Never sent
+  // anywhere; never includes message/prompt content. Full details:
+  // docs/TELEMETRY.md
+  "telemetryEnabled": false,
 }

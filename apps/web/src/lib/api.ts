@@ -81,7 +81,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ status: string; provider: string; model: string }>("/api/health"),
+  health: () =>
+    request<{ status: string; provider: string; model: string; telemetryEnabled: boolean }>("/api/health"),
 
   listThreads: () => request<Thread[]>("/api/threads"),
   createThread: (title?: string) =>

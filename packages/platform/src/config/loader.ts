@@ -55,6 +55,7 @@ function loadFromEnv(env: NodeJS.ProcessEnv): Partial<Record<keyof ConfigInput, 
     [`${ENV_PREFIX}LOG_LEVEL`]: "logLevel",
     [`${ENV_PREFIX}LOCALE`]: "locale",
     [`${ENV_PREFIX}DATA_DIR`]: "dataDir",
+    [`${ENV_PREFIX}TELEMETRY_ENABLED`]: "telemetryEnabled",
   };
   const out: Partial<Record<keyof ConfigInput, string>> = {};
   for (const [envKey, configKey] of Object.entries(map)) {

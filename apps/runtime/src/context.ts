@@ -1,4 +1,4 @@
-import type { Logger, SecretRegistry } from "@ao/platform";
+import type { Logger, SecretRegistry, TelemetryRecorder } from "@ao/platform";
 import type { KeyStore } from "@ao/providers";
 import type { LLMProvider } from "@ao/shared";
 import type { RunRegistry } from "./chat/run-registry.js";
@@ -40,4 +40,6 @@ export interface AppContext {
    * calls in unit tests" rule.
    */
   createValidationProvider: (apiKey: string) => LLMProvider;
+  /** P12-T7 — opt-in, off by default; a true no-op when disabled (see `@ao/platform`'s `createTelemetryRecorder`). */
+  telemetry: TelemetryRecorder;
 }

@@ -70,6 +70,7 @@ docs/         מסמכי אפיון וארכיטקטורה — ראו הבא
 | 🎨 [`docs/UX.md`](docs/UX.md) | כשבונים UI |
 | 🤔 [`docs/DECISIONS.md`](docs/DECISIONS.md) | כשמשהו לא ברור, או לפני שסוטים מהחלטה קיימת |
 | 🧩 [`docs/EXTENDING.md`](docs/EXTENDING.md) | **הוספת יכולת חדשה בלי לגעת ב-`packages/core`** — ראו §1 למטה |
+| 📊 [`docs/TELEMETRY.md`](docs/TELEMETRY.md) | בדיוק מה נאסף (ומה לעולם לא), אם וכשמישהו מפעיל את הטלמטריה האופציונלית |
 
 ## איך מוסיפים רכיב
 

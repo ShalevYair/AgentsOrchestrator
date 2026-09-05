@@ -22,6 +22,30 @@ describe("loadConfig", () => {
     expect(config.logLevel).toBe("info");
     expect(config.locale).toBe("he");
     expect(config.dataDir.length).toBeGreaterThan(0);
+    expect(config.telemetryEnabled).toBe(false);
+  });
+
+  it("P12-T7: telemetryEnabled from the config file is a real boolean", () => {
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ telemetryEnabled: true }));
+    const config = loadConfig({ filePath: join(dir, "config.json"), env: {} });
+    expect(config.telemetryEnabled).toBe(true);
+  });
+
+  it('P12-T7: AO_TELEMETRY_ENABLED only turns it on for the exact string "true"', () => {
+    expect(
+      loadConfig({ filePath: join(dir, "missing.json"), env: { AO_TELEMETRY_ENABLED: "true" } })
+        .telemetryEnabled,
+    ).toBe(true);
+    expect(
+      loadConfig({ filePath: join(dir, "missing.json"), env: { AO_TELEMETRY_ENABLED: "false" } })
+        .telemetryEnabled,
+    ).toBe(false);
+    // The exact footgun this preprocessing guards against: Boolean("false") is
+    // true, and a careless `z.coerce.boolean()` would silently invert this.
+    expect(
+      loadConfig({ filePath: join(dir, "missing.json"), env: { AO_TELEMETRY_ENABLED: "1" } })
+        .telemetryEnabled,
+    ).toBe(false);
   });
 
   it("layers file over defaults", () => {

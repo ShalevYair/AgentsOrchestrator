@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ApiKeyForm } from "./ApiKeyForm.js";
 import { EnvironmentStatus } from "./EnvironmentStatus.js";
 import { LanguageSwitcher } from "./LanguageSwitcher.js";
+import { TelemetryStatus } from "./TelemetryStatus.js";
 
 export interface SettingsDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps): Rea
           <ApiKeyForm />
           <LanguageSwitcher />
           <EnvironmentStatus />
+          <TelemetryStatus />
         </div>
       </DialogContent>
     </Dialog>
