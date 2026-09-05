@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Separate from `dist/`, which `scripts/build.mjs`'s esbuild bundle
+    // owns exclusively (a single bundled `cli.js` there, not tsc's
+    // per-file output) — composite projects can't set `noEmit`, so this
+    // redirects the required emit somewhere harmless instead.
+    "outDir": "./dist-tsc",
+    "rootDir": "./src",
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/platform" },
+    { "path": "../../packages/providers" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/tools" },
+    { "path": "../runtime" }
+  ]
+}
