@@ -6,6 +6,7 @@ export default tseslint.config(
   {
     ignores: [
       "**/dist/**",
+      "**/dist-tsc/**",
       "**/.tsc-out/**",
       "**/node_modules/**",
       "**/coverage/**",
