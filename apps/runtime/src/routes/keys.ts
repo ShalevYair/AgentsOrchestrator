@@ -2,7 +2,15 @@ import { validateApiKey, type KeyStoreBackend } from "@ao/providers";
 import { SchemaValidationError } from "@ao/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { AppContext } from "../context.js";
+import { buildProviderFor, selectProvider } from "../provider/select-provider.js";
 import { sendAppError } from "./http-errors.js";
+
+/** Applies a freshly selected provider to the live context so the very next chat turn uses it — no restart needed. */
+function applySelectedProvider(ctx: AppContext, selected: ReturnType<typeof buildProviderFor>): void {
+  ctx.provider = selected.provider;
+  ctx.providerKind = selected.kind;
+  ctx.model = selected.model;
+}
 
 interface SetKeyBody {
   apiKey?: string;
@@ -49,6 +57,12 @@ export function registerKeyRoutes(app: FastifyInstance, ctx: AppContext): void {
       await validateApiKey(ctx.createValidationProvider(apiKey));
       ctx.secretRegistry.register(apiKey);
       await ctx.keyStore.set(apiKey);
+      // P2-T7 fix: a just-validated key now actually powers chat immediately
+      // — it wins over whatever was selected at boot (env var included).
+      applySelectedProvider(
+        ctx,
+        buildProviderFor(apiKey, { logger: ctx.logger, secretRegistry: ctx.secretRegistry }),
+      );
       reply.code(200).send(await readStatus(ctx));
     } catch (error) {
       sendAppError(reply, error);
@@ -70,6 +84,9 @@ export function registerKeyRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   app.delete("/api/keys", async (_request, reply) => {
     await ctx.keyStore.delete();
+    // Falls back to GEMINI_API_KEY if still set in the environment, mock
+    // otherwise — same precedence `selectProvider` applies at startup.
+    applySelectedProvider(ctx, selectProvider({ logger: ctx.logger, secretRegistry: ctx.secretRegistry }));
     reply.code(200).send(await readStatus(ctx));
   });
 }

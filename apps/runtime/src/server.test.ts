@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { createTelemetryRecorder, telemetryFilePath } from "@ao/platform";
-import { MockLLMProvider } from "@ao/providers";
+import { GeminiProvider, MockLLMProvider, WORKER_MODEL_ID } from "@ao/providers";
 import { buildServer } from "./server.js";
 import { buildTestContext, type TestContext } from "./test-support/build-test-context.js";
 
@@ -356,6 +356,30 @@ describe("keys", () => {
 
     const status = await app.inject({ method: "GET", url: "/api/keys/status" });
     expect(status.json()).toEqual({ hasKey: false, backend: null, maskedKey: null });
+    // A rejected key must never hot-swap the live chat provider either.
+    expect(ctx.providerKind).toBe("mock");
+  });
+
+  it("hot-swaps the live chat provider the moment a key is saved, and reverts it on delete — bug fix: a saved key wasn't recognized until restart", async () => {
+    expect(ctx.providerKind).toBe("mock");
+    expect(ctx.provider).toBeInstanceOf(MockLLMProvider);
+
+    const set = await app.inject({
+      method: "POST",
+      url: "/api/keys",
+      payload: { apiKey: "AIzaTestKey12345678" },
+    });
+    expect(set.statusCode).toBe(200);
+    // No restart, no re-fetch of ctx — the exact same in-memory context the
+    // already-running server holds now points at a real Gemini provider.
+    expect(ctx.providerKind).toBe("gemini");
+    expect(ctx.model).toBe(WORKER_MODEL_ID);
+    expect(ctx.provider).toBeInstanceOf(GeminiProvider);
+
+    const del = await app.inject({ method: "DELETE", url: "/api/keys" });
+    expect(del.statusCode).toBe(200);
+    expect(ctx.providerKind).toBe("mock");
+    expect(ctx.provider).toBeInstanceOf(MockLLMProvider);
   });
 });
 

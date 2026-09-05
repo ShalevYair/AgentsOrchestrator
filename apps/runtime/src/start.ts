@@ -112,11 +112,6 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
   const driver = openDb(config.dataDir);
   const hub = new EventHub(driver);
 
-  const { provider, kind, model } = selectProvider({ logger, secretRegistry });
-  const geminiApiKey = process.env["GEMINI_API_KEY"];
-  if (geminiApiKey) secretRegistry.register(geminiApiKey);
-  logger.info({ provider: kind, model }, `selected LLM provider: ${kind}`);
-
   let fallbackLogged = false;
   const keyStore = createKeyStore({
     dataDir: config.dataDir,
@@ -127,6 +122,15 @@ export async function startRuntime(options: StartRuntimeOptions = {}): Promise<R
       }
     },
   });
+
+  // A key saved via Settings in an earlier session (P2-T7) is recognized on
+  // this startup too, not just a GEMINI_API_KEY env var — see
+  // select-provider.ts's `storedApiKey` precedence.
+  const storedApiKey = await keyStore.get();
+  const { provider, kind, model } = selectProvider({ logger, secretRegistry, storedApiKey });
+  const geminiApiKey = process.env["GEMINI_API_KEY"];
+  if (geminiApiKey) secretRegistry.register(geminiApiKey);
+  logger.info({ provider: kind, model }, `selected LLM provider: ${kind}`);
 
   const agentsDir = resolveAgentsDir({ moduleUrl: import.meta.url });
   const recipesDir = resolveRecipesDir({ moduleUrl: import.meta.url });
