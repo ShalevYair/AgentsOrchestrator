@@ -1,0 +1,25 @@
+id: data-extraction-large-output-he
+description: >-
+  P11-T2 golden task — חילוץ נתונים עם פלט גדול (עברית, data/ניתוח): אותו
+  מתכון "חילוץ נתונים", עם deliverableShape.estimatedSize: large — מגדיל
+  את קובץ ה-JSON שה-coder הסינתטי באמת כותב (יותר שורות בפועל, לא רק תווית
+  גדולה יותר).
+tags: [large-output, data, analysis, he]
+recipeName: data-extraction
+userRequest: "חלץ מהחומר הגולמי כמות גדולה של נקודות נתונים וכתוב קובץ JSON מקיף אחד"
+budgetTotal: 2000000
+budgetLevel: standard
+understanding:
+  intent: analyze
+  deliverableShape:
+    kind: data
+    estimatedSize: large
+    structure: atomic
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "קובץ הנתונים תקין ומכסה את כל נקודות הנתונים שנמצאו"
+  ambiguities: []
+  riskFlags: ["large-output"]
+assertions:
+  maxTokensSpent: 21000
+  maxDurationMs: 5000

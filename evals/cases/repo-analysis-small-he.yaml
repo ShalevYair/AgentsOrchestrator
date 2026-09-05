@@ -1,0 +1,24 @@
+id: repo-analysis-small-he
+description: >-
+  P11-T2 golden task — ניתוח מאגר קטן (עברית, קלט וקוד): מריץ את מתכון
+  "ניתוח מאגר" מקצה לקצה דרך planWithRecipe -> validatePlan -> runScheduler
+  האמיתיים מול MockLLMProvider.
+tags: [small, code, analysis, he, ci-cheap]
+recipeName: repo-analysis
+userRequest: "נתח את מבנה המאגר הזה וסכם את התלויות המרכזיות בין החבילות"
+budgetTotal: 1000000
+budgetLevel: standard
+understanding:
+  intent: analyze
+  deliverableShape:
+    kind: markdown
+    estimatedSize: medium
+    structure: sectioned
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "מסמך מכסה את מבנה המאגר והתלויות המרכזיות"
+  ambiguities: []
+  riskFlags: []
+assertions:
+  maxTokensSpent: 21000
+  maxDurationMs: 5000

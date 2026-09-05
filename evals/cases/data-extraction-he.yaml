@@ -1,0 +1,24 @@
+id: data-extraction-he
+description: >-
+  P11-T2 golden task — חילוץ נתונים קטן (עברית, data/ניתוח): מריץ את מתכון
+  "חילוץ נתונים" מקצה לקצה (כולל שלב coder עם file_begin/chunk/end אמיתי)
+  דרך אותה שרשרת אמיתית.
+tags: [small, data, analysis, he, ci-cheap]
+recipeName: data-extraction
+userRequest: "חלץ מהחומר הגולמי נקודות נתונים מובנות וכתוב קובץ JSON אחד"
+budgetTotal: 1000000
+budgetLevel: standard
+understanding:
+  intent: analyze
+  deliverableShape:
+    kind: data
+    estimatedSize: small
+    structure: atomic
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "קובץ הנתונים תקין ומובנה"
+  ambiguities: []
+  riskFlags: []
+assertions:
+  maxTokensSpent: 20000
+  maxDurationMs: 5000

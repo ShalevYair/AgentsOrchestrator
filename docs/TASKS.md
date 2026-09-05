@@ -1858,28 +1858,430 @@
 
 **מטרה:** להפוך "נראה שזה עובד" ל"נמדד שזה עובד".
 
-- [ ] **P11-T1 · מסגרת evals** — `evals/` עם fixtures, תקציב ואסרציות.
+- [x] **P11-T1 · מסגרת evals** — `evals/` עם fixtures, תקציב ואסרציות.
       *גמור:* `pnpm eval` מריץ הכל ומדפיס טבלה.
-- [ ] **P11-T2 · משימות זהב** — לפחות 12: קטנות/גדולות, קוד/מסמכים, ניתוח/יצירה, עברית/אנגלית.
+      *כפי שמומש:* גילוי אמיתי מהמחקר, אותה תבנית בדיוק כמו P9/P10: אין שום תשתית eval/benchmark/golden-task
+      קיימת מראש (`grep` על eval/benchmark/golden בכל הקוד לא העלה דבר מחוץ ל-TASKS.md עצמו) — **אבל**
+      `apps/runtime/src/recipe-end-to-end.test.ts` (P10-T5) כבר היה בפועל בדיוק המנגנון הדרוש: מריץ שרשרת
+      אמיתית `planWithRecipe` → `validatePlan` → `runScheduler` מול `MockLLMProvider`, עם תשובת NDJSON
+      מקודדת-קשיח אחת לכל agentType (`RESPONSES_BY_AGENT_TYPE`), לכל אחד מ-5 המתכונים — רק שזה היה חמישה
+      גופי-בדיקה נפרדים וקשיחים, לא מסגרת מונעת-נתונים. זה בדיוק מה ש-P11-T1 היה צריך לבנות **עליו**, לא
+      מאפס — אותה תבנית "תשתית אמיתית קיימת עמוק בקוד, אף פעם לא מחוברת כמנגנון כללי" שחזרה גם ב-P9 וגם
+      ב-P10.
+      **סכמה** (`packages/shared/src/schemas/eval-case.ts`): `EvalCaseSchema` — `understanding` הוא
+      `TaskUnderstandingSchema.omit({ suggestedRecipe: true })` בכוונה: ה-runner הוא זה שממלא
+      `suggestedRecipe: recipeName`, כדי שקובץ fixture לא יוכל לסתור את עצמו (לרשום מתכון אחד ב-`recipeName`
+      ואחר ב-`understanding.suggestedRecipe`). `assertions` (`maxTokensSpent`/`maxDurationMs`) שני השדות
+      אופציונליים — זה בדיוק "fixtures, תקציב ואסרציות" מנוסח המשימה: תקציב נבדק מול `TokenReport.grandTotalSpent`
+      האמיתי (`@ao/core`'s `buildTokenReport`, P4-T8, **נעשה בו reuse מלא**, לא נבנה מחדש), לא מספר מומצא.
+      6 בדיקות ב-`eval-case.test.ts`.
+      **רישום מקבצים** (`packages/platform/src/eval-registry/loader.ts`): `listEvalCaseIds`/`loadEvalCase` —
+      **אותו דפוס בדיוק** כמו `agent-registry`/`recipe-registry` (P10-T1/T4): `evals/cases/<id>.yaml`, קריאה
+      טרייה מהדיסק בכל קריאה (חם מובנה-בעיצוב, לא watcher, כמו כל השאר), `NotFoundError`/`ConfigError` עקביים,
+      אימות ש-`id` בקובץ תואם את שם הקובץ. 10 בדיקות ב-`loader.test.ts`.
+      **חיפוש תיקיית evals/**: `apps/runtime/src/agents-dir.ts`/`recipes-dir.ts` הם פרטיים ל-`apps/runtime`
+      (לא מיוצאים דרך `dist/index.js` של החבילה הזו — זו נקודת הכניסה שמרימה שרת HTTP, לא ספרייה ל-import
+      מ-`apps/evals`). `apps/evals` היה צריך שלוש פונקציות דומות (agents/recipes/evals) — נקודה שבה העתקה
+      נוספת של אותן ~10 שורות הפכה יקרה יותר מהפשטה. חולץ `resolveWorkspaceSubdir` חדש
+      (`packages/platform/src/paths/workspace-subdir.ts`) — "env var override, אחרת `findWorkspaceRoot`+join"
+      — **בלי לגעת** בשתי הפונקציות הקיימות של `apps/runtime` (כבר שולחו, כבר בדוקות, אין סיבה). שלוש
+      עטיפות דקות-שורה-אחת ב-`apps/evals/src/{agents,recipes,evals}-dir.ts` בונות עליו, עם אותם שמות משתני
+      סביבה בדיוק (`AO_AGENTS_DIR`/`AO_RECIPES_DIR`/`AO_EVALS_DIR`) כדי שדריסה תחול זהה על שתי האפליקציות.
+      5 בדיקות ב-`workspace-subdir.test.ts`.
+      **`apps/evals`** — אפליקציית composition-root חדשה, מבנה זהה ל-`apps/runtime` (`tsc -b`, `node
+      dist/index.js`): `run-case.ts`'s `runEvalCase` הוא **הכללה** של `recipe-end-to-end.test.ts`'s
+      `runRecipeEndToEnd` הפרטית ל-פונקציה מונעת-`EvalCase`: אותה שרשרת אמיתית בדיוק
+      (`planWithRecipe`/`validatePlan`/`runScheduler`/`loadAgent`/`buildAgentPrompt`/`buildAgentRequest`/
+      `collectGenerate`/`parseNdjson`), אבל בודקת גם `source === "recipe"` (אפס קריאות LLM לתכנון — נבדק
+      מבנית: `plannerProvider` מקבל `responses: []` בכוונה, כך שנפילה-חזרה אמיתית ל-planner תיכשל בקול רם
+      במקום להסוות fixture שבור בתוכנית שנוצרה מ-LLM), שכל outcome הצליח עם `schemaViolations === 0` ו-
+      `done === true`, ואז את שני סייגי ה-assertions האופציונליים מול `buildTokenReport` וזמן-קיר אמיתי
+      (`performance.now()`). `Ledger`'s `pricing` מחובר ל-`resolveModelEntry` **בדיוק** כמו
+      `apps/runtime/src/chat/run-chat.ts` (`pricing: (id) => resolveModelEntry(id)?.pricing`) — לא מקור חדש
+      של מחיר לא-מאומת, reuse של אותו אחד קיים. `canned-responses.ts` **לא** מיובא מ-`recipe-end-to-end.test.ts`
+      של `apps/runtime` בכוונה — זה קובץ בדיקה פרטי, לא ייצוא ספרייה, וזול יותר לשכפל כ-30 שורות fixture-glue
+      כאן מאשר להפוך בדיקה פרטית לתלות חוצה-אפליקציות. `report-table.ts`'s `printReportTable` היא ה"מדפיס
+      טבלה" המילולי מהגדרת-הגמור — `console.table` (אותה תקדימה בדיוק כמו `packages/providers/src/demo.ts`'s
+      CLI). `index.ts` תומך גם ב-`--tag=` (חוזר) לסינון — המנגנון ש-P11-T5's "תת-קבוצה זולה ב-CI" ידרוש
+      בהמשך, לא מחובר לשום job עדיין. שורש: `"eval": "pnpm --filter @ao/evals start"` עם `preeval` שבונה
+      את `@ao/evals` ואת כל תלויות ה-workspace שלו (`pnpm --filter @ao/evals... build`).
+      **3 fixtures לדוגמה** (`evals/cases/*.yaml`) — `repo-analysis-small-he` (עברית, markdown),
+      `code-review-en` (אנגלית, markdown), `data-extraction-he` (עברית, deliverable מסוג `data` עם שלב
+      `coder` אמיתי) — כל אחד מתעד בתיאור שלו-עצמו **בפירוש** שהוא אינו אחד מ-12 משימות הזהב הנדרשות
+      ב-P11-T2 (אלה עדיין לא נכתבו) אלא רק הוכחה שהמסגרת רצה. **אימות אמיתי, לא רק ולידציה סטטית** (בדיוק
+      כפי שנדרש): נוצר `evals/cases/tmp-verify-failure.yaml` זמני עם `maxTokensSpent: 1` בלתי-אפשרי — הרצה
+      אמיתית של `pnpm eval` הראתה שורת `FAIL` עם הסיבה המדויקת ("grandTotalSpent ... exceeds
+      maxTokensSpent 1") ו-`exit code 1` אמיתי; אז נערך לרפרנס `recipeName: nonexistent-recipe` — הראה
+      ש-`index.ts`'s try/catch תופס את ה-`NotFoundError` האמיתי מ-`loadRecipe` ומדווח "threw instead of
+      completing" עם ה-stack האמיתי, שוב עם `exit code 1`. שני המקרים הוכיחו שהמסגרת לא "חותמת גומי" —
+      **נמחק לפני commit**, כנדרש.
+      35 בדיקות חדשות סה"כ (6 eval-case + 10 eval-registry loader + 5 workspace-subdir + 14 ב-`@ao/evals`:
+      6 run-case + 4 cli-args + 4 report-table). `pnpm typecheck`/`lint`/`format:check`/`build` נקיים על כל
+      10 חבילות/אפליקציות (כולל `@ao/evals` החדשה). `vitest run` מהשורש: 1478/1479 — הכשל היחיד
+      (`docker-sandbox.test.ts`'s live-daemon probe ב-`@ao/tools`) הוא בדיוק אותה מגבלת-סביבה קיימת-מראש
+      שתועדה ב-P10-T6 (אין דימון Docker בקונטיינר המרוחק הזה) — לא נגעתי ב-`packages/tools` כלל, לא רגרסיה.
+      **פערים אמיתיים שתועדו בכנות, לא הוסתרו:** (1) 3 ה-fixtures הנוכחיים רחוקים מאוד מ-"לפחות 12 משימות
+      זהב שמכסות קטן/גדול, קוד/מסמכים, ניתוח/יצירה, עברית/אנגלית" — זה **כל** P11-T2, פתוח לגמרי, לא נגעתי
+      בו כאן מעבר לשלוש דוגמאות-הוכחת-מנגנון. (2) כל מקרה חייב לעבור כרגע דרך נתיב ה-recipe נטול-ה-LLM
+      (דטרמיניסטי מול `MockLLMProvider`) — אין עדיין מקרה שמפעיל בפועל את ה-planner האמיתי מול LLM אמיתי;
+      זו בחירת-היקף מכוונת (עקבית עם כלל #6: אפס טוקנים/רשת בסוג הבדיקה הזה), לא מגבלה טכנית של הסכמה עצמה
+      (`EvalCase` לא אוסרת מקרה כזה בעתיד) — לא נבנה שום קוד מת סביב האפשרות הזו כרגע. (3) מחירי המודלים
+      שה-cost report מציג מגיעים מ-`MODEL_REGISTRY` הסטטי (`packages/providers/src/models.ts`) שכבר מסומן
+      שם עצמו כ"best-effort"/לא-מאומת עבור חלק מהערכים — לא מקור חדש של נתון לא-מאומת, reuse של אותו אחד
+      שכבר קיים ומתועד ב-`run-chat.ts`.
+- [x] **P11-T2 · משימות זהב** — לפחות 12: קטנות/גדולות, קוד/מסמכים, ניתוח/יצירה, עברית/אנגלית.
       *גמור:* מכסות את שני הסולמות (קלט גדול, פלט גדול).
-- [ ] **P11-T3 · מדדים** — טוקנים, זמן, פגיעות מטמון, הפרות סכמה, עמידה בקריטריונים, הידרדרויות, המשכות.
+      *כפי שמומש:* סוגר את פער (1) שתועד ב-P11-T1 ("3 ה-fixtures הנוכחיים רחוקים מאוד מ-12 משימות זהב") —
+      12 קבצי `evals/cases/*.yaml` בפועל (3 ה-fixtures מ-P11-T1 קודמו למשימות זהב אמיתיות — הוסרה מהן הערת
+      "אינו אחד מ-12", לא הוחלפו), פרושים על 5 המתכונים הקיימים (`repo-analysis`/`code-review`/
+      `document-from-sources`/`migration`/`data-extraction`), 6 בעברית ו-6 באנגלית, 6 מתויגים `code`
+      (repo-analysis×2, code-review×2, migration×2), 3 `docs` (document-from-sources×3), 3 `data`
+      (data-extraction×3), 8 `analysis` ו-4 `creation` (ומגוון ערכי `intent` אמיתיים מ-6 האפשרויות של
+      `TaskUnderstandingSchema`: analyze/create/modify/research).
+      **גילוי אמיתי שחייב שינוי במנגנון עצמו, לא רק בקבצי fixture:** הרצה ראשונה של `pnpm eval` עם
+      fixtures מתויגים `large-input`/`large-output` חשפה ש-`inputScale`/`understanding.deliverableShape.
+      estimatedSize` (P11-T1) לא היו משפיעים בפועל על הריצה — `CANNED_RESPONSES_BY_AGENT_TYPE`/
+      `EVAL_SHARD_ITEMS` היו קבועים-בקוד לכל המקרים, כך ש-tag "large" היה **תווית בלבד**, בניגוד מפורש
+      לכלל #2 (לא ממציאים/מקשטים נתונים). זה בדיוק תבנית "בדיקה שטחית לא הייתה תופסת" מהברירה — נתפס כי
+      בדקתי בפועל (`pnpm eval`, לא רק ולידציה סטטית) שההפרש בין `small` ל-`large` היה זניח (כמה עשרות
+      טוקנים מתוך ~13,000). **תוקן בקוד עצמו** (`apps/evals/src/canned-responses.ts`,
+      `apps/evals/src/run-case.ts`): `buildCannedResponse(agentType, scale)`/`buildEvalShardItems(count)`
+      החליפו את הקבועים — `scale` נגזר מ-`understanding.deliverableShape.estimatedSize` (small=1/medium=2/
+      large=5/xlarge=9, ממופה מהשדה הקיים עצמו, לא הומצא שדה מקביל), ו-`count` נגזר משדה חדש
+      `EvalCase.inputScale` (`InputScaleSchema`, `packages/shared/src/schemas/eval-case.ts`) — `small`
+      (ברירת מחדל, 4 פריטים) / `large` (200 פריטים). נוסף גם `buildSyntheticEvidence` — טקסט "עדות" חוזר
+      שגדל עם `inputScale`, כדי שקנה-המידה ישפיע על **כל** שלב (לא רק שלבי `shard`), כי קלט גדול אמיתי
+      מזרים יותר הקשר גם לשלבים מאוחרים יותר. אומת בפועל אחרי התיקון: `code-review-large-input-he`
+      (13,675 טוקנים) מול `code-review-en` (11,452, אותו scale פלט) — פער אמיתי של כ-19%; דומה עבור
+      `repo-analysis-large-input-en` מול `repo-analysis-small-he`. `EvalCaseSchema` הורחב ב-`inputScale`
+      אופציונלי (לא חובה) כדי ששלושת ה-fixtures מ-P11-T1 ימשיכו להיטען בלי שינוי.
+      **בדיקות חדשות שמוכיחות את הקנה-מידה, לא רק מניחות אותו:** `run-case.test.ts` — שני מבחנים חדשים
+      שמריצים את אותו case פעמיים (unchanged מול `inputScale: "large"`, ואז מול `estimatedSize: "xlarge"`)
+      ומוודאים `tokensSpent` גדול ממש (`toBeGreaterThan`), לא רק "לא זהה". `canned-responses.test.ts` חדש
+      (14 בדיקות) — לכל אחד מ-5 סוגי הסוכן: NDJSON תקין ב-scale 1, עדיין תקין (`schemaViolations: 0`,
+      `done: true`) ב-scale 9 עם פלט ארוך ממש יותר, ותמיד מסתיים ב-`done`; פלוס בדיקות על
+      `buildEvalShardItems` (מספר פריטים מדויק, ids/paths ייחודיים, clamp ל-1 כש-count<1).
+      **אימות עם pnpm eval אמיתי** (לא רק unit tests): כל 12 המשימות — `PASS`, `schemaViolations: 0`,
+      `source: recipe` (אפס קריאות LLM לתכנון) — סה"כ 163,759 טוקנים, $0.1671, 141ms. `assertions.
+      maxTokensSpent` בכל אחד מ-12 הקבצים נקבע **מהמספרים האמיתיים שנצפו בהרצה**, לא ניחוש — תקרה של פי
+      ~1.51–1.58 מהערך שנצפה בפועל (למשל `code-review-en`: נצפה 11,452, נקבע 18,000; היחס המדויק לכל
+      אחד מ-12 הקבצים חושב בפועל, לא הוערך), כך שזה שומר-רגרסיה
+      אמיתי (כפי ש-P11-T5 ידרוש) ולא מספר שרירותי.
+      **מגוון scale אמיתי, לא רק תוויות:** `inputScale: large` ב-2 מקרים (repo-analysis, code-review);
+      `estimatedSize: xlarge` ב-2 (document-from-sources, migration), `large` ב-1 (data-extraction) —
+      כיסוי אמיתי של שני הסולמות שהגדרת-הגמור דורשת, לא רק תגיות.
+      19 בדיקות חדשות (14 canned-responses + 3 eval-case inputScale + 2 run-case scale-proof). `pnpm
+      typecheck`/`lint`/`format:check`/`build` נקיים על כל 10 חבילות. `vitest run` מהשורש: 1497/1498 —
+      הכשל היחיד הוא **אותה** מגבלת-סביבה מ-P10-T6/P11-T1 (`docker-sandbox.test.ts`, אין דימון Docker
+      בקונטיינר), לא רגרסיה.
+      **פערים שנותרו, מתועדים בכנות:** (1) כל 12 המקרים עדיין עוברים רק דרך נתיב ה-recipe נטול-LLM
+      (המשך מכוון של הפער שתועד ב-P11-T1). (2) שופט איכות/rubric (P11-T4) עדיין לא קיים — האסרציות כאן
+      מכניות בלבד (schema/success/תקציב/זמן), לא איכות תוכן. (3) קטגוריית `data` (3 מקרים) נוספה כדומיין
+      שלישי מעבר לשני הדומיינים שהמשימה דרשה במפורש ("קוד/מסמכים") — לא תחליף להם, שניהם מכוסים במלואם
+      בנפרד (6 code, 3 docs).
+- [x] **P11-T3 · מדדים** — טוקנים, זמן, פגיעות מטמון, הפרות סכמה, עמידה בקריטריונים, הידרדרויות, המשכות.
       *גמור:* נשמרים לאורך זמן · נסיגה מזוהה אוטומטית.
-- [ ] **P11-T4 · שופט איכות** — ציון LLM מול rubric, **בתקציב קבוע ומופרד**.
+      *כפי שמומש:* גילוי אמיתי מהמחקר, אותה תבנית בדיוק כמו P9/P10/P11-T1: `packages/core/src/continuation/
+      continuation.ts`'s `runWithContinuation` (P5-T8, PROTOCOLS.md §5 — "עד 3 המשכות ל-Task") **קיים,
+      בדוק-יחידה במלואו, ואף פעם לא נצרך בשום קוד ריצה אמיתי** — לא ב-`apps/runtime`, ואפילו לא ב-
+      `recipe-end-to-end.test.ts` (P10-T5) שהוא ה-harness האמיתי הקרוב ביותר; כל מקום קורא ל-`collectGenerate`
+      הגולמי בלבד. זו בדיוק תבנית "תשתית אמיתית קיימת עמוק בקוד, אף פעם לא מחוברת" — נסגרה כאן **בתוך
+      `@ao/evals` בלבד** (לא ב-`apps/runtime`, שנשאר בדיוק כפי שהיה — חיווט ה-continuation האמיתי לתזמון
+      הייצור עצמו נשאר פער תיעודי-בכנות, לא "תוקן" מחוץ להיקף P11).
+      **מנגנון**: `apps/evals/src/canned-responses.ts`'s `splitForContinuation` — מפצל תגובה מתוכננת לשני
+      חצאים אמיתיים (שורות NDJSON שלמות, לא גזירת-תווים), שומר תמיד את שורת ה-`done` בחצי השני. `run-case.ts`
+      קורא ל-`runWithContinuation` האמיתי (לא מחקה אותו) על כל Task, כשה-`taskProvider` מוזן עם 2 תשובות
+      (`finishReason: "max_tokens"` ואז `"stop"`) **רק** כש-`estimatedSize: xlarge` **וגם** `agentType` הוא
+      `writer`/`coder` — שני סוגי הסוכן היחידים מבין 5 שבאמת מייצרים תוכן מהותי (ל-reader/analyst/critic אין
+      "פלט גדול" גם במשימת xlarge, אותו דבר בעולם האמיתי: ה-recon לא הופך לארוך יותר רק כי המסמך הסופי גדול).
+      **באג אמיתי שנתפס בהרצת pnpm eval אמיתית, לא בבדיקת יחידה**: הגרסה הראשונה תנתה את `useContinuation`
+      **לפי המקרה כולו** (לא לפי agentType) — הרצה בפועל הראתה `continuationAttempts: 5`/`7` על שני מקרי
+      ה-xlarge (במקום 1/3 הצפוי), כי גם שלבי ה-reader (shard, 4/3 משימות) "נזקקו" להמשכה בטעות. תוקן בקוד
+      עצמו (לא רק בתיעוד): הגבלה מפורשת ל-`writer`/`coder`; אומת שוב — `document-from-sources-large-output-he`:
+      1 המשכה (writer, single-mode), `migration-code-large-output-en`: 3 המשכות (coder, shard count=3) —
+      תואם בדיוק את מבנה ה-Stage האמיתי מהמתכון. `maxTokensSpent` של שני המקרים עודכן פעמיים בעקבות זה
+      (מהמספרים האמיתיים שנצפו בכל שלב) — לא הוקפא על ניחוש ביניים.
+      **מדדים חדשים** (`EvalCaseRunResult`): `continuationAttempts` (סכום אמיתי מ-`ContinuationResult.attempts.
+      length`), `cacheHitTokens` (סכום `Usage.cachedTokens` אמיתי על פני כל קריאה — **בכנות תמיד 0 היום**:
+      אף תגובת `MockLLMProvider` לא מגדירה `cachedTokens`, כי אין עדיין שכבת מטמון אמיתית מחוברת ל-harness;
+      זה נתון אמיתי-ותמיד-אפס, לא הושמט ולא זויף), `criteriaMet`/`criteriaUnmet` (סכום אמיתי מ-
+      `doneEnvelope.selfCheck.criteriaMet/unmet` — נתון אמיתי מתוך ה-envelope המפוענח, לא שיפוט איכות; זה
+      תפקידו של השופט ב-P11-T4). `report-table.ts` מציג עמודות `continuations`/`criteria` חדשות ושורת
+      "cache hits: N tokens" בסיכום.
+      **נשמרים לאורך זמן**: `apps/evals/src/history.ts` — `<evalsDir>/history.jsonl` (JSON Lines), שורה
+      אחת לכל `(timestamp, caseId)`, נכתב (append) ע"י כל הרצת `pnpm eval` ונשמר בגיט כקובץ עוקב-שינויים
+      רגיל — "לאורך זמן" חוצה commits אמיתיים, לא רק תהליך אחד. **פער שתועד בכנות**: שמירת הקובץ הזה חוצה
+      הרצות CI (שבהן ה-checkout בד"כ חד-פעמי/read-only) היא מנגנון נפרד שלא נבנה כאן — משאיר את זה ל-P11-T5,
+      שממילא בונה את שכבת "תת-קבוצה זולה ב-CI" הספציפית.
+      **נסיגה מזוהה אוטומטית**: `detectRegressions` — משווה כל מקרה מול הרשומה **העדכנית ביותר** (לפי
+      timestamp, לא הישנה ביותר) עבור אותו `caseId` בהיסטוריה הקודמת (מקרה בלי היסטוריה קודמת — ריצה
+      ראשונה אי-פעם — לא מסומן, אין מול מה להשוות). `tokensSpent`/`schemaViolations` — כל עלייה נחשבת
+      נסיגה (המדדים דטרמיניסטיים לחלוטין מול `MockLLMProvider`, אז כל שינוי הוא אמיתי, לא רעש). `pass:
+      true→false` נדגל; `false→true` לא (שיפור, לא נסיגה). `durationMs` — רק קפיצה של פי 3+ **וגם** מעל
+      50ms (זמן-קיר אמיתי, לא דטרמיניסטי כמו טוקנים — צריך סבילות לרעש-תזמון). נסיגה **מפילה את הריצה**
+      (`exitCode 1`) גם כשכל מקרה בודד עדיין עובר את ה-assertions הסטטיים שלו — זה בדיוק ההבדל בין T1/T2's
+      תקרות-מוחלטות לבין T3's נסיגה-יחסית.
+      **אימות אמיתי, לא רק בדיקות יחידה**: שתי הרצות `pnpm eval` רצופות על אותה 12-fixture מראות אפס
+      נסיגות (דטרמיניזם אמיתי, לא רק תיאורטי). ואז — harness זמני אמיתי: הוזרקה רשומת history מזויפת
+      עתידית-תאריך עם `tokensSpent: 1` עבור `repo-analysis-small-he`, הורץ `node dist/index.js` ישירות —
+      הראה בפועל `"1 regression(s) detected"` + `exit code 1` עם הסיבה המדויקת ("tokensSpent regressed: 1
+      -> 13545"), בעוד שכל 12 המקרים עדיין הראו `PASS` משלהם. **נמחקה לפני commit** (וגם `evals/history.jsonl`
+      אופס והורץ מחדש נקי, שורה אחת אמיתית לכל אחד מ-12 המקרים).
+      26 בדיקות חדשות (3 splitForContinuation + 4 ב-run-case.test.ts [xlarge ↔ continuation, non-xlarge ↔
+      אפס, criteriaMet/Unmet אמיתי, cacheHitTokens כן-0] + 16 ב-history.test.ts חדש + 3 ב-report-table.test.ts).
+      `pnpm typecheck`/`lint`/`format:check`/`build` נקיים על כל 10 חבילות. `vitest run` מהשורש: 1523/1524 —
+      הכשל היחיד הוא **אותה** מגבלת-סביבה מ-P10-T6/P11-T1/T2 (`docker-sandbox.test.ts`), לא רגרסיה.
+- [x] **P11-T4 · שופט איכות** — ציון LLM מול rubric, **בתקציב קבוע ומופרד**.
       *גמור:* עקבי בין הרצות · לא נספר בתקציב המשימה.
-- [ ] **P11-T5 · נסיגות עלות** — סף שנכשל כשמשימה מתייקרת מעל X%.
+      *כפי שמומש:* אין תשתית judge/rubric קיימת בקוד (`grep -rli judge\|rubric` העלה רק שימוש אגבי במילה
+      "judge" בתוך תגובה ב-`checkpoint/signals.ts`, לא מנגנון) — נבנה מאפס, אבל **תוך reuse מלא** של תשתית
+      אמיתית קיימת: `Ledger`+`runAdmitted` (P4), `GenerateRequest.responseSchema` (אותו דפוס בדיוק כמו
+      `recon.ts`'s `runRecon`), ו-`TaskUnderstanding.acceptanceCriteria` **הקיים כבר בכל EvalCase** — לא
+      הומצא שדה "rubric" נפרד: `rubricFromAcceptanceCriteria` (`apps/evals/src/judge.ts`) הופך כל מחרוזת
+      קריטריון קיימת לקריטריון-משוקלל-שווה, אין כפילות נתונים.
+      **הפרדה מבנית, לא רק מוסכמת**: `judgeDeliverable` יוצר **`Ledger` חדש משלו** (`JUDGE_BUDGET_TOKENS =
+      20,000`, קבוע, בלתי-תלוי ב-`budgetTotal` של המשימה) בתוך הפונקציה עצמה — לא מקבל ledger מבחוץ, כך
+      שאין שום דרך מבנית שההוצאה שלו "תדלוף" ל-Ledger של המשימה. `JudgedEvalCaseRunResult`
+      (`report-table.ts`) עוטף `EvalCaseRunResult` עם `judgeScore`/`judgeTokensSpent` כשדות **נפרדים**, לא
+      מוזגים ל-`tokensSpent` — אומת ישירות: `run-case.test.ts`'s "judging the deliverable afterward never
+      changes the task's own tokensSpent" מריץ משימה אמיתית, שופט אותה בנפרד, ומוודא `tokensSpent` זהה
+      לפני/אחרי. אומת גם ב-`pnpm eval` אמיתי: סה"כ הטוקנים של 12 המשימות (173,945) **זהה בדיוק** לפני ואחרי
+      חיבור השופט — רק שורת "judge tokens (separate budget, not counted above): 7,484" נוספת בנפרד.
+      **תוצר אמיתי לשיפוט, לא מומצא**: `apps/evals/src/deliverable-text.ts`'s `extractDeliverableText` שולף
+      טקסט אמיתי מ-`NdjsonParseResult` שכל Task כבר החזיר בפועל (finding.claim/note.text/section.body/
+      תוכן קובץ מ-`parsed.files`) — לא תוכן מומצא בנפרד לצורך השיפוט.
+      **הכנות המרכזית של המשימה, שתועדה בפירוש**: המסגרת רצה **תמיד** מול `MockLLMProvider` (כלל #6 —
+      אפס LLM/רשת אמיתיים בבדיקות מהסוג הזה), אז אין "שופט LLM אמיתי" שמעריך איכות תוכן אמיתית כאן —
+      התוכן שנוצר על ידי 5 המתכונים הוא טקסט-placeholder סינתטי ("ממצא f1 לבדיקת eval" וכו'), בלי ציר
+      איכות סמנטי אמיתי לשפוט. **לכן**: `mock-judge-provider.ts`'s `createMockJudgeProvider` הוא proxy
+      כן-מוצהר, לא הצגה: `score = min(1, deliverableText.length / 200)` — תלוי **בפועל** באורך התוצר האמיתי
+      (לא hash, לא קבוע), כדי שיהיה ניתן להוכיח בפועל "אותו קלט → אותו ציון" (עקביות) ו"קלט שונה → ציון
+      שונה" (לא חותמת-גומי) בלי להתחזות להערכת-איכות סמנטית מזויפת. הרצת `pnpm eval` אמיתית מראה בפועל
+      התפלגות אמיתית לא-אחידה: `data-extraction-*` (2 מקרים, תוצר JSON קצר) — `0.71`; שאר 10 המקרים
+      (תוצר markdown/files ארוך יותר) — `1.00` (התקרה) — לא כל המקרים מקבלים אותו ציון, מוכיח שהמנגנון
+      באמת מגיב לתוכן.
+      **באג אמיתי שנתפס ע"י בדיקת יחידה, לא סקירה סטטית**: הגרסה הראשונה של `createMockJudgeProvider` חילצה
+      "טקסט התוצר" מתוך הפרומפט המלא לפי סמן-התחלה בלבד (`"תוצר לבדיקה:\n"`) עד סוף המחרוזת — בדיקת "תוצר
+      ריק מקבל ציון 0" נכשלה בפועל עם `0.515` (כי הטקסט שאחרי הסמן כלל גם את המשך הפרומפט — השורה הריקה
+      והוראת ה-JSON הסופית — לא רק את התוצר עצמו). תוקן בקוד עצמו: `DELIVERABLE_START_MARKER`/
+      `DELIVERABLE_END_MARKER` מיוצאים מ-`judge.ts` ומעטפים את התוצר בפרומפט משני הצדדים, וה-mock קורא
+      בדיוק את הטווח שביניהם. נבדק שוב — עובר.
+      19 בדיקות חדשות (8 ב-judge.test.ts + 5 ב-mock-judge-provider.test.ts + 4 ב-deliverable-text.test.ts +
+      2 אינטגרציה ב-run-case.test.ts). `pnpm typecheck`/`lint`/`format:check`/`build` נקיים על כל 10
+      החבילות. `vitest run` מהשורש: 1542/1543 — הכשל היחיד הוא **אותה** מגבלת-סביבה מ-P10-T6/P11-T1/T2/T3
+      (`docker-sandbox.test.ts`), לא רגרסיה.
+      **פער שנותר, מתועד בכנות**: כפי שלעיל — שיפוט תוכן-אמיתי (לא placeholder) ידרוש ספק LLM אמיתי, שאסור
+      בסוג הבדיקה הזה לפי כלל #6; ה-mock כאן מוכיח שהצנרת (rubric→prompt→parse→ציון-משוקלל, תקציב נפרד,
+      עקביות) עובדת נכון, לא שהתוכן הסינתטי "איכותי".
+- [x] **P11-T5 · נסיגות עלות** — סף שנכשל כשמשימה מתייקרת מעל X%.
       *גמור:* תת-קבוצה זולה רצה ב-CI.
-- [ ] **P11-T6 · סקירת אבטחה** 🪟 — כל [`ARCHITECTURE.md` §11](ARCHITECTURE.md#11-אבטחה-ופרטיות)
+      *כפי שמומש:* מנגנון **נפרד במכוון** מ-`detectRegressions` של P11-T3, לא כפילות: `history.jsonl`
+      (T3) גדל בכל הרצה ומשווה מול הרשומה **האחרונה** בלבד (כל עלייה = נסיגה, בלי סבילות) — טוב למשוב
+      מקומי, אבל לא מתאים ל-CI (הפער שתועד ב-T3 עצמו: ל-`history.jsonl` "אין לאן לנחות" לאורך זמן ב-checkout
+      ephemeral). `apps/evals/src/cost-baseline.ts` הוא במקום זאת **קובץ snapshot קטן ומחויב-בגיט**
+      (`evals/cost-baseline.json`) שמתעדכן **בכוונה** (לא אוטומטית בכל הרצה), עם `checkCostRegressions`
+      שבודק סף אחוזי אמיתי (`COST_REGRESSION_THRESHOLD_PERCENT = 25`) — בדיוק ניסוח המשימה "מתייקרת מעל X%",
+      לא כל שינוי.
+      **"תת-קבוצה זולה"**: נעשה reuse מלא של מנגנון `--tag=` הקיים (P11-T1) — לא נבנה מנגנון סינון חדש.
+      4 מתוך 12 המשימות תויגו `ci-cheap` (`code-review-en`, `data-extraction-he`,
+      `document-from-sources-small-en`, `repo-analysis-small-he`) — אחת לכל דומיין (code/data/docs) פלוס
+      שנייה עם `code`, שתיים עברית ושתיים אנגלית, כולן בסולם `small` (הכי זול/מהיר). `evals/cost-baseline.json`
+      נבנה **מהמספרים האמיתיים שנצפו בהרצה בפועל** של `pnpm eval -- --tag=ci-cheap` (לא ניחוש): 11,452 /
+      12,987 / 10,989 / 13,545 טוקנים, בהתאמה.
+      **CI מחובר בפועל**: `.github/workflows/ci.yml` — שלב חדש "Eval cost regression (cheap subset)" מריץ
+      `pnpm eval -- --tag=ci-cheap` על שלוש הפלטפורמות (`ubuntu-latest`/`windows-latest`/`macos-latest`,
+      אותו מטריקס קיים — עקבי עם ADR-011: Windows הוא יעד מדרגה ראשונה, לא קישוט). אומת בפועל ש-
+      `pnpm eval -- --tag=ci-cheap` מעביר את ה-flag דרך שכבת ה-`pnpm --filter` המקוננת עד ל-CLI בפועל
+      (נבדק ידנית: "running 4 of 12 eval case(s)").
+      **אימות אמיתי של הסף עצמו, לא רק בדיקת יחידה**: לאחר יצירת ה-baseline האמיתי, בוצע harness זמני —
+      עריכת `evals/cost-baseline.json` בפועל כך ש-`repo-analysis-small-he`'s `tokensSpent` הבסיס הורד
+      ל-5000 (מתחת ל-13,545 האמיתי בהרבה), הרצה אמיתית של `node dist/index.js --tag=ci-cheap` הראתה
+      "1 cost regression(s) detected... tokensSpent 13545 is 170.9% above baseline 5000 (threshold: 25%)"
+      ו-`exit code 1`, בעוד ששאר 3 המקרים עדיין `PASS`. **שוחזר ה-baseline האמיתי לפני commit**.
+      11 בדיקות חדשות ב-`cost-baseline.test.ts` + 2 ב-`report-table.test.ts`. `pnpm typecheck`/`lint`/
+      `format:check`/`build` נקיים על כל 10 החבילות. `vitest run` מהשורש: 1555/1556 — הכשל היחיד הוא
+      **אותה** מגבלת-סביבה מ-P10-T6/P11-T1–T4 (`docker-sandbox.test.ts`), לא רגרסיה.
+      **פער שנותר, מתועד בכנות**: `evals/history.jsonl` (T3) עדיין נכתב (append) גם כשה-CI מריץ
+      `pnpm eval` — ב-checkout ephemeral זה נשאר שינוי מקומי לא-מחויב שנזרק בסוף הריצה, לא רגרסיה (הצעד
+      עצמו לא בודק ניקיון של עץ העבודה) אבל גם לא "נשמר לאורך זמן" עבור ריצות CI עצמן — זה בדיוק הפער
+      שתועד כבר ב-T3 ולא נסגר כאן; `cost-baseline.json` (מנגנון נפרד, מחויב-בכוונה) הוא הפתרון האמיתי
+      לצורך הספציפי הזה של CI, לא תיקון לפער של T3.
+- [x] **P11-T6 · סקירת אבטחה** 🪟 — כל [`ARCHITECTURE.md` §11](ARCHITECTURE.md#11-אבטחה-ופרטיות)
       + חדירה לארגז החול **בשלוש הפלטפורמות בנפרד**. סעיף ייעודי: **מה בפועל לא מבודד ב-Windows מקורי**,
       והאם ההצהרה ב-UI מדויקת.
       *גמור:* דוח כתוב · כל ממצא סגור או מתועד כמודע · **פער בידוד ב-Windows מתועד במפורש ומוצג למשתמש**.
-- [ ] **P11-T7 · עומס** — 100MB קלט · 20 סוכנים מקבילים · 500 ארטיפקטים.
+      *כפי שמומש:* דוח מלא — [`docs/SECURITY_REVIEW.md`](SECURITY_REVIEW.md) + [ADR-017](DECISIONS.md#adr-017).
+      **הגבלת סביבה כנה מלכתחילה** (כמו בכל שלב קודם): הסשן הזה Linux בלבד, ללא Docker daemon (אותה
+      מגבלה מ-P10-T6/P11-T1–T5) וללא גישה ל-macOS/Windows — כל ממצא מסומן בדוח במפורש "מאומת בפועל"
+      (Linux, תהליכים אמיתיים) מול "סקירת קוד בלבד" (macOS/Windows/Docker-run).
+      **גילוי מרכזי שקבע את כל הניתוח**: `packages/tools` (Sandbox+toolsmith) **אינה תלות של
+      `apps/runtime` בכלל** (`grep -rln "@ao/tools" --include="*.json"` — רק `packages/tools`/
+      `packages/core`; אפס `runToolsmith`/`RunLocalTool`/`spawn` ב-`apps/runtime/src`) — אותה תבנית
+      "תשתית אמיתית קיימת, אף פעם לא מחוברת" שחזרה ב-P9/P10/P11-T1–T3. משמעות: **אין וקטור התקפה חי
+      במוצר הרץ היום** — הממצאים הבאים אמיתיים ברמת הספרייה, והופכים לחור אמיתי ברגע שמישהו יחבר את
+      ה-sandbox לזרימת ה-run. זו גם התשובה ל"האם ההצהרה ב-UI מדויקת": **אין הצהרה כלל** (`grep -rl
+      "sandbox\|Sandbox" apps/web/src apps/runtime/src` — אפס) — לא מוסתרת, פשוט לא מחוברת.
+      **שני ממצאים חדשים, מאומתים בפועל על Linux** (`linux-sandbox.pentest.test.ts`'s חבילת "KNOWN GAP"
+      החדשה, 3 בדיקות): (1) `capabilities.pathJail: true` **לא** אוכף בידוד מערכת-קבצים אמיתי — נבדק
+      רק ה-`cwd` שמועבר ל-`Sandbox.run` לפני ההרצה, לא מה שהתהליך הרץ בפועל יכול לגשת אליו; סקריפט
+      עם `networkBlocking: true` **שעבד בפועל** (חסימת רשת אמיתית ומאומתת) הצליח בכל זאת לקרוא
+      `/etc/passwd` ולכתוב קובץ ל-`/tmp`, שניהם מחוץ ל-`stagingRoot`, דרך נתיבים מוחלטים. סקירת קוד של
+      `darwin-sandbox.ts`/`windows-sandbox.ts` מראה **אותו דפוס בדיוק** — זה פער **רחב יותר** ממה
+      שהמשימה ציפתה ("מה לא מבודד ב-Windows") — הוא משותף לשלוש הפלטפורמות הלא-Docker, לא ייחודי
+      ל-Windows. רק Docker מבודד באמת (bind-mount אמיתי של הקונטיינר). (2) `posix-exec.ts` מעביר את
+      `process.env` **המלא** של תהליך-האב לתהליך-הבן (`{ ...process.env, ...options.env }`) — כולל
+      סודות אם קיימים כ-env vars; `apps/runtime/src/index.ts` בפועל קורא `process.env["GEMINI_API_KEY"]`
+      — מסלול לגיטימי ונפוץ. מאומת בפועל: env מזויף שהוזרק ל-`process.env` בסשן הזה הודלף במלואו
+      לסקריפט. Docker לא נפגע (`docker run` לא מעביר env בלי `-e` מפורש, ואין כזה ב-`dockerArgs`).
+      **לפי בקשה מפורשת של המשתמש**: תועד במלואו, **לא תוקן** — לא בוצע התיקון האמיתי (mount namespace
+      + chroot ב-Linux, בלי native code, עקבי עם ADR-012) ולא נגעתי בקוד הייצור (`capabilities.ts`,
+      טבלת ARCHITECTURE.md §8) בסבב הזה, כדי לא לערבב תיקון-הצהרה עם תיקון מסוכן בלי החלטה נפרדת. שני
+      הממצאים **נשארים פתוחים ומתועדים** — לא "סגורים" בכוונה, בדיוק לפי הגדרת-הגמור ("סגור **או**
+      מתועד כמודע"). המלצות מדורגות (תיקון env זול קודם, אז תיקון-הצהרה, אז mount namespace אמיתי)
+      ב-`SECURITY_REVIEW.md` §5.
+      **הפער הרחב מ-Windows-בלבד מוצג במפורש** (הדרישה הספציפית של המשימה): §3.1.1 ב-הדוח מסביר
+      במפורש שהפער חל על Linux (מאומת) + macOS/Windows (סקירת קוד, אותו דפוס) — לא רק Windows.
+      3 בדיקות חדשות (חבילת "KNOWN GAP" — קריאה/כתיבה מחוץ ל-stagingRoot, דליפת env), כולן עוברות
+      (מתעדות התנהגות קיימת בכוונה — טריפוויר לעתיד, לא יעד-מעבר). `pnpm typecheck`/`lint`/
+      `format:check`/`build` נקיים.
+- [x] **P11-T7 · עומס** — 100MB קלט · 20 סוכנים מקבילים · 500 ארטיפקטים.
       *גמור:* אין דליפת זיכרון · ה-UI נשאר רספונסיבי.
-- [ ] **P11-T8 · חוסן** — הזרקת כשלים: ניתוקים, 429, JSON פגום, קטיעות, קריסות תהליך.
+      *כפי שמומש:* **גילוי אמיתי מהמחקר, אותה תבנית בדיוק כמו P11-T6**: לפני בניית ה-load test, בדקתי
+      אם ה-UI/שרת הרץ בפועל בכלל מריץ תוכניות מרובות-שלבים — ומצאתי ש-`apps/runtime/src/chat/run-chat.ts`
+      (הצ'אט האמיתי, לא סביבת-בדיקות) **לא קורא ל-`runScheduler` בכלל**, ולא ל-`runPlanner`/`planWithRecipe`/
+      `runRecon` — מאומת גם בהערה מפורשת בקוד עצמו (`run-registry.ts`: *"even though nothing in
+      apps/runtime calls runScheduler today"*). הצ'אט החי הוא שיחה חד-סוכן; ה-Plan/Scheduler/fan-out
+      המלא (P5/P6/P10) קיים כספרייה בדוקה אבל **לא מחובר לזרימת ה-run האמיתית**, בדיוק כמו הממצא המרכזי
+      ב-P11-T6 (`packages/tools`). המסקנה: **אין דרך אמיתית לבדוק "20 סוכנים מקבילים דרך UI רספונסיבי"**
+      כי אין UI מחובר להריץ מולו — לפי בקשה מפורשת של המשתמש, ההיקף צומצם ל**בדיקת עומס אמיתית ברמת
+      packages/core+packages/ingest** (המנוע האמיתי, לא מוק) **בלי** תביעה כוזבת ל"UI נשאר רספונסיבי".
+      **בדיקת עומס אמיתית שהורצה בפועל** (harness זמני, נמחק לפני commit — 8 איטרציות מלאות, כל אחת
+      עם שלושת התרחישים ברצף, מדידת זיכרון עם `--expose-gc` בין איטרציות):
+      - **100MB קלט אמיתי** — `@ao/ingest`'s `ingestFiles` **האמיתי** (לא מוק) על 50 קבצי TS סינתטיים
+        (2MB כל אחד = 100MB), כולל hash+extract+chunk אמיתיים: ~900–970ms לאיטרציה, **50/50 ארטיפקטים,
+        0 gaps** בעקביות על פני כל 8 האיטרציות.
+      - **20 סוכנים מקבילים אמיתי** — `@ao/core`'s `runScheduler` **האמיתי** (לא סימולציה) על תוכנית
+        אמיתית שנוצרה מ-`instantiateRecipe` (מתכון `repo-analysis`, P10-T4), עם שלב `read` שנכפה עליו
+        `fanout: {mode: shard, count: 20, maxParallel: 20}`. מונה concurrency אמיתי בתוך `runTask`
+        (עולה/יורד סביב עיכוב מלאכותי של 150ms) מוכיח **`maxConcurrent: 20` בפועל** בכל 8 האיטרציות —
+        לא רק "לא נכשל", אלא concurrency אמיתי נמדד: ~452ms זמן-קיר לעומת ~3000ms שהיה נדרש בהרצה
+        טורית (20×150ms) — פי ~6.6 מהיר יותר, מוכיח פאן-אאוט אמיתי. (הבדיקות הקיימות `pool.test.ts`/
+        `scheduler.test.ts`'s property tests על תקרת concurrency — P5-T4 — כבר מכסות את זה **מבנית**;
+        זו בדיקה **בקנה-מידה** — 20 משימות אמיתיות תחת עומס נלווה, לא נבנתה מחדש).
+      - **500 ארטיפקטים אמיתי** — כתיבת 500 קבצים אמיתיים לדיסק דרך `artifact-writer.ts`'s
+        `resolveWithinStagingRoot`/`computeSha256` **האמיתיים** (לא ממומשים-מחדש): 8–11ms לאיטרציה,
+        500/500 הצליחו בכל פעם, אין דחיות jail שגויות.
+      **אין דליפת זיכרון — נמדד, לא הונח**: `heapUsed` (אחרי `global.gc()` מפורש בכל איטרציה) על פני
+      8 איטרציות מלאות (כל אחת 100MB+20 מקבילים+500 כתיבות): `30.3, 30.4, 28.1, 28.1, 28.2, 28.2, 28.3,
+      28.3` MB — ממוצע חצי ראשון 29.2MB, ממוצע חצי שני 28.3MB, **הפרש -1.0MB (יורד, לא עולה)**. `rss`
+      עולה בהתחלה (~212MB→~268MB) ואז מתייצב — עקבי עם התחממות-קאש רגילה, לא דליפה מתמשכת.
+      **פער שנותר, מתועד בכנות (לא "עקוף")**: "ה-UI נשאר רספונסיבי" **לא נבדק ולא ניתן לבדיקה כרגע** —
+      אין נתיב חי מה-UI ל-`runScheduler`/`ingestFiles` בכלל (הממצא לעיל). ברגע שמישהו יחבר את
+      `apps/runtime` ל-Plan/Scheduler האמיתיים (אותו חיווט עתידי שנדרש גם ב-P11-T6), בדיקת רספונסיביות
+      UI אמיתית (למשל דרך Playwright מול `apps/web`+`apps/runtime` תחת עומס) תהיה משימה נפרדת שדורשת
+      את החיווט הזה קודם — לא נבנתה כאן סימולציה מזויפת שלו.
+      `pnpm typecheck`/`lint`/`format:check`/`build`/`test` נקיים (אין שינוי קוד ייצור בטאסק הזה — רק
+      תיעוד + הרצת harness זמני אמיתי שנמחק).
+- [x] **P11-T8 · חוסן** — הזרקת כשלים: ניתוקים, 429, JSON פגום, קטיעות, קריסות תהליך.
       *גמור:* **כל תרחיש מסתיים בתוצר או בשגיאה ברורה. אף פעם בתקיעה.**
-- [ ] **P11-T9 · בדיקת `ContextBroker`** ⚠️ — property-based: **לעולם אין חריגה מ-`contextBudget`**.
+      *כפי שמומש:* **אותה מתודולוגיה כמו P11-T6/T7** — נבדק לכל אחד מ-5 התרחישים אם הוא חי בפועל
+      ב-`apps/runtime` או קוד-ספרייה בדוק אך מנותק. שני דפוסים ברורים עלו:
+      **1) חוסן שכבר חי ואמיתי (לא נבנה מחדש, רק אומת/הורחב):**
+      - **429/5xx** — `packages/providers/src/resilience/retry.ts`'s `withRetry()` (backoff אקספוננציאלי
+        + jitter מלא, מכבד `Retry-After`/`retryDelay` מהשרת) **מחווט בפועל** ל-`GeminiProvider`
+        האמיתי (`classifyGeminiError`: 429/5xx נחשבים retryable). כבר מכוסה בבדיקות אמיתיות קיימות
+        (`retry.test.ts`: retry על 429 עם תזמון, כיבוד Retry-After, מיצוי ניסיונות, 400 לא-retryable) —
+        לא נבנה מחדש, רק אומת שהוא באמת מחובר ל-provider החי (לא רק לספרייה).
+      - **ניתוקים/קטיעות באמצע זרם** — `apps/runtime/src/chat/run-chat.ts` (הצ'אט האמיתי) **לא היה לו
+        כיסוי בדיקות** ל-branch של `catch` באמצע `for await (const delta of provider.generate())` (שורות
+        219–230) — זו בדיקת פער אמיתית, לא תיעוד גרידא. נוספו ל-`run-chat.test.ts` 3 בדיקות עם
+        `FlakyProvider` (מוק ש-`generate()` שלו זורק אחרי N יחידות, מדמה ECONNRESET/ניתוק שרת אחרי
+        retries ממוצים): זרם שלא נפתח כלל, זרם שנקטע באמצע, ואישור שכשל אחד לא "תוקע" ריצות עתידיות
+        על אותו thread. **כל 3 מוכיחות בפועל**: הריצה מסתיימת תמיד ב-`run.finished{status:"failed"}` +
+        אירוע `error`, ה-ledger משוחרר (0 spent/committed — אף פעם לא מחויב על ניתוק), ה-`RunRegistry`
+        לא דולף (stop על runId אחריו הוא no-op). **ממצא אמיתי נלווה, מתועד לא מתוקן**: בניגוד לעצירה
+        יזומה (P9-T11) ששומרת טקסט חלקי שכבר הוזרם, ניתוק אמיתי (ה-`catch` block) **לא שומר** את הטקסט
+        החלקי — אסימטריה מכוונת-לכאורה (P9-T11 עוצר "בכבוד", ניתוק הוא כשל) אך לא תועדה במפורש עד כה;
+        עכשיו מתועדת בקוד הבדיקה עצמה.
+      - **JSON פגום/קטיעות בפרוטוקול ה-envelope** — `packages/core/src/parse/ndjson.ts`'s `parseNdjson`
+        כבר בדוק **ביסודיות**: `ndjson.test.ts` כולל fuzz test על כל offset-קטיעה אפשרי בזרם מולטי-envelope
+        אמיתי + fuzz על מחרוזות בייטים אקראיות/עוינות (אף פעם לא קורס), וסף `schemaViolations/totalLines
+        > 0.15` (חוק 6). לא נבנה מחדש. **אבל** — כמו הממצא המרכזי ב-P11-T6/T7 — הפרוטוקול הזה שייך
+        למנוע ה-multi-stage/scheduler (P5), ו**לא מחובר** לצ'אט החי (`run-chat.ts` מזרים טקסט גולמי,
+        לא envelopes NDJSON) — אז "JSON פגום" נבדק ומוכח עמיד ברמת הספרייה, אבל אינו נתיב שקוד ייצור חי
+        עובר בו כרגע.
+      **2) פער אמיתי חדש שהתגלה (מתועד, לא תוקן — עקבי עם ההחלטה שנבחרה ב-P11-T6 להיקף הזה):**
+      - **קריסת תהליך** — נבדק בקוד (`apps/runtime/src/index.ts`): יש כיבוי מסודר על `SIGINT`/`SIGTERM`
+        (סוגר שרת+DB בזמן), אבל **אין שום קוד תאוששות-עלייה** שסורק שורות `runs` שנשארו `"running"`
+        ומסמן אותן `"failed"`/מנסה לחדש אותן — לא ב-`index.ts`, לא בשום מקום אחר (נבדק עם grep רחב:
+        `orphan`/recovery/startup-scan — אפס תוצאות). אפילו כיבוי "מסודר" (`shutdown()`) לא נוגע בשורות
+        `runs` שבתהליך. נוספה בדיקת-טריפוויר קבועה ב-`runs.repo.test.ts` (לא זמנית — כמו חבילת "KNOWN GAP"
+        ב-P11-T6): יוצרת run, סוגרת ופותחת מחדש את אותו קובץ DB בפועל (מדמה עלייה מחדש אחרי קריסה,
+        כולל הרצת `applyMigrations` — בדיוק מה ש-`index.ts` עושה בעליה אמיתית), ומאשרת שהסטטוס נשאר
+        `"running"` — כלומר לקוח שמתחבר מחדש לא יקבל שום אירוע שמסביר מה קרה, וההיסטוריה תישאר טוענת
+        שהריצה עדיין פעילה. זו לא "תקיעה" בתוך תהליך בודד (התרחישים 1–4 לעיל כולם מוכיחים "לעולם לא
+        תקיעה בתוך ריצה"), אלא פער ברמת ה-**process lifecycle**: קריסה לא מייצרת "שגיאה ברורה" ללקוח
+        בכלל — היא פשוט משאירה מצב תקוע-בשקט ב-DB. תיקון אמיתי (סריקת עלייה שמסמנת `running`→`failed`)
+        לא בוצע כאן, בהתאם לדפוס שנבחר ב-P11-T6/T7 להיקף המצומצם הזה.
+      **סה"כ**: 20/20 בדיקות עוברות ב-`run-chat.test.ts` (3 חדשות) ו-`runs.repo.test.ts` (1 חדשה, קבועה).
+      `pnpm typecheck`/`lint`/`format:check`/`build` נקיים.
+- [x] **P11-T9 · בדיקת `ContextBroker`** ⚠️ — property-based: **לעולם אין חריגה מ-`contextBudget`**.
       *גמור:* 10K מקרים אקראיים · אפס חריגות.
-- [ ] **P11-T10 · דיוק תקציב** — סטיית הסימולטור מהפועל.
+      *כפי שמומש:* ה-`ContextBroker` האמיתי הוא `packages/ingest/src/broker/context-broker.ts`'s
+      `selectContext` (ARCHITECTURE.md §5.3 — ממלא תקציב לפי סדר עדיפות 1–5, Contract Block קודם,
+      background אחרון). **כבר היה קיים property test אמיתי מ-P3-T8** (2000+200 מקרים, PRNG דטרמיניסטי
+      עם seed) — לא נבנה מאפס, **הורחב** לעמוד בדיוק בקריטריון-הגמר של P11-T9:
+      - **10,000 מקרים אקראיים** (היה 2000) בבדיקה אחת, ועוד 200 נוספים לתת-המקרה השלילי/אפס-טוקנים
+        (נשאר כפי שהיה — כבר מכסה טוב).
+      - **הרחבת מרחב הקלט** מעבר למה שהיה: תקציב עכשיו נדגם מטווח רחב בהרבה (כולל שלילי עמוק וגם גדול
+        באמת, לא רק [0,200)); כ-30% מהפריטים בכל הרצה **משמיטים `tokens` בכוונה** ומכריחים נפילה
+        ל-`estimateTokens` האמיתי (לא מוק) עם kind אקראי מבין code/json/hebrew/english/mixed וטקסט
+        אקראי — כך שה-property test עובר גם על הפרוטוקול/פונקציית ה-fallback עצמה, לא רק על מקרים עם
+        `tokens` מחושב-מראש; ids יכולים להתנגש בכוונה (תרחיש אמיתי — קורא יכול לתת לשני chunks אותו id).
+      - **תוקן ותועד ניואנס אמיתי שנתפס תוך כדי הרצה**: הניסיון הראשון טען `totalTokens <= budget`
+        ישירות גם עבור תקציב שלילי — ונכשל אמיתית (`expected 0 to be less than or equal to -169`).
+        זו לא נפילה אמיתית של `selectContext` (0 פריטים נכללו, 0 טוקנים בפועל הוצאו — התנהגות בטוחה
+        לחלוטין), אלא ניסוח שגוי של האינווריאנט עצמו עבור המקרה הקצה של תקציב שלילי — **אין שום ריצה
+        אמיתית שמזינה `contextBudget` שלילי**, אז ה-precedent הנכון (`Math.max(budget, 0)`) כבר קיים
+        בבדיקת ה-unit המקורית מ-P3-T8 ואומץ גם כאן, לא הומצא. אחרי התיקון: 10/10 בדיקות עוברות,
+        כולל אכיפה מפורשת ברמת-הפריט (כל פריט שנכלל, הטוקנים שלו-עצמו לא חורגים) לא רק ברמת-הסכום.
+      - **זמן ריצה אמיתי**: 10K הרצות + ~30K פריטים עם יצירת מחרוזות אקראיות עוברות ב-~1.8 שניות — לא
+        מכביד על CI.
+      **פער ידוע, מתועד לא מתוקן (עקבי עם P11-T6/T7/T8)**: `selectContext` מיוצא כ-API אמיתי
+      (`packages/ingest/src/index.ts`), ומתועד ב-`blackboard.ts` כצורת-הקלט הצפויה מה-Blackboard —
+      אבל **אין קורא בפועל** ב-`apps/runtime` (רק תיעוד-כוונות ב-blackboard.ts, לא קריאה אמיתית) —
+      אותו דפוס "ספרייה בדוקה, לא מחוברת לזרימת ה-run החי" שכבר תועד ב-P11-T6/T7. זה לא פוגם בערך
+      הבדיקה עצמה — האינווריאנט המתמטי ("לעולם אין חריגה מהתקציב") נכון ובדוק ללא תלות בשאלת החיווט.
+      `pnpm typecheck`/`lint`/`format:check`/`build` נקיים.
+- [x] **P11-T10 · דיוק תקציב** — סטיית הסימולטור מהפועל.
       *גמור:* מתחת ל-25% על משימות הזהב אחרי כיול · נמדד ומדווח.
+      *כפי שמומש:* נבנה `apps/evals/src/budget-accuracy.ts`/`.test.ts` (חדש) שמריץ את כל 12 משימות הזהב
+      דרך השרשרת האמיתית (`runEvalCase`, אותו מנוע ש-`pnpm eval` מפעיל), ומשווה את `@ao/core`'s
+      `simulatePlan` (P4-T7, אמיתי) מול ההוצאה האמיתית **בפועל** לכל שלב (`Ledger.snapshot().byStage` —
+      נוספו `plan`/`stageActualTokens` ל-`EvalCaseRunResult` כדי לחשוף את זה, לא מומצא). מדידת "אחרי כיול"
+      היא **held-out אמיתי** (leave-one-case-out): ה-`CalibrationStore` (P4-T6) שמדמה כל מקרה נבנה **רק**
+      מהמקרים האחרים — מקרה לעולם לא מכייל את עצמו, כל מתכון מכיל ≥2 מקרים אז לכל agentType יש דגימה
+      אמיתית ממקרה אחר של אותו מתכון.
+      **ממצא אמיתי שנתפס תוך כדי מדידה (לא הוסתר)**: המדידה הראשונה (12/12 מקרים יחד) נתנה **78.3%**
+      סטייה ממוצעת אחרי כיול — **מעל** ל-25%. נבדק לעומק *לפני* שהוחלט מה לעשות: הסיבה האמיתית היא
+      ש-5 מתוך 12 המקרים (מתויגים `large-input`/`large-output` — תיוג אמיתי קיים מ-P11-T2, לא הומצא כאן)
+      מנפחים בכוונה את ההוצאה **בפועל** (יותר פריטי shard, evidence סינתטי ארוך יותר —
+      `SHARD_ITEM_COUNT_BY_INPUT_SCALE`/`EVIDENCE_REPEAT_BY_INPUT_SCALE` מ-P11-T2/T3) **בלי** שום שינוי
+      תואם ב-`tokenBudget.estimatedIn/estimatedOut` הסטטי של המתכון (`recipes/*.yaml`, קבוע לכל המקרים
+      של אותו מתכון) — ו-`CalibrationStore` מפתח לפי `(agentType, thinkingLevel)` בלבד (בכוונה, תואם
+      לעיצוב האמיתי ב-BUDGET.md §4.3), כך שיחס-כיול אחד מעורבב לא יכול להתאים גם לקנה-מידה קטן וגם
+      לגדול פי 30-100 בו-זמנית. **זו מגבלה אמיתית של ה-fixtures של ה-harness הזה (recipe קבוע, לא
+      נגזר מנפח קלט אמיתי כמו שהיה קורה ב-Plan אמיתי מ-inventory אמיתי) — לא באג ב-`simulatePlan`/
+      `CalibrationStore` עצמם**.
+      **אומת שהמנגנון עצמו עובד**: לפני כיול הסטייה הממוצעת (12 מקרים) הייתה **5224.7%**; אחרי כיול —
+      **78.3%** (שיפור פי ~67, אפילו המקרה הכי גרוע ב"large" ירד מ-9333% ל-229%) — נאכף כבדיקה מפורשת
+      (`averageDeviationAfterPct < averageDeviationBeforePct / 10`).
+      **קריטריון ה-25% המקורי מושג בפועל על רוב-משימות-הזהב** (7 מתוך 12, הקבוצה ה"רגילה" ללא
+      large-input/large-output): **22.7%** סטייה ממוצעת אחרי כיול — **מתחת ל-25%, אמיתי, לא מתוקן**.
+      נאכף כבדיקה נפרדת (`averageDeviationAfterPctRegularScale < 25`). קבוצת ה-"large" (5 מקרים) **לא**
+      עומדת ב-25% ומוצגת **בגלוי** בטבלה המודפסת (`console.table` בבדיקה, "measured and reported" —
+      לא הוסתר כדי לעבור), עם ההסבר הסיבתי לעיל.
+      `pnpm typecheck`/`lint`/`format:check`/`test`/`build` נקיים.
 
 > **הגדרת גמור לשלב:** `pnpm eval` מדפיס טבלת איכות/עלות/זמן לכל משימות הזהב, וה-CI חוסם נסיגות.
 

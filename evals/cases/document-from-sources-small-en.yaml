@@ -1,0 +1,26 @@
+id: document-from-sources-small-en
+description: >-
+  P11-T2 golden task — small document from sources (English, docs/
+  creation): the "document-from-sources" recipe (reader->writer) at its
+  default small scale, in English — pairs with
+  document-from-sources-large-output-he to cover both ends of the
+  output-size axis for this recipe.
+tags: [small, docs, creation, en, ci-cheap]
+recipeName: document-from-sources
+userRequest: "Write a short document based on the provided sources, covering only the key points"
+budgetTotal: 1000000
+budgetLevel: standard
+understanding:
+  intent: create
+  deliverableShape:
+    kind: markdown
+    estimatedSize: small
+    structure: atomic
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "document covers only the key points from the sources"
+  ambiguities: []
+  riskFlags: []
+assertions:
+  maxTokensSpent: 17000
+  maxDurationMs: 5000

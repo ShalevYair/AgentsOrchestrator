@@ -1,0 +1,29 @@
+id: migration-code-large-output-en
+description: >-
+  P11-T2 golden task — code migration with a large output (English, code/
+  creation): same "migration" recipe as migration-code-he, but
+  deliverableShape.estimatedSize: xlarge scales up the coder stage's
+  canned file content (more lines actually written, not just a bigger
+  label) — covers P11-T2's "large output" scale for the code/creation
+  combination. From P11-T3: xlarge also genuinely triggers the real
+  `runWithContinuation` (the coder stage's response is split across 2 real
+  calls, not one).
+tags: [large-output, code, creation, en]
+recipeName: migration
+userRequest: "Convert every file in the old format to the new format and confirm the migration is complete"
+budgetTotal: 3000000
+budgetLevel: deep
+understanding:
+  intent: modify
+  deliverableShape:
+    kind: files
+    estimatedSize: xlarge
+    structure: multi-file
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "every file is fully converted to the new format"
+  ambiguities: []
+  riskFlags: ["large-output"]
+assertions:
+  maxTokensSpent: 37000
+  maxDurationMs: 5000

@@ -1,0 +1,24 @@
+id: data-extraction-en
+description: >-
+  P11-T2 golden task — small data extraction (English, data/analysis):
+  English-language counterpart to data-extraction-he, same
+  "data-extraction" recipe (reader->analyst->coder).
+tags: [small, data, analysis, en]
+recipeName: data-extraction
+userRequest: "Extract structured data points from the raw material and write a single JSON file"
+budgetTotal: 1000000
+budgetLevel: standard
+understanding:
+  intent: analyze
+  deliverableShape:
+    kind: data
+    estimatedSize: small
+    structure: atomic
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "the data file is valid and well-structured"
+  ambiguities: []
+  riskFlags: []
+assertions:
+  maxTokensSpent: 20000
+  maxDurationMs: 5000

@@ -8,6 +8,7 @@
     { "path": "packages/ingest" },
     { "path": "packages/tools" },
     { "path": "apps/runtime" },
-    { "path": "apps/web" }
+    { "path": "apps/web" },
+    { "path": "apps/evals" }
   ]
 }

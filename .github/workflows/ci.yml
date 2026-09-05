@@ -42,3 +42,12 @@ jobs:
 
       - name: Test (with coverage)
         run: pnpm test:coverage
+
+      # TASKS.md P11-T5 — the cheap subset only (--tag=ci-cheap): 4 of the
+      # 12 golden tasks, chosen to stay small/fast across every OS in the
+      # matrix. Fails on a real >25% cost regression against the committed
+      # evals/cost-baseline.json (see apps/evals/src/cost-baseline.ts) —
+      # not on the full suite's per-run drift, which stays local/dev-only
+      # (evals/history.jsonl, not checked here).
+      - name: Eval cost regression (cheap subset)
+        run: pnpm eval -- --tag=ci-cheap

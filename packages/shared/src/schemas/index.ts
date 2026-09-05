@@ -15,3 +15,4 @@ export * from "./events.js";
 export * from "./json-schema.js";
 export * from "./model-info.js";
 export * from "./goal-config.js";
+export * from "./eval-case.js";

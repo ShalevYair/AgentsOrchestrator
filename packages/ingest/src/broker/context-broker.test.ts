@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { selectContext, type ContextItem, type ContextPriority } from "./context-broker.js";
+import { estimateTokens, type TokenKind } from "../tokens/estimate-tokens.js";
 
 describe("selectContext", () => {
   it("includes everything when it all fits under budget", () => {
@@ -73,7 +74,7 @@ describe("selectContext", () => {
   });
 });
 
-describe("selectContext — property: never exceeds contextBudget (P3-T8 done criterion)", () => {
+describe("selectContext — property: never exceeds contextBudget (P3-T8 / P11-T9 done criterion)", () => {
   // Small deterministic PRNG so failures are reproducible without adding a
   // property-testing dependency for this one check.
   function makeRng(seed: number): () => number {
@@ -84,23 +85,60 @@ describe("selectContext — property: never exceeds contextBudget (P3-T8 done cr
     };
   }
 
-  it("totalTokens never exceeds budget, across 2000 random inputs", () => {
+  const KINDS: TokenKind[] = ["code", "json", "hebrew", "english", "mixed"];
+
+  /**
+   * Wider than P3-T8's original generator: budgets range well negative to
+   * well positive (not just [0,200)), item counts can be 0, some items omit
+   * `tokens` entirely so `estimateTokens`'s fallback path (P11-T9's own
+   * randomized text, mixed scripts included) is exercised inside the same
+   * property loop instead of only in the hand-written unit tests above, and
+   * ids can collide (a real caller could hand two chunks the same id).
+   */
+  function randomItem(rng: () => number, index: number): ContextItem {
+    const useFallback = rng() < 0.3;
+    const priority = (Math.floor(rng() * 5) + 1) as ContextPriority;
+    const id = `item${String(Math.floor(rng() * (index + 1)))}`; // occasional duplicate ids
+    if (useFallback) {
+      const kind = KINDS[Math.floor(rng() * KINDS.length)] ?? "mixed";
+      const length = Math.floor(rng() * 200);
+      const text = Array.from({ length }, () => String.fromCharCode(33 + Math.floor(rng() * 94))).join("");
+      return { id, priority, text, kind };
+    }
+    return { id, priority, tokens: Math.floor(rng() * 500), text: "" };
+  }
+
+  function actualTokensOf(item: ContextItem): number {
+    return item.tokens ?? estimateTokens(item.text, item.kind ?? "mixed");
+  }
+
+  it("totalTokens never exceeds budget, across 10,000 random inputs (P11-T9)", () => {
     const rng = makeRng(1337);
-    for (let trial = 0; trial < 2000; trial++) {
-      const itemCount = Math.floor(rng() * 20);
-      const budget = Math.floor(rng() * 200);
-      const items: ContextItem[] = Array.from({ length: itemCount }, (_, i) => ({
-        id: `item${String(i)}`,
-        priority: (Math.floor(rng() * 5) + 1) as ContextPriority,
-        tokens: Math.floor(rng() * 100),
-        text: "",
-      }));
+    for (let trial = 0; trial < 10_000; trial++) {
+      const itemCount = Math.floor(rng() * 30);
+      // Wide range including deep negative and comfortably large, not just [0,200).
+      const budget = Math.floor(rng() * 1000) - 300;
+      const items: ContextItem[] = Array.from({ length: itemCount }, (_, i) => randomItem(rng, i));
 
       const result = selectContext(items, budget);
 
-      expect(result.totalTokens).toBeLessThanOrEqual(budget);
-      expect(result.totalTokens).toBe(result.included.reduce((sum, i) => sum + (i.tokens ?? 0), 0));
+      // 0 included items (totalTokens 0) is always the safe outcome, even
+      // under a negative budget — nothing was actually spent, so the bound
+      // to check against is max(budget, 0), the same clamp the pre-existing
+      // "budget is negative" unit test above already uses.
+      expect(result.totalTokens).toBeLessThanOrEqual(Math.max(budget, 0));
+      expect(result.totalTokens).toBeGreaterThanOrEqual(0);
+      expect(result.totalTokens).toBe(result.included.reduce((sum, i) => sum + actualTokensOf(i), 0));
       expect(result.included.length + result.cut.length).toBe(items.length);
+      for (const c of result.cut) {
+        expect(c.reason).toBe("over-budget");
+      }
+      // Every included item's own tokens fit on their own — the running sum
+      // check above already implies this, but this pins the item-level
+      // half of the property down explicitly.
+      for (const included of result.included) {
+        expect(actualTokensOf(included)).toBeLessThanOrEqual(Math.max(budget, 0));
+      }
     }
   });
 

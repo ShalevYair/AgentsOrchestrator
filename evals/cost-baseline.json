@@ -1,0 +1,6 @@
+{
+  "code-review-en": { "tokensSpent": 11452, "costUsd": 0.011487 },
+  "data-extraction-he": { "tokensSpent": 12987, "costUsd": 0.01116525 },
+  "document-from-sources-small-en": { "tokensSpent": 10989, "costUsd": 0.00989775 },
+  "repo-analysis-small-he": { "tokensSpent": 13545, "costUsd": 0.01340775 }
+}

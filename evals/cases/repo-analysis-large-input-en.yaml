@@ -1,0 +1,27 @@
+id: repo-analysis-large-input-en
+description: >-
+  P11-T2 golden task — repo analysis over a large input (English, code/
+  analysis): same "repo-analysis" recipe as repo-analysis-small-he, but
+  inputScale: large feeds the reader stage 40 synthetic shard items
+  instead of 4, genuinely raising the real prompt-token spend for that
+  stage (not just a label) — covers P11-T2's "large input" scale.
+tags: [large-input, code, analysis, en]
+recipeName: repo-analysis
+userRequest: "Analyze this repository's structure and summarize the main cross-package dependencies"
+budgetTotal: 3000000
+budgetLevel: deep
+inputScale: large
+understanding:
+  intent: analyze
+  deliverableShape:
+    kind: markdown
+    estimatedSize: medium
+    structure: sectioned
+  evidenceNeeds: []
+  acceptanceCriteria:
+    - "document covers repository structure and main dependencies"
+  ambiguities: []
+  riskFlags: ["large-input"]
+assertions:
+  maxTokensSpent: 25000
+  maxDurationMs: 5000

@@ -20,6 +20,8 @@
     "pretest:coverage": "pnpm build",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
+    "preeval": "pnpm --filter @ao/evals... build",
+    "eval": "pnpm --filter @ao/evals start",
     "prepare": "husky"
   },
   "devDependencies": {
